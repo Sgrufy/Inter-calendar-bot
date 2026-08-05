@@ -39,11 +39,11 @@ URLS_API = [
     "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard"
 ]
 
-def cerca_canale_reale_sul_palinsesto():
+def cerca_tutti_i_canali_teleman():
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
     }
-    canale_estratto = None
+    canali_trovati = []
     search_url = "https://www.teleman.pl/szukaj?q=Inter"
     try:
         res = requests.get(search_url, headers=headers, timeout=10)
@@ -52,17 +52,17 @@ def cerca_canale_reale_sul_palinsesto():
             testo_pagina = soup.get_text()
             for canale in ELENCO_CANALI:
                 pattern = r'\b' + re.escape(canale) + r'\b'
-                if re.search(pattern, testo_pagina, re.IGNORECASE):
-                    canale_estratto = f"{canale} (Palinsesto Reale)"
-                    break
+                if re.search(pattern, testo_pagina, re.IGNORECASE) and canale not in canali_trovati:
+                    canali_trovati.append(canale)
     except Exception as e:
-        print(f"Errore scraping: {e}")
+        print(f"Errore scraping Teleman: {e}")
 
-    return canale_estratto
+    return canali_trovati
 
 def ottieni_partita_dinamica():
     match_nome = "⚽ Inter - Match"
     ora_partita = datetime.now().astimezone()
+    tutti_i_canali = []
     partita_trovata = False
 
     for url_api in URLS_API:
@@ -86,16 +86,36 @@ def ottieni_partita_dinamica():
                         date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                         ora_partita = date_utc.astimezone()
                     
+                    # Raccoglie TUTTI i canali disponibili da ESPN
+                    competitions = event.get('competitions', [])
+                    if competitions:
+                        broadcasts = competitions[0].get('broadcasts', [])
+                        for b in broadcasts:
+                            nome_b = b.get('name')
+                            if nome_b:
+                                etichetta_espn = f"{nome_b} (ESPN)"
+                                if etichetta_espn not in tutti_i_canali:
+                                    tutti_i_canali.append(etichetta_espn)
+
                     partita_trovata = True
                     break
         except Exception as e:
             print(f"Errore orario API ({url_api}): {e}")
 
-    canale_reale = cerca_canale_reale_sul_palinsesto()
-    if not canale_reale:
-        canale_reale = "Verifica Palinsesto in corso (Canal+ / Eleven / Polsat / TVP / Eurosport / Cosmote / Max / Nova)"
+    # Raccoglie anche TUTTI i canali trovati su Teleman
+    canali_teleman = cerca_tutti_i_canali_teleman()
+    for c in canali_teleman:
+        etichetta_teleman = f"{c} (Teleman)"
+        if etichetta_teleman not in tutti_i_canali:
+            tutti_i_canali.append(etichetta_teleman)
 
-    return match_nome, ora_partita, canale_reale
+    # Gestione finale dell'output testuale dei canali
+    if tutti_i_canali:
+        canale_trovato = ", ".join(tutti_i_canali)
+    else:
+        canale_trovato = "Verifica Palinsesto in corso (Nessun canale rilevato)"
+
+    return match_nome, ora_partita, canale_trovato
 
 def genera_ics_automatico():
     cal = Calendar()
@@ -111,10 +131,10 @@ def genera_ics_automatico():
     evento.add('dtend', data_ora + timedelta(hours=2))
     evento.add('dtstamp', datetime.now().astimezone())
 
-    # Correzione dell'orario nella descrizione per mostrare l'ora italiana corretta (es. 18:30)
+    # Correzione dell'orario nella descrizione per mostrare l'ora italiana corretta
     ora_italiana_testo = data_ora + timedelta(hours=2)
 
-    descrizione = f"📺 CANALE RILEVATO DA PALINSESTO REALE:\n"
+    descrizione = f"📺 CANALI RILEVATI:\n"
     descrizione += f"🔥 DIRECT TV: {canale}\n"
     descrizione += f"⏰ ORARIO INIZIO: {ora_italiana_testo.strftime('%H:%M')} (Ora Italiana)\n"
 
