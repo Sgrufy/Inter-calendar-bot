@@ -3,12 +3,12 @@ VERSION:2.0
 PRODID:-//Calendario Inter Auto//IT
 X-WR-CALNAME:Inter TV Live
 BEGIN:VEVENT
-SUMMARY:⚽ Monza at Internazionale
+SUMMARY:⚽ Inter - Monza
 DTSTART:20260822T163000Z
 DTEND:20260822T183000Z
-DTSTAMP:20260805T070817Z
+DTSTAMP:20260805T072618Z
 DESCRIPTION:📺 CANALE RILEVATO DA PALINSESTO REALE:\n🔥 DIRECT TV: Ver
- ifica Palinsesto in corso (Eleven Sports / Polsat / Canal+)\n⏰ ORARIO IN
- IZIO: 16:30 (Ora Italiana)\n
+ ifica Palinsesto in corso (Canal+ / Eleven / Polsat / TVP / Eurosport / Co
+ smote / Max / Nova)\n⏰ ORARIO INIZIO: 16:30 (Ora Italiana)\n
 END:VEVENT
 END:VCALENDAR
