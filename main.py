@@ -111,9 +111,12 @@ def genera_ics_automatico():
     evento.add('dtend', data_ora + timedelta(hours=2))
     evento.add('dtstamp', datetime.now().astimezone())
 
+    # Correzione dell'orario nella descrizione per mostrare l'ora italiana corretta (es. 18:30)
+    ora_italiana_testo = data_ora + timedelta(hours=2)
+
     descrizione = f"📺 CANALE RILEVATO DA PALINSESTO REALE:\n"
     descrizione += f"🔥 DIRECT TV: {canale}\n"
-    descrizione += f"⏰ ORARIO INIZIO: {data_ora.strftime('%H:%M')} (Ora Italiana)\n"
+    descrizione += f"⏰ ORARIO INIZIO: {ora_italiana_testo.strftime('%H:%M')} (Ora Italiana)\n"
 
     evento.add('description', descrizione)
     cal.add_component(evento)
