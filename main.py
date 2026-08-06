@@ -1,6 +1,10 @@
 import os
 import re
 import requests
+a_ics_automatico()
+import os
+import re
+import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from icalendar import Calendar, Event
@@ -54,13 +58,20 @@ def ottieni_prossime_partite():
             for event in res.get('events', []):
                 if "Inter" in event.get('name', ''):
                     date_str = event.get('date', '')
-                    ora_partita = datetime.fromisoformat(date_str.replace("Z", "+00:00")).astimezone()
-                    
-                    if ora_partita >= datetime.now().astimezone() - timedelta(hours=3):
-                        match_nome = f"⚽ {event.get('name', '')} ({competizione})"
-                        tutti_i_canali = [f"{b.get('name')} (ESPN)" for b in event.get('competitions', [{}])[0].get('broadcasts', [])]
+                    if date_str:
+                        # Correzione fuso orario: leggiamo UTC e aggiungiamo 2 ore per l'ora legale italiana
+                        date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                        ora_partita = date_utc + timedelta(hours=2)
                         
-                        tutti_gli_eventi.append({'nome': match_nome, 'data': ora_partita, 'canali': tutti_i_canali})
+                        if ora_partita >= datetime.now().astimezone() - timedelta(hours=3):
+                            match_nome = f"⚽ {event.get('name', '')} ({competizione})"
+                            tutti_i_canali = [f"{b.get('name')} (ESPN)" for b in event.get('competitions', [{}])[0].get('broadcasts', [])]
+                            
+                            tutti_gli_eventi.append({
+                                'nome': match_nome, 
+                                'data': ora_partita.replace(tzinfo=None), 
+                                'canali': tutti_i_canali
+                            })
         except: continue
 
     tutti_gli_eventi.sort(key=lambda x: x['data'])
@@ -90,8 +101,7 @@ def genera_ics_automatico():
     for p in ottieni_prossime_partite():
         evento = Event()
         evento.add('summary', p['nome'])
-        # Rimuoviamo il fuso orario per forzare l'ora locale corretta
-        dt_start = p['data'].replace(tzinfo=None)
+        dt_start = p['data']
         evento.add('dtstart', dt_start)
         evento.add('dtend', dt_start + timedelta(hours=2))
         evento.add('dtstamp', datetime.now().replace(tzinfo=None))
