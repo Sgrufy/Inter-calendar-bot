@@ -32,12 +32,20 @@ ELENCO_CANALI = [
     "Sky Sport Uno", "DAZN", "Amazon Prime Video"
 ]
 
-# Elenco delle competizioni da controllare tramite ESPN (Serie A, Coppa Italia, Champions League)
+# Elenco delle competizioni da controllare tramite ESPN
 URLS_API = [
     "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard",
     "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.2/scoreboard",
     "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard"
 ]
+
+# Mappatura per il nome pulito della competizione
+COMPETIZIONI_MAP = {
+    "ita.1": "Serie A",
+    "ita.2": "Serie B",
+    "uefa.champions": "Champions League",
+    "ita.coppa_italia": "Coppa Italia"
+}
 
 def cerca_tutti_i_canali_teleman():
     headers = {
@@ -64,6 +72,7 @@ def ottieni_partita_dinamica():
     ora_partita = datetime.now().astimezone()
     tutti_i_canali = []
     partita_trovata = False
+    competizione_nome = ""
 
     for url_api in URLS_API:
         if partita_trovata:
@@ -71,22 +80,33 @@ def ottieni_partita_dinamica():
         try:
             res = requests.get(url_api, timeout=10).json()
             events = res.get('events', [])
+            
+            # Identifica la competizione dall'URL
+            for key, comp_label in COMPETIZIONI_MAP.items():
+                if key in url_api:
+                    competizione_nome = comp_label
+                    break
+
             for event in events:
                 name = event.get('name', '')
                 if "Inter" in name or "Internazionale" in name:
-                    # Formattazione titolo all'italiana (es. Inter - Monza)
+                    # Formattazione titolo con competizione
                     if " at " in name:
                         squadre = name.split(" at ")
-                        match_nome = f"⚽ Inter - {squadre[0]}" if "Inter" in squadre[1] else f"⚽ {name}"
+                        avversaria = squadre[0] if "Inter" in squadre[1] else squadre[1]
+                        match_nome = f"⚽ Inter - {avversaria}"
                     else:
                         match_nome = f"⚽ {name}"
+                    
+                    if competizione_nome:
+                        match_nome += f" ({competizione_nome})"
                     
                     date_str = event.get('date', '')
                     if date_str:
                         date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                         ora_partita = date_utc.astimezone()
                     
-                    # Raccoglie TUTTI i canali disponibili da ESPN
+                    # Raccoglie i canali da ESPN
                     competitions = event.get('competitions', [])
                     if competitions:
                         broadcasts = competitions[0].get('broadcasts', [])
@@ -102,18 +122,18 @@ def ottieni_partita_dinamica():
         except Exception as e:
             print(f"Errore orario API ({url_api}): {e}")
 
-    # Raccoglie anche TUTTI i canali trovati su Teleman
+    # Raccoglie i canali da Teleman
     canali_teleman = cerca_tutti_i_canali_teleman()
     for c in canali_teleman:
         etichetta_teleman = f"{c} (Teleman)"
         if etichetta_teleman not in tutti_i_canali:
             tutti_i_canali.append(etichetta_teleman)
 
-    # Gestione finale dell'output testuale dei canali
+    # Gestione formattazione canali con elenco puntato
     if tutti_i_canali:
-        canale_trovato = ", ".join(tutti_i_canali)
+        canale_trovato = "\n".join([f"• {c}" for c in tutti_i_canali])
     else:
-        canale_trovato = "Verifica Palinsesto in corso (Nessun canale rilevato)"
+        canale_trovato = "• Non ancora disponibile"
 
     return match_nome, ora_partita, canale_trovato
 
@@ -131,12 +151,11 @@ def genera_ics_automatico():
     evento.add('dtend', data_ora + timedelta(hours=2))
     evento.add('dtstamp', datetime.now().astimezone())
 
-    # Correzione dell'orario nella descrizione per mostrare l'ora italiana corretta
-    ora_italiana_testo = data_ora + timedelta(hours=2)
+    ora_inizio_testo = data_ora.strftime('%H:%M')
 
     descrizione = f"📺 CANALI RILEVATI:\n"
-    descrizione += f"🔥 DIRECT TV: {canale}\n"
-    descrizione += f"⏰ ORARIO INIZIO: {ora_italiana_testo.strftime('%H:%M')} (Ora Italiana)\n"
+    descrizione += f"{canale}\n\n"
+    descrizione += f"⏰ ORARIO INIZIO: {ora_inizio_testo} (Ora Italiana)"
 
     evento.add('description', descrizione)
     cal.add_component(evento)
