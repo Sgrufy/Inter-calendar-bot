@@ -20,8 +20,9 @@ def ottieni_prossime_partite():
                 if "Inter" in name or "Internazionale" in name:
                     date_str = event.get('date', '')
                     if date_str:
+                        # Parsing UTC e aggiunta di 2 ore fisse per l'orario italiano corretto
                         date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                        ora_partita = date_utc.astimezone()
+                        ora_partita = date_utc.astimezone() + timedelta(hours=2)
                         
                         # Filtriamo solo le partite che devono ancora iniziare (o in corso)
                         if ora_partita >= datetime.now().astimezone() - timedelta(hours=3):
@@ -63,11 +64,11 @@ def ottieni_prossime_partite():
     # Raccogliamo anche i canali Teleman (nota: Teleman di solito mostra la partita imminente)
     canali_teleman = cerca_tutti_i_canali_teleman()
 
-    # Prendiamo solo le prime 2 partite in programma
-    prossime_due = tutti_gli_eventi[:2]
+    # Prendiamo le prime 3 partite in programma
+    prossime_tre = tutti_gli_eventi[:3]
 
     risultati_finali = []
-    for index, p in enumerate(prossime_due):
+    for index, p in enumerate(prossime_tre):
         canali_partita = p['canali'].copy()
         
         # Se è la primissima partita (la più vicina), possiamo aggiungere anche i canali Teleman trovati
@@ -119,5 +120,5 @@ def genera_ics_automatico():
         evento.add('description', descrizione)
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
+    with open("inter_tv.ics", 'wb'] as f:
         f.write(cal.to_ical())
