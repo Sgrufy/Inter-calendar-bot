@@ -5,18 +5,23 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 from icalendar import Calendar, Event
 
-# Elenco completo dei canali monitorati
+# Elenco completo dei canali monitorati (con Italia 1 aggiornata)
 ELENCO_CANALI = [
+    # Eleven Sports
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4", "Eleven Sports",
+    # Canal+ Sport
     "Canal+ Sport 1", "Canal+ Sport 2", "Canal+ Sport 3", "Canal+ Sport 4", "Canal+ Sport 5", "Canal+ Sport", "Canal+",
+    # Polsat Sport
     "Polsat Sport Premium 1", "Polsat Sport Premium 2", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport",
+    # Altri Esteri / Internazionali
     "TVP Sport", "Eurosport 1 Poland", "Eurosport 2 Poland", "Eurosport Poland", "Eurosport",
     "Cosmote Sport 1 HD", "Cosmote Sport 2 HD", "Cosmote Sport 3 HD", "Cosmote Sport 4 HD",
     "Cosmote Sport 5 HD", "Cosmote Sport 6 HD", "Cosmote Sport 7 HD", "Cosmote Sport 8 HD",
     "Cosmote Sport 9 HD", "Cosmote Sport",
     "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4", "Max Sport",
     "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", "Nova Sport",
-    "Sky Sport Uno", "DAZN", "Amazon Prime Video", "Canale 5 HD", "TV8 HD"
+    # Principali / In Chiaro / Streaming
+    "Italia 1", "Canale 5 HD", "TV8 HD", "Amazon Prime Video"
 ]
 
 URLS_API = [
@@ -47,7 +52,6 @@ def cerca_tutti_i_canali_teleman():
 
 def ottieni_prossime_partite():
     tutti_gli_eventi = []
-    # Fuso orario italiano fisso: UTC+2 (Ora Legale estiva)
     tz_italy = timezone(timedelta(hours=2))
     
     for url_api in URLS_API:
@@ -67,7 +71,6 @@ def ottieni_prossime_partite():
                     date_str = event.get('date', '')
                     if date_str:
                         date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                        # Conversione diretta in UTC+2 senza librerie esterne
                         ora_partita = date_utc.astimezone(tz_italy)
                         
                         if ora_partita >= datetime.now(tz_italy) - timedelta(hours=3):
@@ -143,18 +146,17 @@ def genera_ics_automatico():
         evento = Event()
         evento.add('summary', p['nome'])
         
-        # Conversione in UTC puro per evitare problemi di interpretazione dei fusi su Google Calendar
         data_utc = p['data'].astimezone(timezone.utc)
         
         evento.add('dtstart', data_utc)
         evento.add('dtend', data_utc + timedelta(hours=2))
         evento.add('dtstamp', datetime.now(timezone.utc))
 
-        ora_inizio_testo = p['data'].strftime('%H:%M')
+        ora_inizio_testo = p['data'].strftime('%H:%M - %d/%m/%Y')
 
-        descrizione = f"📺 CANALI RILEVATI:\n"
+        descrizione = f"📺 CANALI IN DIRETTA:\n"
         descrizione += f"{p['canale']}\n\n"
-        descrizione += f"⏰ ORARIO INIZIO: {ora_inizio_testo} (Ora Italiana)"
+        descrizione += f"⏰ Inizio match: {ora_inizio_testo}"
 
         evento.add('description', descrizione)
         cal.add_component(evento)
