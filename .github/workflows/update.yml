@@ -27,10 +27,11 @@ jobs:
       - name: Run script
         run: python main.py
 
-      - name: Commit and push updated .ics
+      -       - name: Commit and push updated .ics
         run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
+          git status
           git add inter_tv.ics
-          git commit -m "Aggiornamento automatico calendario Inter" || exit 0
+          git diff --staged --quiet || git commit -m "Aggiornamento automatico calendario Inter"
           git push
