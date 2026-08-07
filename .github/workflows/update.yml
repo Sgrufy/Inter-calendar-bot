@@ -1,8 +1,8 @@
-name: Aggiorna Calendario Inter Automatically
+Name: Aggiorna Calendario Inter Automatically
 
 on:
   schedule:
-    - cron: '23 */8 * * *'  # Cambiato da '0' a '23' per evitare l'ora tonda
+    - cron: '23 */8 * * *'  # Esegue ogni 8 ore
   workflow_dispatch:       # Permette l'avvio manuale dalla tab Actions di GitHub
 
 permissions:
@@ -27,7 +27,7 @@ jobs:
       - name: Run script
         run: python main.py
 
-      -       - name: Commit and push updated .ics
+      - name: Commit and push updated .ics
         run: |
           git config --global user.name "GitHub Action Bot"
           git config --global user.email "action@github.com"
