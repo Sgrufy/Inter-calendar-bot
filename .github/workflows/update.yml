@@ -1,4 +1,4 @@
-Name: Aggiorna Calendario Inter Automatically
+name: Aggiorna Calendario Inter Automatically
 
 on:
   schedule:
