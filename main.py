@@ -151,7 +151,7 @@ def genera_ics_automatico():
         evento.add('dtend', data_utc + timedelta(hours=2))
         evento.add('dtstamp', datetime.now(timezone.utc))
 
-        ora_inizio_testo = p['data'].strftime('%H:%M - %d/%m/%Y')
+        ora_inizio_testo = p['data'].strftime('%H:%M')
 
         descrizione = f"📺 CANALI IN DIRETTA:\n"
         descrizione += f"{p['canale']}\n\n"
