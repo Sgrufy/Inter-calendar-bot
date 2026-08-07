@@ -54,9 +54,15 @@ def ottieni_prossime_partite():
     tutti_gli_eventi = []
     tz_italy = timezone(timedelta(hours=2))
     
+    # Calcolo range: da oggi a 14 giorni da oggi
+    oggi = datetime.now(tz_italy)
+    fine_range = oggi + timedelta(days=14)
+    date_range = f"{oggi.strftime('%Y%m%d')}-{fine_range.strftime('%Y%m%d')}"
+    
     for url_api in URLS_API:
+        url_con_date = f"{url_api}?dates={date_range}"
         try:
-            res = requests.get(url_api, timeout=10).json()
+            res = requests.get(url_con_date, timeout=10).json()
             events = res.get('events', [])
             
             competizione_nome = ""
