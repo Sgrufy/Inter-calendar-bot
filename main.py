@@ -142,8 +142,12 @@ def genera_ics_automatico():
     for p in partite:
         evento = Event()
         evento.add('summary', p['nome'])
-        evento.add('dtstart', p['data'])
-        evento.add('dtend', p['data'] + timedelta(hours=2))
+        
+        # Conversione in UTC puro per evitare problemi di interpretazione dei fusi su Google Calendar
+        data_utc = p['data'].astimezone(timezone.utc)
+        
+        evento.add('dtstart', data_utc)
+        evento.add('dtend', data_utc + timedelta(hours=2))
         evento.add('dtstamp', datetime.now(timezone.utc))
 
         ora_inizio_testo = p['data'].strftime('%H:%M')
