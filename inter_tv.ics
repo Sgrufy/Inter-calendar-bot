@@ -6,24 +6,27 @@ BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Monza
 DTSTART;TZID="UTC+02:00":20260822T183000
 DTEND;TZID="UTC+02:00":20260822T203000
-DESCRIPTION:📺 CANALE DI TRASMISSIONE:\n• Eleven Sports 1 (PL)\n• El
- even Sports 2 (PL)\n• Eleven Sports 3 (PL)\n• Eleven Sports 4 (PL)\n
- • Eleven Sports Online (PL)
+DESCRIPTION:🏆 Competizione: Italian Serie A\n📅 Data: 22/08/2026 alle
+  18:30\n-----------------------------------\n📺 CANALI / EMITTENTI:\n  
+ • Eleven Sports 1 (PL)\n  • Eleven Sports 2 (PL)\n  • Eleven Sports 
+ 3 (PL)\n  • Eleven Sports 4 (PL)\n  • Eleven Sports Online (PL)\n
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari vs Inter
 DTSTART;TZID="UTC+02:00":20260830T204500
 DTEND;TZID="UTC+02:00":20260830T224500
-DESCRIPTION:📺 CANALE DI TRASMISSIONE:\n• Eleven Sports 1 (PL)\n• El
- even Sports 2 (PL)\n• Eleven Sports 3 (PL)\n• Eleven Sports 4 (PL)\n
- • Eleven Sports Online (PL)
+DESCRIPTION:🏆 Competizione: Italian Serie A\n📅 Data: 30/08/2026 alle
+  20:45\n-----------------------------------\n📺 CANALI / EMITTENTI:\n  
+ • Eleven Sports 1 (PL)\n  • Eleven Sports 2 (PL)\n  • Eleven Sports 
+ 3 (PL)\n  • Eleven Sports 4 (PL)\n  • Eleven Sports Online (PL)\n
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Napoli
 DTSTART;TZID="UTC+02:00":20260905T180000
 DTEND;TZID="UTC+02:00":20260905T200000
-DESCRIPTION:📺 CANALE DI TRASMISSIONE:\n• Eleven Sports 1 (PL)\n• El
- even Sports 2 (PL)\n• Eleven Sports 3 (PL)\n• Eleven Sports 4 (PL)\n
- • Eleven Sports Online (PL)
+DESCRIPTION:🏆 Competizione: Italian Serie A\n📅 Data: 05/09/2026 alle
+  18:00\n-----------------------------------\n📺 CANALI / EMITTENTI:\n  
+ • Eleven Sports 1 (PL)\n  • Eleven Sports 2 (PL)\n  • Eleven Sports 
+ 3 (PL)\n  • Eleven Sports 4 (PL)\n  • Eleven Sports Online (PL)\n
 END:VEVENT
 END:VCALENDAR
