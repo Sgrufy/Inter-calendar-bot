@@ -47,6 +47,43 @@ def ottieni_canali_fallback(competizione):
     
     return ["Canal+", "Eleven Sports", "Polsat Sport", "TVP Sport"]
 
+def formatta_nome_partita(event):
+    """
+    Estrae le squadre dalle informazioni di ESPN assicurandosi che:
+    - Se l'Inter è in casa -> Inter vs [Avversario]
+    - Se l'Inter è in trasferta -> [Avversario] vs Inter
+    """
+    try:
+        competitions = event.get('competitions', [])
+        if competitions:
+            competitors = competitions[0].get('competitors', [])
+            if len(competitors) == 2:
+                home_team = ""
+                away_team = ""
+                
+                for comp in competitors:
+                    team_name = comp.get('team', {}).get('displayName', '')
+                    if comp.get('homeAway') == 'home':
+                        home_team = team_name
+                    elif comp.get('homeAway') == 'away':
+                        away_team = team_name
+                
+                if home_team and away_team:
+                    # Garantisce sempre il formato Casa vs Trasferta
+                    return f"{home_team} vs {away_team}"
+    except Exception:
+        pass
+    
+    # Gestione di sicurezza nel caso i dati dettagliati non siano disponibili
+    name = event.get('name', '')
+    if " at " in name:
+        parts = name.split(" at ")
+        if len(parts) == 2:
+            # ESPN usa solitamente "Away at Home"
+            return f"{parts[1]} vs {parts[0]}"
+            
+    return name
+
 def genera_ics_automatico():
     cal = Calendar()
     cal.add('prodid', '-//Calendario Inter Auto Globale//IT')
@@ -77,9 +114,12 @@ def genera_ics_automatico():
                         else:
                             lista_canali = ottieni_canali_fallback(competizione_label)
 
+                        # Formattazione corretta Casa vs Trasferta
+                        nome_formattato = formatta_nome_partita(event)
+
                         tutte_le_partite.append({
                             'ora': ora_partita,
-                            'name': name,
+                            'name': nome_formattato,
                             'canali': lista_canali
                         })
         except Exception as e:
