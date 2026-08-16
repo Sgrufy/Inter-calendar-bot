@@ -34,7 +34,7 @@ COMPETIZIONI_MAP = {
 def cerca_canale_teleman_per_partita(data_partita, avversaria):
     """
     Controlla i palinsesti dei canali polacchi su Teleman cercando 
-    specifici riferimenti all'Inter o all'avversaria nei blocchi dei programmi.
+    riferimenti all'Inter, all'avversaria o alla Serie A nei blocchi dei programmi.
     """
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     canali_trovati = []
@@ -49,14 +49,15 @@ def cerca_canale_teleman_per_partita(data_partita, avversaria):
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, 'html.parser')
                 
-                # Scansiona i singoli elementi per intercettare anche i dettagli espansi
-                elementi_programmi = soup.find_all(['div', 'li', 'a'])
+                # Cerca in tutti i blocchi testuali e tag rilevanti della pagina
+                elementi_programmi = soup.find_all(['div', 'li', 'td', 'span', 'a'])
                 
                 match_trovato = False
                 for el in elementi_programmi:
                     testo_el = el.get_text().lower()
-                    if "inter" in testo_el:
-                        if "liga włoska" in testo_el or avversaria_clean in testo_el or "mediolan" in testo_el:
+                    # Condizione allargata per intercettare "Inter", "Mediolan" o "Liga włoska" insieme all'avversaria
+                    if "inter" in testo_el or "mediolan" in testo_el:
+                        if avversaria_clean in testo_el or "liga włoska" in testo_el:
                             match_trovato = True
                             break
                 
