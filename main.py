@@ -13,7 +13,7 @@ URLS_API = [
 def ottieni_canali_emittenti(competizione):
     """
     Associa i canali di trasmissione in base alla competizione,
-    includendo l'intera gamma di opzioni polacche, Mediaset e Amazon Prime.
+    includendo l'intera gamma di opzioni richieste.
     """
     comp_lower = competizione.lower()
     canali = []
@@ -65,6 +65,9 @@ def genera_ics_automatico():
 
     tz_italy = timezone(timedelta(hours=2))
     
+    # Raccogliamo tutte le partite future da tutte le API
+    tutte_le_partite = []
+
     for url_api in URLS_API:
         try:
             res = requests.get(url_api, timeout=10).json()
@@ -78,22 +81,36 @@ def genera_ics_automatico():
                     date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                     ora_partita = date_utc.astimezone(tz_italy)
                     
+                    # Consideriamo solo le partite future o appena iniziate
                     if ora_partita >= datetime.now(tz_italy) - timedelta(hours=3):
-                        evento = Event()
-                        evento.add('summary', f"⚽ {name}")
-                        evento.add('dtstart', ora_partita)
-                        evento.add('dtend', ora_partita + timedelta(hours=2))
-                        
-                        canali = ottieni_canali_emittenti(competizione_label)
-                        descrizione = f"📺 CANALI DI TRASMISSIONE:\n" + "\n".join([f"• {c}" for c in canali])
-                        evento.add('description', descrizione)
-                        cal.add_component(evento)
+                        tutte_le_partite.append({
+                            'ora': ora_partita,
+                            'name': name,
+                            'competizione': competizione_label
+                        })
         except Exception as e:
             print(f"Errore caricamento {url_api}: {e}")
 
+    # Ordiniamo le partite in ordine cronologico (dalla più vicina nel tempo)
+    tutte_le_partite.sort(key=lambda x: x['ora'])
+
+    # Prendiamo solo le prime 3 partite in assoluto
+    partite_da_inserire = tutte_le_partite[:3]
+
+    for p in partite_da_inserire:
+        evento = Event()
+        evento.add('summary', f"⚽ {p['name']}")
+        evento.add('dtstart', p['ora'])
+        evento.add('dtend', p['ora'] + timedelta(hours=2))
+        
+        canali = ottieni_canali_emittenti(p['competizione'])
+        descrizione = f"📺 CANALI DI TRASMISSIONE:\n" + "\n".join([f"• {c}" for c in canali])
+        evento.add('description', descrizione)
+        cal.add_component(evento)
+
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics aggiornato con tutti i canali richiesti!")
+    print("File inter_tv.ics generato con successo (limitato alle prossime 3 partite)!")
 
 if __name__ == '__main__':
     genera_ics_automatico()
