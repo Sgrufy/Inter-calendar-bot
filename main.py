@@ -33,14 +33,14 @@ COMPETIZIONI_MAP = {
 
 def cerca_canale_teleman_per_partita(data_partita, avversaria):
     """
-    Controlla i palinsesti dei canali polacchi su Teleman per la data specifica
-    e cerca se c'è una trasmissione che riguarda l'Inter e l'avversaria.
+    Controlla i palinsesti dei canali polacchi su Teleman cercando 
+    specifici riferimenti all'Inter o all'avversaria nei singoli elementi della pagina.
     """
-    headers = {'User-Agent': 'Mozilla/5.0'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     canali_trovati = []
     
-    # Formatta la data per Teleman (es. 2026-08-26)
     data_str = data_partita.strftime('%Y-%m-%d')
+    avversaria_clean = avversaria.lower().strip()
     
     for nome_canale, slug in TELEMAN_CANALI_SLUG.items():
         url = f"https://www.teleman.pl/stacja/{slug}?date={data_str}"
@@ -48,10 +48,17 @@ def cerca_canale_teleman_per_partita(data_partita, avversaria):
             res = requests.get(url, headers=headers, timeout=5)
             if res.status_code == 200:
                 soup = BeautifulSoup(res.text, 'html.parser')
-                testo_pagina = soup.get_text()
                 
-                # Cerca sia "Inter" che il nome dell'avversaria nella pagina del palinsesto del canale
-                if "Inter" in testo_pagina and (avversaria.lower() in testo_pagina.lower() or "liga włoska" in testo_pagina.lower()):
+                # Cerca sia nei testi generali che nei blocchi specifici dei programmi
+                testo_pagina = soup.get_text().lower()
+                
+                # Condizione di riscontro: se c'è "inter" e ("monza" o "liga włoska")
+                match_trovato = False
+                if "inter" in testo_pagina:
+                    if avversaria_clean in testo_pagina or "liga włoska" in testo_pagina:
+                        match_trovato = True
+                
+                if match_trovato:
                     if nome_canale not in canali_trovati:
                         canali_trovati.append(nome_canale)
         except Exception as e:
@@ -99,7 +106,6 @@ def ottieni_prossime_partite():
                             if competizione_nome:
                                 match_nome += f" ({competizione_nome})"
                             
-                            # Raccoglie i canali da ESPN
                             tutti_i_canali = []
                             competitions = event.get('competitions', [])
                             if competitions:
@@ -127,7 +133,6 @@ def ottieni_prossime_partite():
     for p in prossime_tre:
         canali_partita = p['canali'].copy()
         
-        # Interroga Teleman specificamente per la data e l'avversaria di questa partita
         canali_teleman = cerca_canale_teleman_per_partita(p['data'], p['avversaria'])
         for c in canali_teleman:
             etichetta_teleman = f"{c} (Teleman)"
