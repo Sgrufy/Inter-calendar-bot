@@ -1,5 +1,5 @@
 import os
-import requests
+requests
 from datetime import datetime, timedelta, timezone
 from icalendar import Calendar, Event
 
@@ -10,52 +10,42 @@ URLS_API = [
     "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.champions/scoreboard"
 ]
 
-def ottieni_canali_emittenti(competizione):
+def estrai_canale_specifico(event):
     """
-    Associa i canali di trasmissione in base alla competizione,
-    includendo l'intera gamma di opzioni richieste.
+    Cerca di estrarre il canale esatto dai dati di broadcast dell'evento ESPN.
+    Se non è ancora disponibile (mancano più di 48h), restituisce None.
+    """
+    try:
+        broadcasts = event.get('broadcasts', [])
+        for b in broadcasts:
+            names = b.get('names', [])
+            if names:
+                return ", ".join(names)
+    except Exception:
+        pass
+    return None
+
+def ottieni_canali_fallback(competizione):
+    """
+    Elenco di fallback se il palinsesto esatto a 48h non è ancora online.
     """
     comp_lower = competizione.lower()
-    canali = []
-    
     if "serie a" in comp_lower or "ita.1" in comp_lower:
-        canali.extend([
-            "Eleven Sports 1-4 (PL)",
-            "Eleven Sports Online (PL)",
-            "Polsat Sport (PL)",
-            "DAZN / Sky Italia"
-        ])
+        return [
+            "Eleven Sports 1 (PL)", "Eleven Sports 2 (PL)", 
+            "Eleven Sports 3 (PL)", "Eleven Sports 4 (PL)", 
+            "Eleven Sports Online (PL)"
+        ]
     elif "champions league" in comp_lower or "uefa.champions" in comp_lower:
-        canali.extend([
-            "Canal+ Extra / Online (PL)",
-            "TVP Sport (PL)",
-            "Amazon Prime Video (Italia)",
-            "Mediaset / Canale 5 (Italia)",
-            "Cosmote Sport (Grecia)",
-            "Max Sport (Bulgaria)",
-            "Nova Sport (CZ/SK)"
-        ])
+        return [
+            "Canal+ Extra 1 (PL)", "Canal+ Extra 2 (PL)", 
+            "Canal+ Extra 3 (PL)", "Canal+ Online (PL)", 
+            "TVP Sport (PL)", "Amazon Prime Video", "Mediaset"
+        ]
     elif "coppa italia" in comp_lower or "ita.coppa" in comp_lower:
-        canali.extend([
-            "Mediaset / Canale 5 / Italia 1 (Italia)",
-            "Polsat Sport (PL)",
-            "Eleven Sports (PL)"
-        ])
-    else:
-        canali.extend([
-            "Canal+ (PL)",
-            "Eleven Sports (PL)",
-            "Polsat Sport (PL)",
-            "TVP Sport (PL)",
-            "Eurosport (PL)",
-            "Cosmote Sport",
-            "Max Sport",
-            "Nova Sport",
-            "Amazon Prime Video",
-            "Mediaset"
-        ])
-        
-    return canali
+        return ["Polsat Sport (PL)", "Mediaset / Canale 5"]
+    
+    return ["Canal+", "Eleven Sports", "Polsat Sport", "TVP Sport"]
 
 def genera_ics_automatico():
     cal = Calendar()
@@ -64,8 +54,6 @@ def genera_ics_automatico():
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
     tz_italy = timezone(timedelta(hours=2))
-    
-    # Raccogliamo tutte le partite future da tutte le API
     tutte_le_partite = []
 
     for url_api in URLS_API:
@@ -81,20 +69,24 @@ def genera_ics_automatico():
                     date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                     ora_partita = date_utc.astimezone(tz_italy)
                     
-                    # Consideriamo solo le partite future o appena iniziate
                     if ora_partita >= datetime.now(tz_italy) - timedelta(hours=3):
+                        # Tentiamo di leggere il canale esatto rilasciato dal palinsesto
+                        canale_esatto = estrai_canale_specifico(event)
+                        
+                        if canale_esatto:
+                            lista_canali = [f"{canale_esatto} (Palinsesto Ufficiale)"]
+                        else:
+                            lista_canali = ottieni_canali_fallback(competizione_label)
+
                         tutte_le_partite.append({
                             'ora': ora_partita,
                             'name': name,
-                            'competizione': competizione_label
+                            'canali': lista_canali
                         })
         except Exception as e:
             print(f"Errore caricamento {url_api}: {e}")
 
-    # Ordiniamo le partite in ordine cronologico (dalla più vicina nel tempo)
     tutte_le_partite.sort(key=lambda x: x['ora'])
-
-    # Prendiamo solo le prime 3 partite in assoluto
     partite_da_inserire = tutte_le_partite[:3]
 
     for p in partite_da_inserire:
@@ -103,14 +95,13 @@ def genera_ics_automatico():
         evento.add('dtstart', p['ora'])
         evento.add('dtend', p['ora'] + timedelta(hours=2))
         
-        canali = ottieni_canali_emittenti(p['competizione'])
-        descrizione = f"📺 CANALI DI TRASMISSIONE:\n" + "\n".join([f"• {c}" for c in canali])
+        descrizione = f"📺 CANALE DI TRASMISSIONE:\n" + "\n".join([f"• {c}" for c in p['canali']])
         evento.add('description', descrizione)
         cal.add_component(evento)
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics generato con successo (limitato alle prossime 3 partite)!")
+    print("File inter_tv.ics generato con ricerca del canale esatto!")
 
 if __name__ == '__main__':
     genera_ics_automatico()
