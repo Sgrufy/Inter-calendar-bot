@@ -5,18 +5,19 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta, timezone
 from icalendar import Calendar, Event
 
-ELENCO_CANALI = [
-    "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4", "Eleven Sports",
-    "Canal+ Sport 1", "Canal+ Sport 2", "Canal+ Sport 3", "Canal+ Sport 4", "Canal+ Sport 5", "Canal+ Sport", "Canal+",
-    "Polsat Sport Premium 1", "Polsat Sport Premium 2", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport",
-    "TVP Sport", "Eurosport 1 Poland", "Eurosport 2 Poland", "Eurosport Poland", "Eurosport",
-    "Cosmote Sport 1 HD", "Cosmote Sport 2 HD", "Cosmote Sport 3 HD", "Cosmote Sport 4 HD",
-    "Cosmote Sport 5 HD", "Cosmote Sport 6 HD", "Cosmote Sport 7 HD", "Cosmote Sport 8 HD",
-    "Cosmote Sport 9 HD", "Cosmote Sport",
-    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4", "Max Sport",
-    "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", "Nova Sport",
-    "Italia 1", "Canale 5 HD", "TV8 HD", "Amazon Prime Video"
-]
+# Mappa dei canali di Teleman con i relativi slug URL per le pagine dei palinsesti
+TELEMAN_CANALI_SLUG = {
+    "Eleven Sports 1": "Eleven-Sports-1",
+    "Eleven Sports 2": "Eleven-Sports-2",
+    "Eleven Sports 3": "Eleven-Sports-3",
+    "Eleven Sports 4": "Eleven-Sports-4",
+    "Eleven Sports": "Eleven-Sports",
+    "Canal+ Sport 1": "Canal-Plus-Sport",
+    "Canal+ Sport 2": "Canal-Plus-Sport-2",
+    "TVP Sport": "TVP-Sport",
+    "Eurosport 1 Poland": "Eurosport-1",
+    "Eurosport 2 Poland": "Eurosport-2",
+}
 
 URLS_API = [
     "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard",
@@ -30,18 +31,32 @@ COMPETIZIONI_MAP = {
     "uefa.champions": "Champions League"
 }
 
-def cerca_tutti_i_canali_teleman():
+def cerca_canale_teleman_per_partita(data_partita, avversaria):
+    """
+    Controlla i palinsesti dei canali polacchi su Teleman per la data specifica
+    e cerca se c'è una trasmissione che riguarda l'Inter e l'avversaria.
+    """
     headers = {'User-Agent': 'Mozilla/5.0'}
     canali_trovati = []
-    try:
-        res = requests.get("https://www.teleman.pl/szukaj?q=Inter", headers=headers, timeout=10)
-        if res.status_code == 200:
-            soup = BeautifulSoup(res.text, 'html.parser')
-            testo = soup.get_text()
-            for canale in ELENCO_CANALI:
-                if re.search(r'\b' + re.escape(canale) + r'\b', testo, re.IGNORECASE) and canale not in canali_trovati:
-                    canali_trovati.append(canale)
-    except: pass
+    
+    # Formatta la data per Teleman (es. 2026-08-26)
+    data_str = data_partita.strftime('%Y-%m-%d')
+    
+    for nome_canale, slug in TELEMAN_CANALI_SLUG.items():
+        url = f"https://www.teleman.pl/stacja/{slug}?date={data_str}"
+        try:
+            res = requests.get(url, headers=headers, timeout=5)
+            if res.status_code == 200:
+                soup = BeautifulSoup(res.text, 'html.parser')
+                testo_pagina = soup.get_text()
+                
+                # Cerca sia "Inter" che il nome dell'avversaria nella pagina del palinsesto del canale
+                if "Inter" in testo_pagina and (avversaria.lower() in testo_pagina.lower() or "liga włoska" in testo_pagina.lower()):
+                    if nome_canale not in canali_trovati:
+                        canali_trovati.append(nome_canale)
+        except Exception as e:
+            continue
+            
     return canali_trovati
 
 def ottieni_prossime_partite():
@@ -78,11 +93,13 @@ def ottieni_prossime_partite():
                                 avversaria = squadre[0] if "Inter" in squadre[1] else squadre[1]
                                 match_nome = f"⚽ Inter - {avversaria}"
                             else:
+                                avversaria = name.replace("Inter", "").replace("FC", "").strip()
                                 match_nome = f"⚽ {name}"
                             
                             if competizione_nome:
                                 match_nome += f" ({competizione_nome})"
                             
+                            # Raccoglie i canali da ESPN
                             tutti_i_canali = []
                             competitions = event.get('competitions', [])
                             if competitions:
@@ -96,6 +113,7 @@ def ottieni_prossime_partite():
 
                             tutti_gli_eventi.append({
                                 'nome': match_nome,
+                                'avversaria': avversaria,
                                 'data': ora_partita,
                                 'canali': tutti_i_canali
                             })
@@ -103,18 +121,18 @@ def ottieni_prossime_partite():
             print(f"Errore orario API ({url_api}): {e}")
 
     tutti_gli_eventi = sorted(tutti_gli_eventi, key=lambda x: x['data'])
-    canali_teleman = cerca_tutti_i_canali_teleman()
     prossime_tre = tutti_gli_eventi[:3]
 
     risultati_finali = []
-    for index, p in enumerate(prossime_tre):
+    for p in prossime_tre:
         canali_partita = p['canali'].copy()
         
-        if index == 0:
-            for c in canali_teleman:
-                etichetta_teleman = f"{c} (Teleman)"
-                if etichetta_teleman not in canali_partita:
-                    canali_partita.append(etichetta_teleman)
+        # Interroga Teleman specificamente per la data e l'avversaria di questa partita
+        canali_teleman = cerca_canale_teleman_per_partita(p['data'], p['avversaria'])
+        for c in canali_teleman:
+            etichetta_teleman = f"{c} (Teleman)"
+            if etichetta_teleman not in canali_partita:
+                canali_partita.append(etichetta_teleman)
 
         if canali_partita:
             canale_str = "\n".join([f"• {c}" for c in canali_partita])
@@ -162,6 +180,7 @@ def genera_ics_automatico():
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
+    print("File inter_tv.ics generato con successo!")
 
 if __name__ == '__main__':
     genera_ics_automatico()
