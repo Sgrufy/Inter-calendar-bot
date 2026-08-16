@@ -49,39 +49,55 @@ def ottieni_canali_fallback(competizione):
 
 def formatta_nome_partita(event):
     """
-    Estrae le squadre dalle informazioni di ESPN assicurandosi che:
+    Estrae le squadre dalle informazioni di ESPN e forza esplicitamente:
     - Se l'Inter è in casa -> Inter vs [Avversario]
     - Se l'Inter è in trasferta -> [Avversario] vs Inter
+    Ignora completamente stringhe grezze come 'Monza at Internazionale'.
     """
     try:
         competitions = event.get('competitions', [])
         if competitions:
             competitors = competitions[0].get('competitors', [])
             if len(competitors) == 2:
-                home_team = ""
-                away_team = ""
+                home_team = None
+                away_team = None
                 
                 for comp in competitors:
-                    team_name = comp.get('team', {}).get('displayName', '')
+                    # Usiamo 'shortDisplayName' o 'displayName' (puliamo se contiene 'Internazionale')
+                    name = comp.get('team', {}).get('shortDisplayName') or comp.get('team', {}).get('displayName', '')
+                    if "inter" in name.lower():
+                        name = "Inter"
+                        
                     if comp.get('homeAway') == 'home':
-                        home_team = team_name
+                        home_team = name
                     elif comp.get('homeAway') == 'away':
-                        away_team = team_name
+                        away_team = name
                 
                 if home_team and away_team:
-                    # Garantisce sempre il formato Casa vs Trasferta
                     return f"{home_team} vs {away_team}"
     except Exception:
         pass
     
-    # Gestione di sicurezza nel caso i dati dettagliati non siano disponibili
+    # Se fallisce l'estrazione strutturata, analizziamo la stringa 'at' o 'vs'
     name = event.get('name', '')
     if " at " in name:
         parts = name.split(" at ")
         if len(parts) == 2:
-            # ESPN usa solitamente "Away at Home"
-            return f"{parts[1]} vs {parts[0]}"
+            team1, team2 = parts[0].strip(), parts[1].strip()
+            # Pulizia nomi
+            if "inter" in team1.lower(): team1 = "Inter"
+            if "inter" in team2.lower(): team2 = "Inter"
             
+            # ESPN mette "Away at Home" (es. Monza at Internazionale)
+            # Quindi team1 = Away (Monza), team2 = Home (Inter)
+            # Vogliamo: Inter in casa -> Inter vs Monza; Inter fuori -> Monza vs Inter
+            if team2 == "Inter":
+                return f"Inter vs {team1}"
+            elif team1 == "Inter":
+                return f"{team2} vs Inter"
+            else:
+                return f"{team2} vs {team1}"
+                
     return name
 
 def genera_ics_automatico():
@@ -114,7 +130,7 @@ def genera_ics_automatico():
                         else:
                             lista_canali = ottieni_canali_fallback(competizione_label)
 
-                        # Formattazione corretta Casa vs Trasferta
+                        # Usa la funzione corretta e pulita
                         nome_formattato = formatta_nome_partita(event)
 
                         tutte_le_partite.append({
