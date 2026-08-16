@@ -1,5 +1,5 @@
 import os
-requests
+import requests
 from datetime import datetime, timedelta, timezone
 from icalendar import Calendar, Event
 
@@ -13,7 +13,7 @@ URLS_API = [
 def estrai_canale_specifico(event):
     """
     Cerca di estrarre il canale esatto dai dati di broadcast dell'evento ESPN.
-    Se non è ancora disponibile (mancano più di 48h), restituisce None.
+    Se non è ancora disponibile, restituisce None.
     """
     try:
         broadcasts = event.get('broadcasts', [])
@@ -27,7 +27,7 @@ def estrai_canale_specifico(event):
 
 def ottieni_canali_fallback(competizione):
     """
-    Elenco di fallback se il palinsesto esatto a 48h non è ancora online.
+    Elenco di fallback se il palinsesto esatto non è ancora online.
     """
     comp_lower = competizione.lower()
     if "serie a" in comp_lower or "ita.1" in comp_lower:
@@ -70,7 +70,6 @@ def genera_ics_automatico():
                     ora_partita = date_utc.astimezone(tz_italy)
                     
                     if ora_partita >= datetime.now(tz_italy) - timedelta(hours=3):
-                        # Tentiamo di leggere il canale esatto rilasciato dal palinsesto
                         canale_esatto = estrai_canale_specifico(event)
                         
                         if canale_esatto:
@@ -101,7 +100,7 @@ def genera_ics_automatico():
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics generato con ricerca del canale esatto!")
+    print("File inter_tv.ics generato con successo!")
 
 if __name__ == '__main__':
     genera_ics_automatico()
