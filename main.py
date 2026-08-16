@@ -63,7 +63,6 @@ def formatta_nome_partita(event):
                 away_team = None
                 
                 for comp in competitors:
-                    # Usiamo 'shortDisplayName' o 'displayName' (puliamo se contiene 'Internazionale')
                     name = comp.get('team', {}).get('shortDisplayName') or comp.get('team', {}).get('displayName', '')
                     if "inter" in name.lower():
                         name = "Inter"
@@ -78,19 +77,14 @@ def formatta_nome_partita(event):
     except Exception:
         pass
     
-    # Se fallisce l'estrazione strutturata, analizziamo la stringa 'at' o 'vs'
     name = event.get('name', '')
     if " at " in name:
         parts = name.split(" at ")
         if len(parts) == 2:
             team1, team2 = parts[0].strip(), parts[1].strip()
-            # Pulizia nomi
             if "inter" in team1.lower(): team1 = "Inter"
             if "inter" in team2.lower(): team2 = "Inter"
             
-            # ESPN mette "Away at Home" (es. Monza at Internazionale)
-            # Quindi team1 = Away (Monza), team2 = Home (Inter)
-            # Vogliamo: Inter in casa -> Inter vs Monza; Inter fuori -> Monza vs Inter
             if team2 == "Inter":
                 return f"Inter vs {team1}"
             elif team1 == "Inter":
@@ -109,9 +103,16 @@ def genera_ics_automatico():
     tz_italy = timezone(timedelta(hours=2))
     tutte_le_partite = []
 
+    # Calcolo del range di 20 giorni a partire da oggi
+    oggi = datetime.now(tz_italy)
+    fine_range = oggi + timedelta(days=20)
+    date_range = f"{oggi.strftime('%Y%m%d')}-{fine_range.strftime('%Y%m%d')}"
+
     for url_api in URLS_API:
+        # Aggiunta del parametro dates all'URL dell'API
+        url_con_date = f"{url_api}?dates={date_range}"
         try:
-            res = requests.get(url_api, timeout=10).json()
+            res = requests.get(url_con_date, timeout=10).json()
             events = res.get('events', [])
             competizione_label = res.get('leagues', [{}])[0].get('name', 'Altro')
 
@@ -130,7 +131,6 @@ def genera_ics_automatico():
                         else:
                             lista_canali = ottieni_canali_fallback(competizione_label)
 
-                        # Usa la funzione corretta e pulita
                         nome_formattato = formatta_nome_partita(event)
 
                         tutte_le_partite.append({
@@ -142,7 +142,7 @@ def genera_ics_automatico():
             print(f"Errore caricamento {url_api}: {e}")
 
     tutte_le_partite.sort(key=lambda x: x['ora'])
-    partite_da_inserire = tutte_le_partite[:3]
+    partite_da_inserire = tutte_le_partite
 
     for p in partite_da_inserire:
         evento = Event()
