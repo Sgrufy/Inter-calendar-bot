@@ -6,9 +6,7 @@ from icalendar import Calendar, Event
 # CONFIGURAZIONE API-FOOTBALL
 API_KEY = os.environ.get('API_KEY')
 HOST = "v3.football.api-sports.io" 
-TEAM_ID = 505      # ID dell'Inter
-LEAGUE_ID = 135    # ID della Serie A su API-Football
-SEASON = "2025"    # Anno di inizio della stagione calcistica corrente (2025/2026)
+TEAM_ID = 505  # ID dell'Inter
 
 HEADERS = {
     'x-apisports-key': API_KEY,
@@ -56,11 +54,10 @@ def main():
     url = f"https://{HOST}/fixtures"
     querystring = {
         "team": str(TEAM_ID),
-        "league": str(LEAGUE_ID),
-        "season": SEASON
+        "next": "10"  # Prende direttamente le prossime 10 partite programmate in assoluto dal server
     }
 
-    print(f"Interrogazione API per Serie A (Lega {LEAGUE_ID}), Team {TEAM_ID}, Stagione {SEASON}...")
+    print(f"Interrogazione API per le prossime 10 partite del team {TEAM_ID}...")
 
     try:
         response = requests.get(url, headers=HEADERS, params=querystring)
@@ -80,7 +77,7 @@ def main():
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
-    for match in matches[:10]:
+    for match in matches:
         fixt = match.get("fixture", {})
         league = match.get("league", {})
         teams = match.get("teams", {})
