@@ -8,7 +8,7 @@ API_KEY = os.environ.get('API_KEY')
 HOST = "v3.football.api-sports.io" 
 TEAM_ID = 505      # ID dell'Inter
 LEAGUE_ID = 135    # ID della Serie A su API-Football
-SEASON = "2026"    # Anno della stagione corrente
+SEASON = "2025"    # Anno di inizio della stagione calcistica corrente (2025/2026)
 
 HEADERS = {
     'x-apisports-key': API_KEY,
@@ -80,7 +80,6 @@ def main():
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
-    # Ordinamo o cicliamo sulle partite trovate
     for match in matches[:10]:
         fixt = match.get("fixture", {})
         league = match.get("league", {})
