@@ -57,16 +57,17 @@ def main():
         return
 
     oggi = datetime.now(timezone.utc)
-    fine_range = oggi + timedelta(days=60) # Aumentato a 60 giorni per sicurezza
+    fine_range = oggi + timedelta(days=60)
 
     url = f"https://{HOST}/fixtures"
     querystring = {
         "team": str(TEAM_ID),
+        "season": "2026", # Forza la stagione corrente
         "from": oggi.strftime("%Y-%m-%d"),
         "to": fine_range.strftime("%Y-%m-%d")
     }
 
-    print(f"Interrogazione API per il team {TEAM_ID} dal {querystring['from']} al {querystring['to']}...")
+    print(f"Interrogazione API per il team {TEAM_ID} (Stagione 2026) dal {querystring['from']} al {querystring['to']}...")
 
     try:
         response = requests.get(url, headers=HEADERS, params=querystring)
