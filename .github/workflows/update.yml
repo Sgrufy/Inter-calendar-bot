@@ -1,39 +1,30 @@
 name: Aggiorna Calendario Inter Automatically
-
 on:
-  schedule:
-    - cron: '23 */8 * * *'  # Esegue ogni 8 ore
-  workflow_dispatch:       # Permette l'avvio manuale dalla tab Actions di GitHub
-
+  schedule:
+    - cron: '23 */8 * * *'  # Esegue ogni 8 ore
+  workflow_dispatch:       # Permette l'avvio manuale dalla tab Actions di GitHub
 permissions:
-  contents: write
-
+  contents: write
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install dependencies
-        run: |
-          pip install requests icalendar
-
-      - name: Run script
-        run: python main.py
-        env:
-          API_KEY: ${{ secrets.API_KEY }}
-
-      - name: Commit and push updated .ics
-        run: |
-          git config --global user.name "GitHub Action Bot"
-          git config --global user.email "action@github.com"
-          git status
-          git add inter_tv.ics
-          git diff --staged --quiet || git commit -m "Aggiornamento automatico calendario Inter"
-          git push
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          pip install requests beautifulsoup4 icalendar
+      - name: Run script
+        run: python main.py
+      - name: Commit and push updated .ics
+        run: |
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "action@github.com"
+          git status
+          git add inter_tv.ics
+          git diff --staged --quiet || git commit -m "Aggiornamento automatico calendario Inter"
+          git push
