@@ -6,19 +6,16 @@ from icalendar import Calendar, Event
 # CONFIGURAZIONE API-FOOTBALL
 API_KEY = os.environ.get('API_KEY')
 HOST = "v3.football.api-sports.io" 
-TEAM_ID = 505  # ID dell'Inter su API-Football
+TEAM_ID = 505      # ID dell'Inter
+LEAGUE_ID = 135    # ID della Serie A su API-Football
+SEASON = "2026"    # Anno della stagione corrente
 
 HEADERS = {
     'x-apisports-key': API_KEY,
 }
 
 def ottieni_canali_internazionali_e_italiani(competizione):
-    """
-    Assegna i canali italiani e internazionali (DAZN, Sky, Amazon Prime, 
-    Mediaset, Canal+, Polsat Sport, TVP Sport, Eurosport, Cosmote Sport, Max Sport, Nova Sport)
-    """
     comp_lower = competizione.lower()
-    
     if "serie a" in comp_lower:
         return [
             "DAZN",
@@ -56,18 +53,14 @@ def main():
         print("ATTENZIONE: API_KEY non trovata nelle variabili d'ambiente!")
         return
 
-    oggi = datetime.now(timezone.utc)
-    fine_range = oggi + timedelta(days=60)
-
     url = f"https://{HOST}/fixtures"
     querystring = {
         "team": str(TEAM_ID),
-        "season": "2025",  # Corretto all'anno di inizio della stagione calcistica corrente
-        "from": oggi.strftime("%Y-%m-%d"),
-        "to": fine_range.strftime("%Y-%m-%d")
+        "league": str(LEAGUE_ID),
+        "season": SEASON
     }
 
-    print(f"Interrogazione API per il team {TEAM_ID} (Stagione 2025) dal {querystring['from']} al {querystring['to']}...")
+    print(f"Interrogazione API per Serie A (Lega {LEAGUE_ID}), Team {TEAM_ID}, Stagione {SEASON}...")
 
     try:
         response = requests.get(url, headers=HEADERS, params=querystring)
@@ -87,8 +80,8 @@ def main():
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
-    # Limita alle prossime 4 partite
-    for match in matches[:4]:
+    # Ordinamo o cicliamo sulle partite trovate
+    for match in matches[:10]:
         fixt = match.get("fixture", {})
         league = match.get("league", {})
         teams = match.get("teams", {})
