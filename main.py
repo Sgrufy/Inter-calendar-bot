@@ -56,18 +56,13 @@ def main():
         print("ATTENZIONE: API_KEY non trovata nelle variabili d'ambiente!")
         return
 
-    oggi = datetime.now(timezone.utc)
-    fine_range = oggi + timedelta(days=60)
-
     url = f"https://{HOST}/fixtures"
     querystring = {
         "team": str(TEAM_ID),
-        "season": "2026", # Forza la stagione corrente
-        "from": oggi.strftime("%Y-%m-%d"),
-        "to": fine_range.strftime("%Y-%m-%d")
+        "season": "2026"  # Richiede solo la squadra e la stagione senza filtri di date stringenti
     }
 
-    print(f"Interrogazione API per il team {TEAM_ID} (Stagione 2026) dal {querystring['from']} al {querystring['to']}...")
+    print(f"Interrogazione API per il team {TEAM_ID} (Stagione 2026)...")
 
     try:
         response = requests.get(url, headers=HEADERS, params=querystring)
@@ -87,8 +82,8 @@ def main():
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
-    # Limita alle prossime 4 partite
-    for match in matches[:4]:
+    # Limita alle prime 10 partite disponibili
+    for match in matches[:10]:
         fixt = match.get("fixture", {})
         league = match.get("league", {})
         teams = match.get("teams", {})
