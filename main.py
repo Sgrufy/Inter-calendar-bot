@@ -3,9 +3,10 @@ import requests
 from datetime import datetime, timedelta, timezone
 from icalendar import Calendar, Event
 
+# CONFIGURAZIONE API-FOOTBALL
 API_KEY = os.environ.get('API_KEY')
-HOST = "v3.football.api-sports.io"
-TEAM_ID = 505
+HOST = "v3.football.api-sports.io" 
+TEAM_ID = 505  # ID dell'Inter su API-Football
 
 HEADERS = {
     'x-apisports-key': API_KEY,
@@ -13,54 +14,50 @@ HEADERS = {
 
 def ottieni_canali_internazionali_e_italiani(competizione):
     """
-    Assegna i canali italiani e internazionali (inclusi Canal+, Eleven Sports, 
-    Polsat Sport, TVP Sport, Eurosport, Cosmote Sport, Max Sport, Nova Sport).
+    Assegna i canali italiani e internazionali (DAZN, Sky, Amazon Prime, 
+    Mediaset, Canal+, Polsat Sport, TVP Sport, Eurosport, Cosmote Sport, Max Sport, Nova Sport)
     """
     comp_lower = competizione.lower()
     
     if "serie a" in comp_lower:
         return [
-            "DAZN", 
-            "Sky Sport / NOW", 
-            "Eleven Sports (Internazionale)", 
-            "Cosmote Sport (Grecia)", 
-            "Max Sport (Bulgaria)", 
+            "DAZN",
+            "Sky Sport / NOW",
+            "Eleven Sports (Internazionale)",
+            "Cosmote Sport (Grecia)",
+            "Max Sport (Bulgaria)",
             "Nova Sport (Rep. Ceca/Grecia)"
         ]
-        
-    elif "champions league" in comp_lower:
+    elif "champions league" in comp_lower or "ucl" in comp_lower:
         return [
-            "Amazon Prime Video (Miglior match mercoledì)", 
-            "Sky Sport / NOW", 
-            "Canal+ Extra / Canal+ Online (Polonia)", 
-            "TVP Sport (Polonia)", 
+            "Sky Sport / NOW",
+            "Amazon Prime Video (Miglior match mercoledì)",
+            "Canal+ (Francia / Internazionale)",
             "Polsat Sport (Polonia)",
-            "Cosmote Sport (Grecia)", 
-            "Max Sport (Bulgaria)", 
-            "Eurosport (Selezionati in Europa)"
+            "TVP Sport (Polonia)",
+            "Eurosport (Internazionale)",
+            "Cosmote Sport (Grecia)"
         ]
-        
     elif "coppa italia" in comp_lower or "supercoppa" in comp_lower:
         return [
-            "Mediaset (Canale 5 / Italia 1 / Mediaset Infinity)", 
+            "Mediaset (Canale 5 / Italia 1 / Mediaset Infinity)",
             "Polsat Sport (Polonia)"
         ]
-    
-    return [
-        "DAZN", "Sky Sport", "Amazon Prime Video", "Mediaset", 
-        "Canal+", "Eleven Sports", "Polsat Sport", "TVP Sport", 
-        "Cosmote Sport", "Max Sport", "Nova Sport"
-    ]
+    else:
+        return [
+            "DAZN / Sky Sport",
+            "Canal+ (Internazionale)",
+            "Polsat Sport",
+            "Cosmote Sport"
+        ]
 
-def genera_ics_automatico():
-    cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Auto Globale//IT')
-    cal.add('version', '2.0')
-    cal.add('x-wr-calname', 'Inter TV Broadcasts')
+def main():
+    if not API_KEY:
+        print("ATTENZIONE: API_KEY non trovata nelle variabili d'ambiente!")
+        return
 
-    tz_italy = timezone(timedelta(hours=2))
-    oggi = datetime.now(tz_italy)
-    fine_range = oggi + timedelta(days=20)
+    oggi = datetime.now(timezone.utc)
+    fine_range = oggi + timedelta(days=60) # Aumentato a 60 giorni per sicurezza
 
     url = f"https://{HOST}/fixtures"
     querystring = {
@@ -69,75 +66,59 @@ def genera_ics_automatico():
         "to": fine_range.strftime("%Y-%m-%d")
     }
 
-    tutte_le_partite = []
+    print(f"Interrogazione API per il team {TEAM_ID} dal {querystring['from']} al {querystring['to']}...")
 
     try:
-        response = requests.get(url, headers=HEADERS, params=querystring, timeout=10)
+        response = requests.get(url, headers=HEADERS, params=querystring)
+        print(f"Stato risposta HTTP: {response.status_code}")
+        
         data = response.json()
-        matches = data.get('response', [])
-
-        for match in matches:
-            fixture = match.get('fixture', {})
-            league = match.get('league', {})
-            teams = match.get('teams', {})
-
-            date_str = fixture.get('date')
-            if not date_str:
-                continue
-
-            date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            ora_partita = date_utc.astimezone(tz_italy)
-
-            if ora_partita >= oggi - timedelta(hours=3):
-                home_name = teams.get('home', {}).get('name', 'Casa')
-                away_name = teams.get('away', {}).get('name', 'Ospiti')
-                
-                if "Inter" in home_name: home_name = "Inter"
-                if "Inter" in away_name: away_name = "Inter"
-                
-                nome_formattato = f"{home_name} vs {away_name}"
-                competizione_label = league.get('name', 'Competizione Calcistica')
-
-                # Inserimento dei canali globali ed europei richiesti
-                lista_canali = ottieni_canali_internazionali_e_italiani(competizione_label)
-
-                tutte_le_partite.append({
-                    'ora': ora_partita,
-                    'name': nome_formattato,
-                    'competizione': competizione_label,
-                    'canali': lista_canali
-                })
+        matches = data.get("response", [])
+        print(f"Partite trovate dall'API: {len(matches)}")
 
     except Exception as e:
-        print(f"Errore durante la chiamata ad API-Football: {e}")
+        print(f"Errore durante la chiamata API: {e}")
+        matches = []
 
-    tutte_le_partite.sort(key=lambda x: x['ora'])
-    partite_da_salvare = tutte_le_partite[:4]
+    # Creazione del calendario .ics
+    cal = Calendar()
+    cal.add('prodid', '//Calendario Inter Auto Globale//IT')
+    cal.add('version', '2.0')
+    cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
-    for p in partite_da_salvare:
-        evento = Event()
-        evento.add('summary', f"⚽ {p['name']}")
-        evento.add('dtstart', p['ora'])
-        evento.add('dtend', p['ora'] + timedelta(hours=2))
+    # Limita alle prossime 4 partite
+    for match in matches[:4]:
+        fixt = match.get("fixture", {})
+        league = match.get("league", {})
+        teams = match.get("teams", {})
+
+        data_str = fixt.get("date")
+        if not data_str:
+            continue
+
+        dt_inizio = datetime.fromisoformat(data_str.replace("Z", "+00:00"))
+        dt_fine = dt_inizio + timedelta(hours=2)
+
+        avversario = teams.get("away", {}).get("name") if teams.get("home", {}).get("id") == TEAM_ID else teams.get("home", {}).get("name")
+        casa_trasferta = "Inter - " + avversario if teams.get("home", {}).get("id") == TEAM_ID else avversario + " - Inter"
+        competizione_nome = league.get("name", "Partita Inter")
+
+        canali = ottieni_canali_internazionali_e_italiani(competizione_nome)
+        canali_str = "\n".join([f"- {c}" for c in canali])
+
+        event = Event()
+        event.add('summary', f"⚽ {casa_trasferta} ({competizione_nome})")
+        event.add('dtstart', dt_inizio)
+        event.add('dtend', dt_fine)
+        event.add('description', f"📺 CANALI / EMITTENTI (ITA & MONDO):\n{canali_str}")
         
-        orario_str = p['ora'].strftime('%H:%M')
-        data_str = p['ora'].strftime('%d/%m/%Y')
-        
-        descrizione = (
-            f"🏆 Competizione: {p['competizione']}\n"
-            f"📅 Data: {data_str} alle {orario_str}\n"
-            f"-----------------------------------\n"
-            f"📺 CANALI / EMITTENTI (ITA & MONDO):\n"
-        )
-        for c in p['canali']:
-            descrizione += f"  • {c}\n"
-            
-        evento.add('description', descrizione)
-        cal.add_component(evento)
+        cal.add_component(event)
 
-    with open("inter_tv.ics", 'wb') as f:
+    # Salvataggio del file
+    with open("inter_tv.ics", "wb") as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics generato con successo con i canali internazionali!")
+    
+    print("File inter_tv.ics generato con successo.")
 
-if __name__ == '__main__':
-    genera_ics_automatico()
+if __name__ == "__main__":
+    main()
