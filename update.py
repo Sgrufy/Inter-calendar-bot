@@ -10,10 +10,10 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 }
 
-COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
+COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Mappa completa dei canali principali
+# Mappa completa di tutti i canali da monitorare nell'XML
 CANALI_EPG = {
     "Eleven Sports 1": "6340",
     "Eleven Sports 2": "6339",
@@ -41,7 +41,8 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def get_canali_strutturati(home, away, data_utc, competizione):
+def get_canali_reali_xml(data_utc):
+    """Verifica l'XML reale canale per canale e restituisce solo quelli che trasmettono l'Inter in quella data."""
     canali_trovati = []
     data_str = data_utc.strftime('%Y%m%d')
     
@@ -55,25 +56,15 @@ def get_canali_strutturati(home, away, data_utc, competizione):
                     title_el = programme.find('title')
                     if title_el is not None and title_el.text:
                         t_text = title_el.text.lower()
-                        # Ricerca flessibile ed efficace per "inter" (inter, inter mediolan, ecc.)
+                        # Cerca riferimenti reali all'Inter nel titolo del programma di quel giorno
                         if "inter" in t_text:
                             if nome_canale not in canali_trovati:
                                 canali_trovati.append(nome_canale)
                                 break
         except Exception:
             pass
-        
-        if len(canali_trovati) >= 4:
-            break
-                
-    # Fallback nel caso in cui l'EPG non sia ancora popolata per quella data specifica
-    if not canali_trovati:
-        if "Champions" in competizione:
-            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Cosmote 1 (Fallback: Amazon Prime)"]
-        else:
-            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1 (Fallback: DAZN / Sky)"]
             
-    return canali_trovati[:4]
+    return canali_trovati
 
 def fetch_next_matches():
     all_matches = []
@@ -104,12 +95,19 @@ def fetch_next_matches():
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
+            # Ricerca dei canali reali basata sull'XML
+            canali_reali = get_canali_reali_xml(date_utc)
+            
+            # Se l'XML non ha ancora i dati per quella data futura, usiamo un fallback pulito
+            if not canali_reali:
+                canali_reali = ["Palinsesto in aggiornamento (verrà sincronizzato a breve)"]
+            
             all_matches.append({
                 'ora': ora_locale,
                 'ora_utc': date_utc,
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
-                'canali': get_canali_strutturati(home, away, date_utc, comp_name)
+                'canali': canali_reali
             })
             
     except Exception as e:
@@ -120,7 +118,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V21 EPG Fix//IT')
+    cal.add('prodid', '-//Calendario Inter V23 Real XML//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -138,7 +136,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V21 EPG Fix generato con successo.")
+    print("File V23 Real XML generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
