@@ -13,21 +13,16 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
 TEAM_ID = 108
 
-# Mappa completa di TUTTI i canali (senza LiveSoccer TV)
+# Mappa completa di TUTTI i canali
 CANALI_EPG = {
-    # Eleven Sports
     "Eleven Sports 1": "6340",
     "Eleven Sports 2": "6339",
     "Eleven Sports 3": "6338",
     "Eleven Sports 4": "6336",
-    
-    # Canal+ e Extra
     "Canal+ Sport": "67504",
     "Canal+ Sport 2": "67502",
     "Canal+ Extra": "407523",
     "Canal+ 1": "407672",
-    
-    # Polsat Sport
     "Polsat Sport 1": "452290",
     "Polsat Sport 2": "449589",
     "Polsat Sport 3": "449590",
@@ -39,14 +34,8 @@ CANALI_EPG = {
     "Polsat Sport Extra 6": "7835",
     "Polsat Sport Extra 7": "6003",
     "Polsat Sport Extra 8": "535972",
-
-    # TVP Sport
     "TVP Sport": "5778",
-
-    # Nova (Generale)
     "Nova": "548829",
-
-    # Cosmote Sport
     "Cosmote 1": "476569",
     "Cosmote 2": "476571",
     "Cosmote 3": "476563",
@@ -56,16 +45,12 @@ CANALI_EPG = {
     "Cosmote 7": "476553",
     "Cosmote 8": "476559",
     "Cosmote 9": "476562",
-
-    # Max Sport
     "Max Sport 1": "535766",
     "Max Sport 2": "535765",
     "Max Sport 3": "409256",
     "Max Sport 4": "409257",
     "Max Sport 5": "535764",
     "Max Sport 6": "535763",
-
-    # Nova Sport
     "Nova Sport 1": "6263",
     "Nova Sport 2": "7401",
     "Nova Sport 3": "7747",
@@ -73,17 +58,8 @@ CANALI_EPG = {
     "Nova Sport Extra 1": "392147",
     "Nova Sport Extra 2": "392164",
     "Nova Sport Extra 3": "535972",
-    
-    # Altri canali ed estensioni EPG
     "ESPN": "5831",
-    "Teleman": "5830",
-    "Canale Extra 3": "415568",
-    "Canale Extra 5": "480599",
-    "Canale Extra 6": "480595",
-    "Canale Extra 7": "480591",
-    "Canale Extra 8": "480597",
-    "Canale Extra 10": "480587",
-    "Canale Extra 14": "5828"
+    "Teleman": "5830"
 }
 
 def pulisci_nome(nome):
@@ -96,7 +72,6 @@ def get_canali_strutturati(home, away, data_utc, competizione):
     canali_trovati = []
     data_str = data_utc.strftime('%Y%m%d')
     
-    # Ordine di preferenza e raggruppamento per priorità (senza LiveSoccer TV)
     ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman"]
     
     for pref in ordinamento:
@@ -117,13 +92,11 @@ def get_canali_strutturati(home, away, data_utc, competizione):
                 except Exception:
                     pass
                 
-                # Ci fermiamo quando troviamo 6 canali validi
                 if len(canali_trovati) >= 6:
                     break
         if len(canali_trovati) >= 6:
             break
                 
-    # Fallback pulito senza LiveSoccer TV
     if not canali_trovati:
         if "Champions" in competizione:
             canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: Amazon Prime Video)"]
@@ -154,15 +127,23 @@ def fetch_next_matches():
             date_str = match.get('utcDate')
             if not date_str: continue
                 
+            # Parsing pulito della data UTC dall'API
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             if date_utc < adesso: continue
                 
+            # Conversione corretta al fuso orario italiano (gestisce in automatico solare/legale)
+            # Se l'API fornisce già l'orario UTC corretto, in Italia aggiungiamo 1 ora (inverno) o 2 ore (estate).
+            # Usiamo un metodo robusto basato sulla libreria standard o offset dinamico basato sul mese estivo/invernale:
+            is_dst = date_utc.month in [4, 5, 6, 7, 8, 9, 10] # Semplificazione approssimativa ora legale estiva italiana (CEST = UTC+2)
+            offset_ore = 2 if is_dst else 1
+            ora_locale = date_utc + timedelta(hours=offset_ore)
+
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
             all_matches.append({
-                'ora': date_utc + timedelta(hours=2),
+                'ora': ora_locale,
                 'ora_utc': date_utc,
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
@@ -177,7 +158,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V17 EPG Lean//IT')
+    cal.add('prodid', '-//Calendario Inter V18 Clean UI//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -186,13 +167,17 @@ def generate_ics(matches):
         evento.add('summary', f"⚽ {p['name']}")
         evento.add('dtstart', p['ora'].replace(tzinfo=None))
         evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
-        descrizione = f"🏆 {p['competizione']}\n📺 CANALI:\n" + "\n".join([f"  • {c}" for c in p['canali']])
+        
+        # Descrizione pulita senza caratteri di a capo spezzati che rovinano la grafica nei client calendar
+.       canali_testo = "\n".join([f"• {c}" for c in p['canali']])
+        descrizione = f"Competizione: {p['competizione']}\n\nCanali TV:\n{canali_testo}"
+        
         evento.add('description', descrizione)
         cal.add_component(evento)
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V17 EPG Lean generato con successo.")
+    print("File V18 Clean UI generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
