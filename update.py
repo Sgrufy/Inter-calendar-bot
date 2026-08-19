@@ -13,9 +13,10 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
+# Mappa dei canali con ID corretti per allineare Eleven Sports 1 e 2 al palinsesto reale
 CANALI_EPG = {
-    "Eleven Sports 1": "6340",
-    "Eleven Sports 2": "6339",
+    "Eleven Sports 1": "6339",
+    "Eleven Sports 2": "6340",
     "Eleven Sports 3": "6338",
     "Eleven Sports 4": "6336",
     "Canal+ Sport": "67504",
@@ -125,7 +126,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V26 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V27 Final//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -143,7 +144,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V26 generato con successo.")
+    print("File V27 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
