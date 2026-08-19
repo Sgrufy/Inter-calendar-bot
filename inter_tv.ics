@@ -1,32 +1,33 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V28 Final//IT
+PRODID:-//Calendario Inter V29 Final//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs AC Monza
 DTSTART:20260822T163000Z
 DTEND:20260822T183000Z
-DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 2
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
+ rts 2
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
-DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Palinsesto in aggiorn
- amento (verrà sincronizzato a breve)
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 In attesa 
+ di programmazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T160000Z
 DTEND:20260905T180000Z
-DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Palinsesto in aggiorn
- amento (verrà sincronizzato a breve)
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 In attesa 
+ di programmazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T184500Z
 DTEND:20260914T204500Z
-DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Palinsesto in aggiorn
- amento (verrà sincronizzato a breve)
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 In attesa 
+ di programmazione ufficiale ⏳
 END:VEVENT
 END:VCALENDAR
