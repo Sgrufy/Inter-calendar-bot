@@ -13,7 +13,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
 TEAM_ID = 108
 
-# Mappa completa di TUTTI i canali
+# Mappa completa di TUTTI i canali (senza LiveSoccer TV)
 CANALI_EPG = {
     # Eleven Sports
     "Eleven Sports 1": "6340",
@@ -77,7 +77,6 @@ CANALI_EPG = {
     # Altri canali ed estensioni EPG
     "ESPN": "5831",
     "Teleman": "5830",
-    "LiveSoccer TV": "5829",
     "Canale Extra 3": "415568",
     "Canale Extra 5": "480599",
     "Canale Extra 6": "480595",
@@ -97,8 +96,8 @@ def get_canali_strutturati(home, away, data_utc, competizione):
     canali_trovati = []
     data_str = data_utc.strftime('%Y%m%d')
     
-    # Ordine di preferenza e raggruppamento per priorità
-    ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman", "LiveSoccer TV"]
+    # Ordine di preferenza e raggruppamento per priorità (senza LiveSoccer TV)
+    ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman"]
     
     for pref in ordinamento:
         for nome_canale, channel_id in CANALI_EPG.items():
@@ -124,7 +123,7 @@ def get_canali_strutturati(home, away, data_utc, competizione):
         if len(canali_trovati) >= 6:
             break
                 
-    # Fallback nel caso in cui l'EPG non elenchi ancora il match
+    # Fallback pulito senza LiveSoccer TV
     if not canali_trovati:
         if "Champions" in competizione:
             canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: Amazon Prime Video)"]
@@ -178,7 +177,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V16 EPG Turbo Max6//IT')
+    cal.add('prodid', '-//Calendario Inter V17 EPG Lean//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -193,7 +192,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V16 EPG Turbo Max6 generato con successo.")
+    print("File V17 EPG Lean generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
