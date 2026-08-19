@@ -2,7 +2,7 @@ import os
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
-from calendar import Calendar, Event # Nota: icalendar gestisce il calendario
+from icalendar import Calendar, Event
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 HEADERS = {
@@ -13,7 +13,6 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Mappa completa dei canali EPG internazionali
 CANALI_EPG = {
     "Eleven Sports 1": "6340",
     "Eleven Sports 2": "6339",
@@ -41,17 +40,7 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def parse_xml_time(time_str):
-    """Converte il formato data dell'XML in oggetto datetime UTC."""
-    try:
-        clean_str = time_str.strip().split()[0]
-        dt = datetime.strptime(clean_str, '%Y%m%d%H%M%S')
-        return dt.replace(tzinfo=timezone.utc)
-    except Exception:
-        return None
-
 def get_canale_esatto_xml(date_utc, home_team, away_team):
-    """Cerca il canale verificando il match con una tolleranza che copre anche i collegamenti pre-partita (-15m / +1h)."""
     data_str = date_utc.strftime('%Y%m%d')
     canali_trovati = []
     
@@ -74,10 +63,8 @@ def get_canale_esatto_xml(date_utc, home_team, away_team):
                                     clean_start = start_str.split(' ')[0]
                                     prog_start = datetime.strptime(clean_start, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                                     
-                                    # Calcoliamo la differenza rispetto all'orario ufficiale della partita
                                     diff_seconds = (prog_start - date_utc).total_seconds()
                                     
-                                    # Accettiamo se il programma inizia da 20 minuti prima (es. studio pre-partita o collegamento) fino a 1 ora dopo
                                     if -1200 <= diff_seconds <= 3600:
                                         if nome_canale not in canali_trovati:
                                             canali_trovati.append(nome_canale)
@@ -117,7 +104,6 @@ def fetch_next_matches():
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
-            # Ricerca dei canali reali con gestione dello slot anticipato
             canali_reali = get_canale_esatto_xml(date_utc, home, away)
             
             if not canali_reali:
@@ -138,9 +124,8 @@ def fetch_next_matches():
     return all_matches[:4]
 
 def generate_ics(matches):
-    from icalendar import Calendar, Event # Import corretto per la generazione ICS
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V25 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V26 Final//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -158,7 +143,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V25 Final generato con successo.")
+    print("File V26 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
