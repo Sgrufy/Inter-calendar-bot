@@ -14,36 +14,26 @@ COMPETITIONS = ['SA', 'CL']
 TEAM_ID = 108
 
 def get_scraped_channels(match_date, home, away):
-    """
-    Funzione di scraping automatico per trovare il canale esatto.
-    Visita una fonte di palinsesti per estrarre l'emittente associata al match.
-    """
     channels = []
     try:
-        # Esempio di richiesta a un aggregatore pubblico o pagina di palinsesti
-        # Nota: L'URL va puntato alla pagina specifica del match o dei palinsesti TV internazionali
         search_url = f"https://www.livesoccertv.com/teams/italy/inter-milan/"
         response = requests.get(search_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            # Qui cerchiamo gli elementi della tabella dei canali TV associati alla data della partita
-            # (La struttura dipende dal sito scelto e dai suoi tag HTML)
             match_row = soup.find(string=lambda t: t and away.lower() in t.lower())
             if match_row:
-                # Estrazione dinamica dei canali dalla riga del match trovata
                 parent_tr = match_row.find_parent('tr')
                 if parent_tr:
                     channel_tds = parent_tr.find_all('a', class_='channel-name')
                     for ch in channel_tds:
                         channels.append(ch.text.strip())
         
-        # Fallback se lo scraping non trova dati specifici in tempo reale
         if not channels:
             channels = ["Canal+", "Eleven Sports", "Polsat Sport"]
             
     except Exception as e:
-        print(f durante lo scraping dei canali: {e}")
+        print(f"Errore durante lo scraping dei canali: {e}")
         channels = ["Canal+", "Eleven Sports"]
         
     return channels
@@ -76,11 +66,9 @@ def fetch_next_matches():
                 continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            date_italy = date_utc + timedelta(hours=2) # Correzione fuso orario Italia
+            date_italy = date_utc + timedelta(hours=2)
             
             comp_name = competition_info.get('name', 'Competizione')
-            
-            # Richiama lo scraper automatico per il canale
             exact_channels = get_scraped_channels(date_italy, home, away)
             
             all_matches.append({
@@ -115,7 +103,7 @@ def generate_ics(matches):
             f"🏆 Competizione: {p['competizione']}\n"
             f"📅 Data: {data_str} alle {orario_str}\n"
             f"-----------------------------------\n"
-            f"📺 CANALI / EMITTENTI (Automatici):\n"
+            f"📺 CANALI / EMITTENTI:\n"
         )
         for c in p['canali']:
             descrizione += f"  • {c}\n"
@@ -125,8 +113,9 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics generato con scraping dei canali!")
+    print("File inter_tv.ics generato con successo!")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
-    generate_ics(matches)
+    generate_ics
+    (matches)
