@@ -3,15 +3,16 @@ import requests
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
-API_KEY = os.getenv("API_FOOTBALL_KEY")
-API_HOST = "v3.football.api-sports.io"
-TEAM_ID = 505  # ID dell'Inter
-
+# Configurazione Football-Data.org
+API_KEY = os.getenv("FOOTBALL_DATA_KEY")  # Nome della variabile segreta su GitHub
 HEADERS = {
-    'x-apisports-key': API_KEY
+    'X-Auth-Token': API_KEY
 }
 
-LEAGUES = [135, 137, 2] # Serie A, Coppa Italia, Champions League
+# Competizioni su Football-Data.org: 'SA' (Serie A), 'CL' (Champions League)
+# Nota: La Coppa Italia (corrispondente a coppe nazionali minori) potrebbe non essere inclusa nel piano free base di questo fornitore.
+COMPETITIONS = ['SA', 'CL']
+TEAM_ID = 108  # ID dell'Inter su Football-Data.org (verificabile, di solito Inter è 108)
 
 def get_channels_for_competition(comp_name):
     comp = comp_name.lower()
@@ -19,73 +20,59 @@ def get_channels_for_competition(comp_name):
         "Canal+", "Eleven Sports", "Polsat Sport", "TVP Sport",
         "Eurosport (PL)", "Cosmote Sport", "Max Sport", "Nova Sport"
     ]
-    if "coppa italia" in comp:
-        channels.append("Mediaset")
     if "champions" in comp:
         channels.append("Amazon Prime Video")
     return channels
 
 def fetch_next_matches():
     all_matches = []
-    url = f"https://{API_HOST}/fixtures"
     
     if not API_KEY:
-        print("ATTENZIONE: API_FOOTBALL_KEY non trovata!")
+        print("ATTENZIONE: FOOTBALL_DATA_KEY non trovata!")
         return []
 
-    oggi = datetime.now(timezone.utc)
-    data_da = oggi.strftime('%Y-%m-%d')
-    # Range di 60 giorni per coprire l'inizio della stagione 2026/2027
-    data_a = (oggi + timedelta(days=60)).strftime('%Y-%m-%d')
+    # Endpoint per le partite di una specifica squadra
+    # Usiamo direttamente l'endpoint delle partite della squadra dell'Inter
+    url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
-    # Per la stagione 2026/2027 l'anno di inizio richiesto da API-Football è 2026
-    stg_anno = 2026
-    
-    for league_id in LEAGUES:
-        params = {
-            "team": TEAM_ID,
-            "league": league_id,
-            "season": stg_anno,
-            "from": data_da,
-            "to": data_a
-        }
+    try:
+        print("Interrogazione Football-Data.org...")
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        data = response.json()
         
-        try:
-            print(f"Interrogazione API per lega ID {league_id} (Stagione {stg_anno})...")
-            response = requests.get(url, headers=HEADERS, params=params, timeout=10)
-            data = response.json()
+        matches = data.get('matches', [])
+        for match in matches:
+            competition_info = match.get('competition', {})
+            comp_code = competition_info.get('code')
             
-            print(f"Risposta API Lega {league_id}:", data)
+            # Filtriamo solo per le competizioni che ci interessano (es. Serie A e Champions)
+            if comp_code not in COMPETITIONS:
+                continue
+                
+            home = match.get('homeTeam', {}).get('name', 'Casa')
+            away = match.get('awayTeam', {}).get('name', 'Ospite')
+            name = f"{home} vs {away}"
             
-            fixtures = data.get('response', [])
-            for fixture in fixtures:
-                fixture_info = fixture.get('fixture', {})
-                teams = fixture.get('teams', {})
-                league_info = fixture.get('league', {})
+            date_str = match.get('utcDate')
+            if not date_str:
+                continue
                 
-                home = teams.get('home', {}).get('name', 'Squadra Casa')
-                away = teams.get('away', {}).get('name', 'Squadra Ospite')
-                
-                name = f"{home} vs {away}"
-                date_str = fixture_info.get('date')
-                if not date_str:
-                    continue
-                    
-                date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                comp_name = league_info.get('name', 'Competizione')
-                
-                all_matches.append({
-                    'ora': date_utc,
-                    'name': name,
-                    'competizione': comp_name,
-                    'canali': get_channels_for_competition(comp_name)
-                })
-        except Exception as e:
-            print(f"Errore critico per la lega {league_id}: {e}")
+            date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            comp_name = competition_info.get('name', 'Competizione')
             
+            all_matches.append({
+                'ora': date_utc,
+                'name': name,
+                'competizione': comp_name,
+                'canali': get_channels_for_competition(comp_name)
+            })
+            
+    except Exception as e:
+        print(f"Errore durante la richiesta a Football-Data.org: {e}")
+        
+    # Ordiniamo per data e prendiamo le prossime 4/10 partite
     all_matches.sort(key=lambda x: x['ora'])
-    # Restituisce le prossime partite trovate per la nuova stagione
-    return all_matches[:10] 
+    return all_matches[:10]
 
 def generate_ics(matches):
     cal = Calendar()
