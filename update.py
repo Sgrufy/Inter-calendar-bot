@@ -1,7 +1,7 @@
 import os
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
@@ -15,83 +15,9 @@ TEAM_ID = 108
 def pulisci_nome(nome):
     return nome.replace("Internazionale Milano", "Inter").replace("Internazionale", "Inter")
 
-def scansiona_elevensports_pl(home, away):
-    channels = []
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'pl-PL,pl;q=0.9',
-        }
-        url = "https://elevensports.pl/"
-        response = requests.get(url, headers=headers, timeout=8)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'div', 'a'], class_=['channel', 'match-channel', 'station']):
-                ch = el.text.strip()
-                if "Eleven" in ch and ch not in channels:
-                    channels.append(ch)
-    except Exception:
-        pass
-    return channels
-
-def scansiona_teleman(home, away):
-    channels = []
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept-Language': 'pl-PL,pl;q=0.9',
-        }
-        url = "https://www.teleman.pl/search?q=Inter"
-        response = requests.get(url, headers=headers, timeout=8)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'a'], class_=['station', 'st-name']):
-                ch = el.text.strip()
-                if ch and ch not in channels:
-                    channels.append(ch)
-    except Exception:
-        pass
-    return channels
-
-def scansiona_livesoccertv(home, away):
-    channels = []
-    try:
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept-Language': 'en-US,en;q=0.9',
-        }
-        url = "https://www.livesoccertv.com/teams/italy/inter-milan/"
-        response = requests.get(url, headers=headers, timeout=8)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for a in soup.find_all('a', class_='channel-name'):
-                ch = a.text.strip()
-                if ch and ch not in channels:
-                    channels.append(ch)
-    except Exception:
-        pass
-    return channels
-
 def get_canali_multipli(home, away):
-    # 1. Prima precedenza: Eleven Sports Polonia
-    canali = scansiona_elevensports_pl(home, away)
-    
-    # 2. Seconda precedenza: Teleman
-    if not canali:
-        canali = scansiona_teleman(home, away)
-        
-    # 3. Terza precedenza: Live Soccer TV
-    if not canali:
-        canali = scansiona_livesoccertv(home, away)
-        
-    # 4. Quarta precedenza: ESPN prima del fallback generico finale
-    if not canali:
-        canali = ["ESPN", "Canal+ Sport", "Eleven Sports 1"]
-        
-    return canali[:3]
+    # Fallbonk pulito e diretto visto che i siti di scraping bloccano GitHub
+    return ["Eleven Sports 1", "Canal+ Sport", "ESPN"]
 
 def fetch_next_matches():
     all_matches = []
@@ -100,6 +26,9 @@ def fetch_next_matches():
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
+        
+        # Usiamo UTC consapevole per il confronto con le date delle API
+        adesso = datetime.now(timezone.utc)
         
         matches = data.get('matches', [])
         for match in matches:
@@ -110,12 +39,18 @@ def fetch_next_matches():
             if not date_str:
                 continue
                 
+            # Parsing della data UTC della partita
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             
+            # Prendiamo solo le partite future rispetto a ora
+            if date_utc < adesso:
+                continue
+                
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
+            # Aggiungiamo 2 ore per l'orario italiano (regolabile se ora legale)
             date_italy = date_utc + timedelta(hours=2)
             canali = get_canali_multipli(home, away)
             
@@ -129,12 +64,15 @@ def fetch_next_matches():
     except Exception as e:
         print(f"Errore durante il recupero: {e}")
         
+    # Ordiniamo rigorosamente in ordine cronologico dalla più vicina alla più lontana
     all_matches.sort(key=lambda x: x['ora'])
+    
+    # Restituisce esattamente le prossime 4
     return all_matches[:4]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Priorita//IT')
+    cal.add('prodid', '-//Calendario Inter Ordinato//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
