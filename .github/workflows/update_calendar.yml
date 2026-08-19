@@ -24,7 +24,7 @@ jobs:
 
       - name: Run update script
         env:
-          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          API_FOOTBALL_KEY: ${{ secrets.FOOTBALL_DATE_KEY }}
         run: |
           python update.py
 
