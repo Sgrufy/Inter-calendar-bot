@@ -1,33 +1,29 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V3//IT
+PRODID:-//Calendario Inter V5//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ FC Inter vs AC Monza
+SUMMARY:⚽ Inter vs AC Monza
 DTSTART:20260822T183000
 DTEND:20260822T203000
-DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • Eleven Sports 
- 1\n  • Canal+ Sport\n  • ESPN\n
+DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • DAZN\n  • Sky Sport
 END:VEVENT
 BEGIN:VEVENT
-SUMMARY:⚽ Cagliari Calcio vs FC Inter
+SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T204500
 DTEND:20260830T224500
-DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • Eleven Sports 
- 1\n  • Canal+ Sport\n  • ESPN\n
+DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • DAZN\n  • Sky Sport
 END:VEVENT
 BEGIN:VEVENT
-SUMMARY:⚽ FC Inter vs SSC Napoli
+SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T180000
 DTEND:20260905T200000
-DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • Eleven Sports 
- 1\n  • Canal+ Sport\n  • ESPN\n
+DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • DAZN\n  • Sky Sport
 END:VEVENT
 BEGIN:VEVENT
-SUMMARY:⚽ FC Inter vs Udinese Calcio
+SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T204500
 DTEND:20260914T224500
-DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • Eleven Sports 
- 1\n  • Canal+ Sport\n  • ESPN\n
+DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • DAZN\n  • Sky Sport
 END:VEVENT
 END:VCALENDAR
