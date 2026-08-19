@@ -104,9 +104,8 @@ def fetch_next_matches():
             canali_reali = get_canale_esatto_xml(date_utc, home, away)
             
             if not canali_reali:
-                canali_reali = ["Palinsesto in aggiornamento (verrà sincronizzato a breve)"]
+                canali_reali = ["In attesa di programmazione ufficiale ⏳"]
             
-            # Salviamo direttamente l'orario UTC senza sfasamenti manuali
             all_matches.append({
                 'ora_utc': date_utc,
                 'name': f"{home} vs {away}",
@@ -122,7 +121,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V28 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V29 Final//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -130,21 +129,19 @@ def generate_ics(matches):
         evento = Event()
         evento.add('summary', f"⚽ {p['name']}")
         
-        # Passando direttamente l'oggetto datetime con timezone UTC,
-        # icalendar scriverà correttamente il suffisso 'Z', lasciando 
-        # al calendario il compito di convertirlo nell'ora locale del telefono.
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        canali_testo = "\n".join([f"• {c}" for c in p['canali']])
-        descrizione = f"Competizione: {p['competizione']}\n\nCanali TV:\n{canali_testo}"
+        # Layout della descrizione migliorato con le emoji
+        canali_testo = "\n".join([f"📺 {c}" for c in p['canali']])
+        descrizione = f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}"
         
         evento.add('description', descrizione)
         cal.add_component(evento)
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V28 generato con successo.")
+    print("File V29 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
