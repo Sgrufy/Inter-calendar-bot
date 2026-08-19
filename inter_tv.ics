@@ -1,36 +1,36 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V17 EPG Lean//IT
+PRODID:-//Calendario Inter V19 Clean UI//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs AC Monza
 DTSTART:20260822T183000
 DTEND:20260822T203000
-DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • Eleven Sports 1\n  • Eleve
- n Sports 3\n  • Eleven Sports 4
+DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 1\n• 
+ Eleven Sports 3\n• Eleven Sports 4
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T204500
 DTEND:20260830T224500
-DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • Eleven Sports 3\n  • Eleve
- n Sports 4\n  • Canal+ Extra\n  • Polsat Sport 1\n  • Polsat Sport E
- xtra 6
+DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
+ tra 6
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T180000
 DTEND:20260905T200000
-DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • Eleven Sports 3\n  • Eleve
- n Sports 4\n  • Canal+ Extra\n  • Polsat Sport 1\n  • Polsat Sport E
- xtra 6
+DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
+ tra 6
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T204500
 DTEND:20260914T224500
-DESCRIPTION:🏆 Serie A\n📺 CANALI:\n  • Eleven Sports 3\n  • Eleve
- n Sports 4\n  • Canal+ Extra\n  • Polsat Sport 1\n  • Polsat Sport E
- xtra 6
+DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
+ tra 6
 END:VEVENT
 END:VCALENDAR
