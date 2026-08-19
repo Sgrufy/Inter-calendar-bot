@@ -13,7 +13,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
 TEAM_ID = 108
 
-# Mappa completa di TUTTI i canali (inclusi TVP Sport e Polsat Sport)
+# Mappa completa di TUTTI i canali
 CANALI_EPG = {
     # Eleven Sports
     "Eleven Sports 1": "6340",
@@ -93,51 +93,49 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def cerca_su_epg_pw(data_partita, nome_squadra):
-    canali_trovati = []
-    data_str = data_partita.strftime('%Y%m%d')
-    
-    for nome_canale, channel_id in CANALI_EPG.items():
-        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={channel_id}"
-        try:
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                root = ET.fromstring(response.content)
-                for programme in root.findall('programme'):
-                    title_el = programme.find('title')
-                    if title_el is not None and title_el.text:
-                        if nome_squadra.lower() in title_el.text.lower():
-                            if nome_canale not in canali_trovati:
-                                canali_trovati.append(nome_canale)
-        except Exception as e:
-            print(f"Errore lettura EPG per {nome_canale}: {e}")
-            
-    return canali_trovati
-
 def get_canali_strutturati(home, away, data_utc, competizione):
-    canali = cerca_su_epg_pw(data_utc, "Inter")
+    canali_trovati = []
+    data_str = data_utc.strftime('%Y%m%d')
     
-    # Ordine di preferenza e raggruppamento per priorità (inclusi Polsat e TVP)
+    # Ordine di preferenza e raggruppamento per priorità
     ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman", "LiveSoccer TV"]
     
-    canali_ordinati = []
     for pref in ordinamento:
-        for c in canali:
-            if pref.lower() in c.lower() and c not in canali_ordinati:
-                canali_ordinati.append(c)
+        for nome_canale, channel_id in CANALI_EPG.items():
+            if pref.lower() in nome_canale.lower() and nome_canale not in canali_trovati:
+                url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={channel_id}"
+                try:
+                    response = requests.get(url, timeout=2)
+                    if response.status_code == 200:
+                        root = ET.fromstring(response.content)
+                        for programme in root.findall('programme'):
+                            title_el = programme.find('title')
+                            if title_el is not None and title_el.text:
+                                if "inter" in title_el.text.lower():
+                                    if nome_canale not in canali_trovati:
+                                        canali_trovati.append(nome_canale)
+                                        break
+                except Exception:
+                    pass
                 
-    # Fallback nel caso in cui l'EPG non elenchi ancora il match per una data specifica
-    if not canali_ordinati:
+                # Ci fermiamo quando troviamo 6 canali validi
+                if len(canali_trovati) >= 6:
+                    break
+        if len(canali_trovati) >= 6:
+            break
+                
+    # Fallback nel caso in cui l'EPG non elenchi ancora il match
+    if not canali_trovati:
         if "Champions" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
+            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: Amazon Prime Video)"]
         elif "Coppa" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: Mediaset Infinity)"]
         elif "Supercoppa" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: Mediaset Infinity)"]
         else:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: DAZN / Sky)"]
+            canali_trovati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "Max Sport 1 (Fallback: DAZN / Sky)"]
             
-    return canali_ordinati[:4]
+    return canali_trovati[:6]
 
 def fetch_next_matches():
     all_matches = []
@@ -180,7 +178,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V14 EPG Full Global//IT')
+    cal.add('prodid', '-//Calendario Inter V16 EPG Turbo Max6//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -195,7 +193,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V14 EPG Full Global generato con successo.")
+    print("File V16 EPG Turbo Max6 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
