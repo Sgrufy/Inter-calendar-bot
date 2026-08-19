@@ -10,10 +10,10 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 }
 
-COMPETITIONS = ['SA', 'CL', 'COI'] # Serie A, Champions League, Coppa Italia
+COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
 TEAM_ID = 108
 
-# Mappa completa di tutti i canali basata sugli ID che hai trovato
+# Mappa completa di tutti i canali basata sugli ID di epg.pw
 CANALI_EPG = {
     # Eleven Sports
     "Eleven Sports 1": "6340",
@@ -71,11 +71,13 @@ def get_canali_strutturati(home, away, data_utc, competizione):
             if pref.lower() in c.lower() and c not in canali_ordinati:
                 canali_ordinati.append(c)
                 
-    # Fallback nel caso in cui per una data specifica l'EPG non elenchi ancora il match
+    # Fallback nel caso in cui l'EPG non elenchi ancora il match per una data specifica
     if not canali_ordinati:
         if "Champions" in competizione:
             canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
         elif "Coppa" in competizione:
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+        elif "Supercoppa" in competizione:
             canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
         else:
             canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: DAZN / Sky)"]
@@ -123,7 +125,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V10 EPG Live//IT')
+    cal.add('prodid', '-//Calendario Inter V11 EPG Live//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -138,7 +140,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V10 EPG Live generato con successo.")
+    print("File V11 EPG Live generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
