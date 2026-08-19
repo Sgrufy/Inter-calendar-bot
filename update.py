@@ -13,7 +13,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC'] # Serie A, Champions League, Coppa Italia, Supercoppa Italiana
 TEAM_ID = 108
 
-# Mappa completa di tutti i canali basata sugli ID di epg.pw
+# Mappa completa di TUTTI i canali (inclusi TVP Sport e Polsat Sport)
 CANALI_EPG = {
     # Eleven Sports
     "Eleven Sports 1": "6340",
@@ -21,15 +21,70 @@ CANALI_EPG = {
     "Eleven Sports 3": "6338",
     "Eleven Sports 4": "6336",
     
-    # Canal+
+    # Canal+ e Extra
     "Canal+ Sport": "67504",
     "Canal+ Sport 2": "67502",
     "Canal+ Extra": "407523",
+    "Canal+ 1": "407672",
     
-    # Altri canali ed eventi
+    # Polsat Sport
+    "Polsat Sport 1": "452290",
+    "Polsat Sport 2": "449589",
+    "Polsat Sport 3": "449590",
+    "Polsat Sport Extra 1": "408447",
+    "Polsat Sport Extra 2": "7135",
+    "Polsat Sport Extra 3": "7136",
+    "Polsat Sport Extra 4": "7221",
+    "Polsat Sport Extra 5": "6268",
+    "Polsat Sport Extra 6": "7835",
+    "Polsat Sport Extra 7": "6003",
+    "Polsat Sport Extra 8": "535972",
+
+    # TVP Sport
+    "TVP Sport": "5778",
+
+    # Nova (Generale)
+    "Nova": "548829",
+
+    # Cosmote Sport
+    "Cosmote 1": "476569",
+    "Cosmote 2": "476571",
+    "Cosmote 3": "476563",
+    "Cosmote 4": "476565",
+    "Cosmote 5": "476557",
+    "Cosmote 6": "476555",
+    "Cosmote 7": "476553",
+    "Cosmote 8": "476559",
+    "Cosmote 9": "476562",
+
+    # Max Sport
+    "Max Sport 1": "535766",
+    "Max Sport 2": "535765",
+    "Max Sport 3": "409256",
+    "Max Sport 4": "409257",
+    "Max Sport 5": "535764",
+    "Max Sport 6": "535763",
+
+    # Nova Sport
+    "Nova Sport 1": "6263",
+    "Nova Sport 2": "7401",
+    "Nova Sport 3": "7747",
+    "Nova Sport 4": "7612",
+    "Nova Sport Extra 1": "392147",
+    "Nova Sport Extra 2": "392164",
+    "Nova Sport Extra 3": "535972",
+    
+    # Altri canali ed estensioni EPG
     "ESPN": "5831",
     "Teleman": "5830",
-    "LiveSoccer TV": "5829"
+    "LiveSoccer TV": "5829",
+    "Canale Extra 3": "415568",
+    "Canale Extra 5": "480599",
+    "Canale Extra 6": "480595",
+    "Canale Extra 7": "480591",
+    "Canale Extra 8": "480597",
+    "Canale Extra 10": "480587",
+    "Canale Extra 14": "5828"
 }
 
 def pulisci_nome(nome):
@@ -62,8 +117,8 @@ def cerca_su_epg_pw(data_partita, nome_squadra):
 def get_canali_strutturati(home, away, data_utc, competizione):
     canali = cerca_su_epg_pw(data_utc, "Inter")
     
-    # Ordine di preferenza richiesto: Eleven Sports, Canal+, ESPN, Teleman, LiveSoccer TV
-    ordinamento = ["Eleven Sports", "Canal+", "ESPN", "Teleman", "LiveSoccer TV"]
+    # Ordine di preferenza e raggruppamento per priorità (inclusi Polsat e TVP)
+    ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman", "LiveSoccer TV"]
     
     canali_ordinati = []
     for pref in ordinamento:
@@ -74,13 +129,13 @@ def get_canali_strutturati(home, away, data_utc, competizione):
     # Fallback nel caso in cui l'EPG non elenchi ancora il match per una data specifica
     if not canali_ordinati:
         if "Champions" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
         elif "Coppa" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
         elif "Supercoppa" in competizione:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
         else:
-            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: DAZN / Sky)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "Polsat Sport 1", "TVP Sport", "Cosmote 1", "LiveSoccer TV (Fallback: DAZN / Sky)"]
             
     return canali_ordinati[:4]
 
@@ -125,7 +180,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V11 EPG Live//IT')
+    cal.add('prodid', '-//Calendario Inter V14 EPG Full Global//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -140,7 +195,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V11 EPG Live generato con successo.")
+    print("File V14 EPG Full Global generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
