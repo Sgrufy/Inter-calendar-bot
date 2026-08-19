@@ -13,7 +13,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Mappa completa di tutti i canali da monitorare nell'XML
+# Mappa completa dei canali
 CANALI_EPG = {
     "Eleven Sports 1": "6340",
     "Eleven Sports 2": "6339",
@@ -41,10 +41,20 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def get_canali_reali_xml(data_utc):
-    """Verifica l'XML reale canale per canale e restituisce solo quelli che trasmettono l'Inter in quella data."""
+def parse_xml_time(time_str):
+    """Converte il formato data dell'XML (es. 20260822182500 +0200) in oggetto datetime UTC."""
+    try:
+        # Rimuove eventuali spazi o timezone complessi per il parsing pulito
+        clean_str = time_str.strip().split()[0]
+        dt = datetime.strptime(clean_str, '%Y%m%d%H%M%S')
+        return dt.replace(tzinfo=timezone.utc)
+    except Exception:
+        return None
+
+def get_canale_esatto_xml(date_utc):
+    """Cerca nell'XML il canale che trasmette l'Inter nell'orario esatto della partita."""
+    data_str = date_utc.strftime('%Y%m%d')
     canali_trovati = []
-    data_str = data_utc.strftime('%Y%m%d')
     
     for nome_canale, channel_id in CANALI_EPG.items():
         url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={channel_id}"
@@ -56,11 +66,17 @@ def get_canali_reali_xml(data_utc):
                     title_el = programme.find('title')
                     if title_el is not None and title_el.text:
                         t_text = title_el.text.lower()
-                        # Cerca riferimenti reali all'Inter nel titolo del programma di quel giorno
                         if "inter" in t_text:
-                            if nome_canale not in canali_trovati:
-                                canali_trovati.append(nome_canale)
-                                break
+                            # Controlla l'orario del programma nell'XML
+                            start_str = programme.get('start')
+                            if start_str:
+                                prog_start = parse_xml_time(start_str)
+                                if prog_start:
+                                    # Verifica che il programma inizi in un intorno stretto dell'orario della partita (es. +/- 1 ora)
+                                    differenza = abs((prog_start - date_utc).total_seconds())
+                                    if differenza < 3600: # Entro 1 ora dall'inizio previsto
+                                        if nome_canale not in canali_trovati:
+                                            canali_trovati.append(nome_canale)
         except Exception:
             pass
             
@@ -95,10 +111,9 @@ def fetch_next_matches():
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
-            # Ricerca dei canali reali basata sull'XML
-            canali_reali = get_canali_reali_xml(date_utc)
+            # Ricerca filtrata rigorosamente per orario
+            canali_reali = get_canale_esatto_xml(date_utc)
             
-            # Se l'XML non ha ancora i dati per quella data futura, usiamo un fallback pulito
             if not canali_reali:
                 canali_reali = ["Palinsesto in aggiornamento (verrà sincronizzato a breve)"]
             
@@ -118,7 +133,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V23 Real XML//IT')
+    cal.add('prodid', '-//Calendario Inter V24 TimeMatch//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -136,7 +151,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V23 Real XML generato con successo.")
+    print("File V24 TimeMatch generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
