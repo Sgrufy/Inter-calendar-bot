@@ -35,19 +35,23 @@ def fetch_next_matches():
 
     oggi = datetime.now(timezone.utc)
     data_da = oggi.strftime('%Y-%m-%d')
-    # Cerchiamo in un intervallo di 60 giorni per trovare le prossime partite senza usare il parametro 'season' vietato nel plan free
+    # Range di 60 giorni per coprire l'inizio della stagione 2026/2027
     data_a = (oggi + timedelta(days=60)).strftime('%Y-%m-%d')
+    
+    # Per la stagione 2026/2027 l'anno di inizio richiesto da API-Football è 2026
+    stg_anno = 2026
     
     for league_id in LEAGUES:
         params = {
             "team": TEAM_ID,
             "league": league_id,
+            "season": stg_anno,
             "from": data_da,
             "to": data_a
         }
         
         try:
-            print(f"Interrogazione API per lega ID: {league_id}...")
+            print(f"Interrogazione API per lega ID {league_id} (Stagione {stg_anno})...")
             response = requests.get(url, headers=HEADERS, params=params, timeout=10)
             data = response.json()
             
@@ -80,8 +84,7 @@ def fetch_next_matches():
             print(f"Errore critico per la lega {league_id}: {e}")
             
     all_matches.sort(key=lambda x: x['ora'])
-    
-    # Tagliamo per prendere solo le prossime 4 partite in totale o per lega
+    # Restituisce le prossime partite trovate per la nuova stagione
     return all_matches[:10] 
 
 def generate_ics(matches):
