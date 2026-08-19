@@ -127,14 +127,10 @@ def fetch_next_matches():
             date_str = match.get('utcDate')
             if not date_str: continue
                 
-            # Parsing pulito della data UTC dall'API
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             if date_utc < adesso: continue
                 
-            # Conversione corretta al fuso orario italiano (gestisce in automatico solare/legale)
-            # Se l'API fornisce già l'orario UTC corretto, in Italia aggiungiamo 1 ora (inverno) o 2 ore (estate).
-            # Usiamo un metodo robusto basato sulla libreria standard o offset dinamico basato sul mese estivo/invernale:
-            is_dst = date_utc.month in [4, 5, 6, 7, 8, 9, 10] # Semplificazione approssimativa ora legale estiva italiana (CEST = UTC+2)
+            is_dst = date_utc.month in [4, 5, 6, 7, 8, 9, 10]
             offset_ore = 2 if is_dst else 1
             ora_locale = date_utc + timedelta(hours=offset_ore)
 
@@ -158,7 +154,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V18 Clean UI//IT')
+    cal.add('prodid', '-//Calendario Inter V19 Clean UI//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -168,8 +164,7 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora'].replace(tzinfo=None))
         evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
         
-        # Descrizione pulita senza caratteri di a capo spezzati che rovinano la grafica nei client calendar
-.       canali_testo = "\n".join([f"• {c}" for c in p['canali']])
+        canali_testo = "\n".join([f"• {c}" for c in p['canali']])
         descrizione = f"Competizione: {p['competizione']}\n\nCanali TV:\n{canali_testo}"
         
         evento.add('description', descrizione)
@@ -177,7 +172,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V18 Clean UI generato con successo.")
+    print("File V19 Clean UI generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
