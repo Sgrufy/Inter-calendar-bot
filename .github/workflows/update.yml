@@ -1,16 +1,35 @@
-import main
-import sys
+name: Aggiorna Calendario Inter
 
-def run_update():
-    try:
-        print("Avvio aggiornamento calendario Inter...")
-        # Chiama le funzioni definite nel tuo file main.py
-        matches = main.fetch_next_matches()
-        main.generate_ics(matches)
-        print("Aggiornamento completato.")
-    except Exception as e:
-        print(f"Errore durante l'aggiornamento: {e}")
-        sys.exit(1) # Forza l'exit code 1 per indicare un fallimento a GitHub
+on:
+  schedule:
+    - cron: '0 */8 * * *'
+  workflow_dispatch:
 
-if __name__ == '__main__':
-    run_update()
+jobs:
+  update-calendar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests icalendar
+
+      - name: Run update script
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: |
+          python update.py
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Aggiornamento automatico inter_tv.ics"
+          file_patterns: inter_tv.ics
