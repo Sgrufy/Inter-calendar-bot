@@ -3,7 +3,6 @@ import requests
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
-# Configurazione API
 API_KEY = os.getenv("API_FOOTBALL_KEY")
 API_HOST = "v3.football.api-sports.io"
 TEAM_ID = 505  # ID dell'Inter
@@ -12,8 +11,7 @@ HEADERS = {
     'x-apisports-key': API_KEY
 }
 
-# Leghe: 135 (Serie A), 137 (Coppa Italia), 2 (Champions League)
-LEAGUES = [135, 137, 2]
+LEAGUES = [135, 137, 2] # Serie A, Coppa Italia, Champions League
 
 def get_channels_for_competition(comp_name):
     comp = comp_name.lower()
@@ -31,22 +29,21 @@ def fetch_next_matches():
     all_matches = []
     url = f"https://{API_HOST}/fixtures"
     
-    # Controllo di sicurezza sulla chiave API
     if not API_KEY:
-        print("ATTENZIONE: API_FOOTBALL_KEY non trovata nelle variabili d'ambiente!")
+        print("ATTENZIONE: API_FOOTBALL_KEY non trovata!")
         return []
 
-    # Anno corrente per la stagione calcistica (es. 2026)
-    current_year = datetime.now().year
-    # Se siamo a inizio anno solare (es. gennaio/giugno), la stagione è iniziata l'anno prima o è quella corrente
-    # Per sicurezza passiamo direttamente la stagione corrente o lasciamo che l'API usi il filtro temporale 'next'
+    oggi = datetime.now(timezone.utc)
+    data_da = oggi.strftime('%Y-%m-%d')
+    # Cerchiamo in un intervallo di 60 giorni per trovare le prossime partite senza usare il parametro 'season' vietato nel plan free
+    data_a = (oggi + timedelta(days=60)).strftime('%Y-%m-%d')
     
     for league_id in LEAGUES:
         params = {
             "team": TEAM_ID,
             "league": league_id,
-            "season": 2026, # Specifica la stagione corrente
-            "next": 4 
+            "from": data_da,
+            "to": data_a
         }
         
         try:
@@ -54,7 +51,6 @@ def fetch_next_matches():
             response = requests.get(url, headers=HEADERS, params=params, timeout=10)
             data = response.json()
             
-            # Debug per vedere cosa risponde l'API nei log di GitHub
             print(f"Risposta API Lega {league_id}:", data)
             
             fixtures = data.get('response', [])
@@ -81,10 +77,12 @@ def fetch_next_matches():
                     'canali': get_channels_for_competition(comp_name)
                 })
         except Exception as e:
-            print(f"Errore critico durante la richiesta per la lega {league_id}: {e}")
+            print(f"Errore critico per la lega {league_id}: {e}")
             
     all_matches.sort(key=lambda x: x['ora'])
-    return all_matches
+    
+    # Tagliamo per prendere solo le prossime 4 partite in totale o per lega
+    return all_matches[:10] 
 
 def generate_ics(matches):
     cal = Calendar()
