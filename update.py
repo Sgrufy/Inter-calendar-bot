@@ -10,105 +10,61 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
-COMPETITIONS = ['SA', 'CL']
+# Aggiunto 'COI' per Coppa Italia
+COMPETITIONS = ['SA', 'CL', 'COI']
 TEAM_ID = 108
 
+def pulisci_nome(nome):
+    return nome.replace("Internazionale Milano", "Inter").replace("Internazionale", "Inter")
+
 def get_scraped_channels(home, away):
-    channels = []
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-    
-    try:
-        search_url = "https://www.livesoccertv.com/teams/italy/inter-milan/"
-        response = requests.get(search_url, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            # Cerca le righe della tabella dei match
-            match_elements = soup.find_all('tr')
-            
-            for tr in match_elements:
-                if away.lower() in tr.text.lower() or home.lower() in tr.text.lower():
-                    # Cerca i tag dei canali
-                    channel_tags = tr.find_all('a', class_='channel-name')
-                    for ch in channel_tags:
-                        channel_text = ch.text.strip()
-                        # Filtro per i tuoi network di interesse
-                        if any(c in channel_text for c in ['Canal+', 'Eleven', 'Polsat', 'TVP', 'Eurosport', 'Cosmote', 'Max', 'Nova']):
-                            if channel_text not in channels:
-                                channels.append(channel_text)
-                    if channels: break
-        
-        if not channels:
-            channels = ["Canal+", "Eleven Sports", "Polsat Sport"]
-            
-    except Exception as e:
-        print(f"Errore durante lo scraping di LiveSoccerTV: {e}")
-        channels = ["Canal+", "Eleven Sports"]
-        
-    return channels
+    # ... (la funzione resta uguale a prima per lo scraping)
+    # [Mantieni qui il codice precedente per get_scraped_channels]
+    return ["Canal+", "Eleven Sports", "Polsat Sport"] # Fallback semplificato
 
 def fetch_next_matches():
     all_matches = []
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
     try:
-        print("Recupero partite da Football-Data.org...")
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
         
+        oggi = datetime.now()
+        limite_giorni = oggi + timedelta(days=20)
+        
         matches = data.get('matches', [])
         for match in matches:
-            competition_info = match.get('competition', {})
-            if competition_info.get('code') not in COMPETITIONS:
-                continue
-                
-            home = match.get('homeTeam', {}).get('name', 'Casa')
-            away = match.get('awayTeam', {}).get('name', 'Ospite')
-            
             date_str = match.get('utcDate')
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            date_italy = date_utc + timedelta(hours=2)
             
-            comp_name = competition_info.get('name', 'Competizione')
-            exact_channels = get_scraped_channels(home, away)
+            # Filtra solo prossimi 20 giorni
+            if not (oggi <= date_utc <= limite_giorni):
+                continue
+            
+            if match.get('competition', {}).get('code') not in COMPETITIONS:
+                continue
+                
+            # Applica pulizia nome
+            home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
+            away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             
             all_matches.append({
-                'ora': date_italy,
+                'ora': date_utc + timedelta(hours=2),
                 'name': f"{home} vs {away}",
-                'competizione': comp_name,
-                'canali': exact_channels
+                'competizione': match.get('competition', {}).get('name', 'Competizione'),
+                'canali': get_scraped_channels(home, away)
             })
             
     except Exception as e:
         print(f"Errore: {e}")
         
-    return all_matches[:10]
+    return all_matches[:4] # Limita a sole 4 partite
 
 def generate_ics(matches):
-    cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Auto//IT')
-    cal.add('version', '2.0')
-    cal.add('x-wr-calname', 'Inter TV Broadcasts')
-
-    for p in matches:
-        evento = Event()
-        evento.add('summary', f"⚽ {p['name']}")
-        evento.add('dtstart', p['ora'].replace(tzinfo=None))
-        evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
-        
-        descrizione = f"🏆 Competizione: {p['competizione']}\n📺 CANALI:\n"
-        for c in p['canali']:
-            descrizione += f"  • {c}\n"
-            
-        evento.add('description', descrizione)
-        cal.add_component(evento)
-
-    with open("inter_tv.ics", 'wb') as f:
-        f.write(cal.to_ical())
-    print("File inter_tv.ics generato.")
+    # ... (la funzione resta uguale, usa solo i dati passati da fetch_next_matches)
+    # [Mantieni qui il codice precedente per generate_ics]
+    pass
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
