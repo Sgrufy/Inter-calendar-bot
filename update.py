@@ -72,6 +72,10 @@ def get_canali_strutturati(home, away, data_utc, competizione):
     canali_trovati = []
     data_str = data_utc.strftime('%Y%m%d')
     
+    # Parole chiave di ricerca precise basate sui nomi reali delle squadre (es. "inter" e "cagliari")
+    team_home_key = home.split()[0].lower()
+    team_away_key = away.split()[0].lower()
+    
     ordinamento = ["Eleven Sports", "Canal+", "Polsat Sport", "TVP Sport", "Cosmote", "Max Sport", "Nova Sport", "Nova", "ESPN", "Teleman"]
     
     for pref in ordinamento:
@@ -85,7 +89,9 @@ def get_canali_strutturati(home, away, data_utc, competizione):
                         for programme in root.findall('programme'):
                             title_el = programme.find('title')
                             if title_el is not None and title_el.text:
-                                if "inter" in title_el.text.lower():
+                                t_text = title_el.text.lower()
+                                # Controllo chirurgico: il programma deve contenere sia "inter" che l'avversario
+                                if "inter" in t_text and (team_home_key in t_text or team_away_key in t_text):
                                     if nome_canale not in canali_trovati:
                                         canali_trovati.append(nome_canale)
                                         break
@@ -154,7 +160,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V19 Clean UI//IT')
+    cal.add('prodid', '-//Calendario Inter V20 Chirurgico//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -172,7 +178,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V19 Clean UI generato con successo.")
+    print("File V20 Chirurgico generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
