@@ -96,10 +96,6 @@ def fetch_next_matches():
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             if date_utc < adesso: continue
-                
-            is_dst = date_utc.month in [4, 5, 6, 7, 8, 9, 10]
-            offset_ore = 2 if is_dst else 1
-            ora_locale = date_utc + timedelta(hours=offset_ore)
 
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
@@ -110,8 +106,8 @@ def fetch_next_matches():
             if not canali_reali:
                 canali_reali = ["Palinsesto in aggiornamento (verrà sincronizzato a breve)"]
             
+            # Salviamo direttamente l'orario UTC senza sfasamenti manuali
             all_matches.append({
-                'ora': ora_locale,
                 'ora_utc': date_utc,
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
@@ -121,20 +117,24 @@ def fetch_next_matches():
     except Exception as e:
         print(f"Errore: {e}")
         
-    all_matches.sort(key=lambda x: x['ora'])
+    all_matches.sort(key=lambda x: x['ora_utc'])
     return all_matches[:4]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V27 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V28 Final//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
     for p in matches:
         evento = Event()
         evento.add('summary', f"⚽ {p['name']}")
-        evento.add('dtstart', p['ora'].replace(tzinfo=None))
-        evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
+        
+        # Passando direttamente l'oggetto datetime con timezone UTC,
+        # icalendar scriverà correttamente il suffisso 'Z', lasciando 
+        # al calendario il compito di convertirlo nell'ora locale del telefono.
+        evento.add('dtstart', p['ora_utc'])
+        evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
         canali_testo = "\n".join([f"• {c}" for c in p['canali']])
         descrizione = f"Competizione: {p['competizione']}\n\nCanali TV:\n{canali_testo}"
@@ -144,7 +144,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V27 generato con successo.")
+    print("File V28 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
