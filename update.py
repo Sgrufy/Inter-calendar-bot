@@ -3,6 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 HEADERS = {
@@ -13,9 +14,8 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario ampliato con i nuovi canali inseriti
+# Dizionario canali completo
 CANALI_EPG = {
-    # Canali originari
     "Eleven Sports 1": "6339",
     "Eleven Sports 2": "6340",
     "Eleven Sports 3": "6338",
@@ -34,8 +34,6 @@ CANALI_EPG = {
     "Max Sport 2": "535765",
     "Nova Sport 1": "6263",
     "Nova Sport 2": "7401",
-    
-    # Nuovi canali Fox Sport, TNT Sport e beIN Sport
     "Fox Sport 2": "431621",
     "Fox Sport 2 MX": "415584",
     "Fox Sport 3 AR": "431616",
@@ -76,18 +74,11 @@ CANALI_EPG = {
     "beIN Sport Max 9": "55983"
 }
 
-# Insieme dei nomi dei canali che devono avere il pallino blu
-CANALI_BLU = {
-    "Fox Sport 2", "Fox Sport 2 MX", "Fox Sport 3 AR", "Fox Sport 3 MX", 
-    "Fox Sport 4K America", "Fox Sport 501 HD", "Fox Sport 502", "Fox Sport 503", 
-    "Fox Sport 504", "Fox Sport 505", "Fox Sport 506", "Fox Sport 506 HD", 
-    "Fox Sport 507", "Fox Sport HD", "Fox Sport More", "Fox Sport 1 America", 
-    "Fox Sport 2 HD", "TNT Sport 1 HD", "TNT Sport 10 HD", "TNT Sport 2 HD", 
-    "TNT Sport 3 HD", "TNT Sport 4 HD", "TNT Sport 5 HD", "TNT Sport 6 HD", 
-    "TNT Sport 7 HD", "TNT Sport 8 HD", "TNT Sport 9 HD", "TNT Sport Premium HD", 
-    "TNT Sports Ultimate HD", "beIN Sport 3 FR", "beIN Sport US", "beIN Sport HD", 
-    "beIN Sport 1 FR", "beIN Sport 1", "beIN Sport 2 FR", "beIN Sports 2 HD", 
-    "beIN Sport 2", "beIN Sport Max 9"
+CANALI_BLU = set(CANALI_EPG.keys()) - {
+    "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
+    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
+    "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "TVP Sport",
+    "Cosmote 1", "Cosmote 2", "Max Sport 1", "Max Sport 2", "Nova Sport 1", "Nova Sport 2"
 }
 
 def pulisci_nome(nome):
@@ -96,39 +87,48 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
+def controlla_singolo_canale(nome_canale, channel_id, data_str, date_utc, keywords):
+    url = f"https://epg.pw/api/epg.xml?lang=en&timezone=UTC&date={data_str}&channel_id={channel_id}"
+    try:
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            root = ET.fromstring(response.content)
+            for programme in root.findall('programme'):
+                title_el = programme.find('title')
+                if title_el is not None and title_el.text:
+                    t_text = title_el.text.lower()
+                    if any(key in t_text for key in keywords):
+                        start_str = programme.get('start')
+                        if start_str:
+                            try:
+                                clean_start = start_str.split(' ')[0]
+                                prog_start = datetime.strptime(clean_start, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                diff_seconds = (prog_start - date_utc).total_seconds()
+                                if -1200 <= diff_seconds <= 3600:
+                                    return nome_canale
+                            except:
+                                continue
+    except Exception:
+        pass
+    return None
+
 def get_canale_esatto_xml(date_utc, home_team, away_team):
     data_str = date_utc.strftime('%Y%m%d')
     canali_trovati = []
-    
     keywords = ["inter", home_team.lower(), away_team.lower()]
     
-    for nome_canale, channel_id in CANALI_EPG.items():
-        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=UTC&date={data_str}&channel_id={channel_id}"
-        try:
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200:
-                root = ET.fromstring(response.content)
-                for programme in root.findall('programme'):
-                    title_el = programme.find('title')
-                    if title_el is not None and title_el.text:
-                        t_text = title_el.text.lower()
-                        if any(key in t_text for key in keywords):
-                            start_str = programme.get('start')
-                            if start_str:
-                                try:
-                                    clean_start = start_str.split(' ')[0]
-                                    prog_start = datetime.strptime(clean_start, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                    
-                                    diff_seconds = (prog_start - date_utc).total_seconds()
-                                    
-                                    if -1200 <= diff_seconds <= 3600:
-                                        if nome_canale not in canali_trovati:
-                                            canali_trovati.append(nome_canale)
-                                except:
-                                    continue
-        except Exception:
-            pass
-            
+    # Esegue le richieste in parallelo usando i Thread (velocissimo!)
+    with ThreadPoolExecutor(max_workers=15) as executor:
+        futures = {
+            executor.submit(controlla_singolo_canale, nome, cid, data_str, date_utc, keywords): nome
+            for nome, cid in CANALI_EPG.items()
+        }
+        
+        for future in as_completed(futures):
+            risultato = future.result()
+            if risultato and risultato not in canali_trovati:
+                canali_trovati.append(risultato)
+                
     return canali_trovati
 
 def fetch_next_matches():
@@ -176,7 +176,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V30 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V31 Fast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -187,7 +187,6 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        # Assegnazione dinamica del simbolo (🔵 per quelli nuovi, 📺 per gli altri)
         righe_canali = []
         for c in p['canali']:
             if c in CANALI_BLU:
@@ -205,7 +204,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V30 generato con successo con i canali Fox/TNT/beIN evidenziati in blu.")
+    print("File V31 generato con successo in pochi secondi.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
