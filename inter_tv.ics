@@ -2,4 +2,94 @@ BEGIN:VCALENDAR
 VERSION:2.0
 PRODID:-//Calendario Inter Auto Globale//IT
 X-WR-CALNAME:Inter TV Broadcasts
+BEGIN:VEVENT
+SUMMARY:⚽ FC Internazionale Milano vs AC Monza
+DTSTART:20260822T163000Z
+DTEND:20260822T183000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 22/08/2026 alle 16:30\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Cagliari Calcio vs FC Internazionale Milano
+DTSTART:20260830T184500Z
+DTEND:20260830T204500Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 30/08/2026 alle 18:45\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ FC Internazionale Milano vs SSC Napoli
+DTSTART:20260905T160000Z
+DTEND:20260905T180000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 05/09/2026 alle 16:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ FC Internazionale Milano vs Udinese Calcio
+DTSTART:20260914T184500Z
+DTEND:20260914T204500Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 14/09/2026 alle 18:45\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ AS Roma vs FC Internazionale Milano
+DTSTART:20260919T160000Z
+DTEND:20260919T180000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 19/09/2026 alle 16:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ FC Internazionale Milano vs Parma Calcio 1913
+DTSTART:20261011T000000Z
+DTEND:20261011T020000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 11/10/2026 alle 00:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Bologna FC 1909 vs FC Internazionale Milano
+DTSTART:20261018T000000Z
+DTEND:20261018T020000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 18/10/2026 alle 00:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ FC Internazionale Milano vs ACF Fiorentina
+DTSTART:20261025T000000Z
+DTEND:20261025T020000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 25/10/2026 alle 00:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Venezia FC vs FC Internazionale Milano
+DTSTART:20261028T000000Z
+DTEND:20261028T020000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 28/10/2026 alle 00:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ AC Milan vs FC Internazionale Milano
+DTSTART:20261101T000000Z
+DTEND:20261101T020000Z
+DESCRIPTION:🏆 Competizione: Serie A\n📅 Data: 01/11/2026 alle 00:00\n
+ -----------------------------------\n📺 CANALI / EMITTENTI:\n  • Canal
+ +\n  • Eleven Sports\n  • Polsat Sport\n  • TVP Sport\n  • Eurospo
+ rt (PL)\n  • Cosmote Sport\n  • Max Sport\n  • Nova Sport\n
+END:VEVENT
 END:VCALENDAR
