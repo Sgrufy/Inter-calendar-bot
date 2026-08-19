@@ -32,4 +32,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Aggiornamento automatico inter_tv.ics"
-          file_patterns: inter_tv.ics
+          # Corretto per evitare l'avviso nei log di GitHub Actions
+          file_pattern: inter_tv.ics
