@@ -1,35 +1,16 @@
-name: Aggiorna Calendario Inter
+import main
+import sys
 
-on:
-  schedule:
-    # Esegue lo script ogni 8 ore (00:00, 08:00, 16:00 UTC)
-    - cron: '0 */8 * * *'
-  workflow_dispatch: # Permette l'esecuzione manuale dalla scheda "Actions" di GitHub
+def run_update():
+    try:
+        print("Avvio aggiornamento calendario Inter...")
+        # Chiama le funzioni definite nel tuo file main.py
+        matches = main.fetch_next_matches()
+        main.generate_ics(matches)
+        print("Aggiornamento completato.")
+    except Exception as e:
+        print(f"Errore durante l'aggiornamento: {e}")
+        sys.exit(1) # Forza l'exit code 1 per indicare un fallimento a GitHub
 
-jobs:
-  update-calendar:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clona repository
-        uses: actions/checkout@v3
-
-      - name: Configura Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Installa dipendenze
-        run: |
-          pip install requests icalendar
-
-      - name: Esegui script di aggiornamento
-        env:
-          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-        run: |
-          python update.py
-
-      - name: Salva e carica il file ICS aggiornato nella repo
-        uses: stefanzweifel/git-auto-commit-action@v4
-        with:
-          commit_message: "Aggiornamento automatico calendario Inter ics - ogni 8 ore"
-          file_patterns: inter_tv.ics
+if __name__ == '__main__':
+    run_update()
