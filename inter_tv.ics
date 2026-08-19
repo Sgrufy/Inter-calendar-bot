@@ -1,6 +1,6 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V20 Chirurgico//IT
+PRODID:-//Calendario Inter V21 EPG Fix//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs AC Monza
@@ -14,23 +14,20 @@ SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T204500
 DTEND:20260830T224500
 DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
- Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
- tra 6
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T180000
 DTEND:20260905T200000
 DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
- Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
- tra 6
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T204500
 DTEND:20260914T224500
 DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 3\n• 
- Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1\n• Polsat Sport Ex
- tra 6
+ Eleven Sports 4\n• Canal+ Extra\n• Polsat Sport 1
 END:VEVENT
 END:VCALENDAR
