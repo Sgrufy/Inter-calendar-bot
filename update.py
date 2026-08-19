@@ -1,13 +1,12 @@
 import os
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 from icalendar import Calendar, Event
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 HEADERS = {
     'X-Auth-Token': API_KEY,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 }
 
 COMPETITIONS = ['SA', 'CL', 'COI']
@@ -15,27 +14,6 @@ TEAM_ID = 108
 
 def pulisci_nome(nome):
     return nome.replace("Internazionale Milano", "Inter").replace("Internazionale", "Inter")
-
-def get_teleman_channels(home, away):
-    # Funzione di supporto sicura: se non trova nulla, restituisce un canale di riferimento
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        search_url = "https://www.teleman.pl/search?q=Inter"
-        response = requests.get(search_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            channels = []
-            for el in soup.find_all(['span', 'a'], class_=['station', 'st-name']):
-                ch_name = el.text.strip()
-                if ch_name and ch_name not in channels:
-                    channels.append(ch_name)
-            if channels:
-                return channels[:2] # Prende i primi due canali trovati
-    except Exception:
-        pass
-        
-    return ["Eleven Sports 1", "Canal+ Sport"] # Fallback sicuro se lo scraping fallisce
 
 def fetch_next_matches():
     all_matches = []
@@ -46,9 +24,12 @@ def fetch_next_matches():
         data = response.json()
         
         oggi = datetime.now()
-        limite_giorni = oggi + timedelta(days=20)
+        # Allarghiamo a 90 giorni per assicurarci di catturare le partite disponibili
+        limite_giorni = oggi + timedelta(days=90)
         
         matches = data.get('matches', [])
+        print(f"Partite totali trovate dall'API: {len(matches)}")
+        
         for match in matches:
             date_str = match.get('utcDate')
             if not date_str:
@@ -56,7 +37,6 @@ def fetch_next_matches():
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             
-            # Filtro per i prossimi 20 giorni
             if not (oggi <= date_utc <= limite_giorni):
                 continue
                 
@@ -68,23 +48,22 @@ def fetch_next_matches():
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
             date_italy = date_utc + timedelta(hours=2)
-            channels = get_teleman_channels(home, away)
             
             all_matches.append({
                 'ora': date_italy,
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
-                'canali': channels
+                'canali': ["Canal+", "Eleven Sports"]
             })
             
     except Exception as e:
-        print(f"Errore generale: {e}")
+        print(f"Errore durante il recupero: {e}")
         
     return all_matches[:4]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Sicuro//IT')
+    cal.add('prodid', '-//Calendario Inter Test//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -103,7 +82,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print(f"File generato con {len(matches)} partite.")
+    print(f"File generato con successo con {len(matches)} partite.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
