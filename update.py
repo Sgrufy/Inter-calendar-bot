@@ -1,6 +1,6 @@
 import os
 import requests
-from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
@@ -13,111 +13,74 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI'] # Serie A, Champions League, Coppa Italia
 TEAM_ID = 108
 
+# Mappa completa di tutti i canali basata sugli ID che hai trovato
+CANALI_EPG = {
+    # Eleven Sports
+    "Eleven Sports 1": "6340",
+    "Eleven Sports 2": "6339",
+    "Eleven Sports 3": "6338",
+    "Eleven Sports 4": "6336",
+    
+    # Canal+
+    "Canal+ Sport": "67504",
+    "Canal+ Sport 2": "67502",
+    "Canal+ Extra": "407523",
+    
+    # Altri canali ed eventi
+    "ESPN": "5831",
+    "Teleman": "5830",
+    "LiveSoccer TV": "5829"
+}
+
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
                 .replace("Internazionale Milano", "Inter")
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def scansiona_elevensports(home, away):
-    channels = []
-    try:
-        response = requests.get("https://elevensports.pl/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'div', 'a'], class_=['channel', 'match-channel', 'station']):
-                ch = el.text.strip()
-                if "Eleven" in ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def scansiona_canalplus(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.canalplus.com/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'a'], class_=['channel', 'brand']):
-                ch = el.text.strip()
-                if "Canal+" in ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def scansiona_espn(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.espn.com/soccer/team/_/id/110/inter-milan", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'div'], class_=['broadcast', 'network']):
-                ch = el.text.strip()
-                if ch and ch not in channels:
-                    channels.append(f"ESPN: {ch}" if "ESPN" not in ch else ch)
-    except Exception: pass
-    return channels
-
-def scansiona_teleman(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.teleman.pl/search?q=Inter", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'a'], class_=['station', 'st-name']):
-                ch = el.text.strip()
-                if ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def scansiona_livesoccertv(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.livesoccertv.com/teams/italy/inter-milan/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all('td', class_='ext-ch'):
-                ch = el.text.strip()
-                if ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def get_canali_in_tempo_reale(home, away, competizione):
-    canali = []
+def cerca_su_epg_pw(data_partita, nome_squadra):
+    canali_trovati = []
+    data_str = data_partita.strftime('%Y%m%d')
     
-    # 1. Eleven Sports
-    canali.extend(scansiona_elevensports(home, away))
-    
-    # 2. Canal+
-    canali.extend(scansiona_canalplus(home, away))
-    
-    # 3. ESPN
-    canali.extend(scansiona_espn(home, away))
-    
-    # 4. Teleman
-    canali.extend(scansiona_teleman(home, away))
-    
-    # 5. LiveSoccer TV
-    canali.extend(scansiona_livesoccertv(home, away))
-    
-    # Rimuovi eventuali duplicati mantenendo l'ordine
-    canali_uniti = []
-    for c in canali:
-        if c not in canali_uniti:
-            canali_uniti.append(c)
+    for nome_canale, channel_id in CANALI_EPG.items():
+        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={channel_id}"
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                root = ET.fromstring(response.content)
+                for programme in root.findall('programme'):
+                    title_el = programme.find('title')
+                    if title_el is not None and title_el.text:
+                        if nome_squadra.lower() in title_el.text.lower():
+                            if nome_canale not in canali_trovati:
+                                canali_trovati.append(nome_canale)
+        except Exception as e:
+            print(f"Errore lettura EPG per {nome_canale}: {e}")
             
-    # Fallback se lo scraping non trova nulla a causa dei blocchi
-    if not canali_uniti:
+    return canali_trovati
+
+def get_canali_strutturati(home, away, data_utc, competizione):
+    canali = cerca_su_epg_pw(data_utc, "Inter")
+    
+    # Ordine di preferenza richiesto: Eleven Sports, Canal+, ESPN, Teleman, LiveSoccer TV
+    ordinamento = ["Eleven Sports", "Canal+", "ESPN", "Teleman", "LiveSoccer TV"]
+    
+    canali_ordinati = []
+    for pref in ordinamento:
+        for c in canali:
+            if pref.lower() in c.lower() and c not in canali_ordinati:
+                canali_ordinati.append(c)
+                
+    # Fallback nel caso in cui per una data specifica l'EPG non elenchi ancora il match
+    if not canali_ordinati:
         if "Champions" in competizione:
-            canali_uniti = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Amazon Prime Video)"]
         elif "Coppa" in competizione:
-            canali_uniti = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: Mediaset Infinity)"]
         else:
-            canali_uniti = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: DAZN / Sky)"]
+            canali_ordinati = ["Eleven Sports 1", "Canal+ Sport", "ESPN", "Teleman", "LiveSoccer TV (Fallback: DAZN / Sky)"]
             
-    return canali_uniti[:4]
+    return canali_ordinati[:4]
 
 def fetch_next_matches():
     all_matches = []
@@ -146,9 +109,10 @@ def fetch_next_matches():
             
             all_matches.append({
                 'ora': date_utc + timedelta(hours=2),
+                'ora_utc': date_utc,
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
-                'canali': get_canali_in_tempo_reale(home, away, comp_name)
+                'canali': get_canali_strutturati(home, away, date_utc, comp_name)
             })
             
     except Exception as e:
@@ -159,7 +123,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V8 Live//IT')
+    cal.add('prodid', '-//Calendario Inter V10 EPG Live//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -174,7 +138,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V8 Live generato con successo.")
+    print("File V10 EPG Live generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
