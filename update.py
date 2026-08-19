@@ -14,7 +14,6 @@ COMPETITIONS = ['SA', 'CL', 'COI'] # Serie A, Champions League, Coppa Italia
 TEAM_ID = 108
 
 def pulisci_nome(nome):
-    # Pulisce rigorosamente il nome in "Inter"
     return (nome.replace("Football Club Internazionale Milano", "Inter")
                 .replace("Internazionale Milano", "Inter")
                 .replace("FC Inter", "Inter")
@@ -60,22 +59,31 @@ def scansiona_teleman(home, away):
     return channels
 
 def get_canali_multipli(home, away, competizione):
-    # Priorità: 1. Eleven, 2. Canal+, 3. Teleman
+    canali = []
+    
+    # 1. Eleven Sports (Precedenza assoluta)
     canali = scansiona_elevensports(home, away)
     
+    # 2. Canal+ (Seconda precedenza)
     if not canali:
         canali = scansiona_canalplus(home, away)
+        
+    # 3. Teleman (Terza precedenza)
     if not canali:
         canali = scansiona_teleman(home, away)
         
-    # Fallback intelligente per Coppe
+    # 4. ESPN (Quarta precedenza prima dei fallback generici)
     if not canali:
+        canali = ["ESPN"]
+        
+    # Fallback finale intelligente basato sulla competizione se tutto il resto fallisce
+    if not canali or canali == ["ESPN"]:
         if "Champions" in competizione:
-            canali = ["Amazon Prime Video", "Sky Sport"]
+            canali = ["ESPN", "Amazon Prime Video", "Sky Sport"]
         elif "Coppa" in competizione:
-            canali = ["Mediaset Infinity", "Canale 5"]
+            canali = ["ESPN", "Mediaset Infinity", "Canale 5"]
         else:
-            canali = ["DAZN", "Sky Sport"]
+            canali = ["ESPN", "DAZN", "Sky Sport"]
             
     return canali[:3]
 
@@ -101,6 +109,9 @@ def fetch_next_matches():
             if date_utc < adesso: continue
                 
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
+            away = pulisci_nome(match.get('awayTeam', {}), get('name', 'Ospite')) if 'awayTeam' in match else "Ospite"
+            # Fix per sicurezza sulla lettura del nome fuori in sicurezza:
+            home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
@@ -119,7 +130,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V5//IT')
+    cal.add('prodid', '-//Calendario Inter V6//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
