@@ -13,7 +13,6 @@ URLS_API = [
 def estrai_canale_specifico(event):
     """
     Cerca di estrarre il canale esatto dai dati di broadcast dell'evento ESPN.
-    Se non è ancora disponibile, restituisce None.
     """
     try:
         broadcasts = event.get('broadcasts', [])
@@ -49,10 +48,7 @@ def ottieni_canali_fallback(competizione):
 
 def formatta_nome_partita(event):
     """
-    Estrae le squadre dalle informazioni di ESPN e forza esplicitamente:
-    - Se l'Inter è in casa -> Inter vs [Avversario]
-    - Se l'Inter è in trasferta -> [Avversario] vs Inter
-    Ignora completamente stringhe grezze come 'Monza at Internazionale'.
+    Estrae le squadre dalle informazioni di ESPN formattandole correttamente.
     """
     try:
         competitions = event.get('competitions', [])
@@ -63,7 +59,6 @@ def formatta_nome_partita(event):
                 away_team = None
                 
                 for comp in competitors:
-                    # Usiamo 'shortDisplayName' o 'displayName' (puliamo se contiene 'Internazionale')
                     name = comp.get('team', {}).get('shortDisplayName') or comp.get('team', {}).get('displayName', '')
                     if "inter" in name.lower():
                         name = "Inter"
@@ -78,19 +73,14 @@ def formatta_nome_partita(event):
     except Exception:
         pass
     
-    # Se fallisce l'estrazione strutturata, analizziamo la stringa 'at' o 'vs'
     name = event.get('name', '')
     if " at " in name:
         parts = name.split(" at ")
         if len(parts) == 2:
             team1, team2 = parts[0].strip(), parts[1].strip()
-            # Pulizia nomi
             if "inter" in team1.lower(): team1 = "Inter"
             if "inter" in team2.lower(): team2 = "Inter"
             
-            # ESPN mette "Away at Home" (es. Monza at Internazionale)
-            # Quindi team1 = Away (Monza), team2 = Home (Inter)
-            # Vogliamo: Inter in casa -> Inter vs Monza; Inter fuori -> Monza vs Inter
             if team2 == "Inter":
                 return f"Inter vs {team1}"
             elif team1 == "Inter":
@@ -108,10 +98,16 @@ def genera_ics_automatico():
 
     tz_italy = timezone(timedelta(hours=2))
     tutte_le_partite = []
+    eventi_visti = set() # Per evitare duplicati
+
+    oggi = datetime.now(tz_italy)
+    fine_range = oggi + timedelta(days=20)
+    date_range = f"{oggi.strftime('%Y%m%d')}-{fine_range.strftime('%Y%m%d')}"
 
     for url_api in URLS_API:
+        url_con_date = f"{url_api}?dates={date_range}"
         try:
-            res = requests.get(url_api, timeout=10).json()
+            res = requests.get(url_con_date, timeout=10).json()
             events = res.get('events', [])
             competizione_label = res.get('leagues', [{}])[0].get('name', 'Altro')
 
@@ -119,8 +115,17 @@ def genera_ics_automatico():
                 name = event.get('name', '')
                 if "Inter" in name:
                     date_str = event.get('date', '')
+                    if not date_str:
+                        continue
+                        
                     date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
                     ora_partita = date_utc.astimezone(tz_italy)
+                    
+                    # Evitiamo duplicati basandoci su orario esatto e nome
+                    chiave_univoca = (ora_partita, name)
+                    if chiave_univoca in eventi_visti:
+                        continue
+                    eventi_visti.add(chiave_univoca)
                     
                     if ora_partita >= datetime.now(tz_italy) - timedelta(hours=3):
                         canale_esatto = estrai_canale_specifico(event)
@@ -130,27 +135,38 @@ def genera_ics_automatico():
                         else:
                             lista_canali = ottieni_canali_fallback(competizione_label)
 
-                        # Usa la funzione corretta e pulita
                         nome_formattato = formatta_nome_partita(event)
 
                         tutte_le_partite.append({
                             'ora': ora_partita,
                             'name': nome_formattato,
+                            'competizione': competizione_label,
                             'canali': lista_canali
                         })
         except Exception as e:
             print(f"Errore caricamento {url_api}: {e}")
 
     tutte_le_partite.sort(key=lambda x: x['ora'])
-    partite_da_inserire = tutte_le_partite[:3]
 
-    for p in partite_da_inserire:
+    for p in tutte_le_partite:
         evento = Event()
         evento.add('summary', f"⚽ {p['name']}")
         evento.add('dtstart', p['ora'])
         evento.add('dtend', p['ora'] + timedelta(hours=2))
         
-        descrizione = f"📺 CANALE DI TRASMISSIONE:\n" + "\n".join([f"• {c}" for c in p['canali']])
+        # --- LAYOUT MIGLIORATO DELLA DESCRIZIONE ---
+        orario_str = p['ora'].strftime('%H:%M')
+        data_str = p['ora'].strftime('%d/%m/%Y')
+        
+        descrizione = (
+            f"🏆 Competizione: {p['competizione']}\n"
+            f"📅 Data: {data_str} alle {orario_str}\n"
+            f"-----------------------------------\n"
+            f"📺 CANALI / EMITTENTI:\n"
+        )
+        for c in p['canali']:
+            descrizione += f"  • {c}\n"
+            
         evento.add('description', descrizione)
         cal.add_component(evento)
 
