@@ -3,7 +3,7 @@ import requests
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
-API_KEY = os.getenv("FOOTBALL-DATA_KEY") or os.getenv("FOOTBALL_DATA_KEY")
+API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 HEADERS = {
     'X-Auth-Token': API_KEY,
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -16,7 +16,6 @@ def pulisci_nome(nome):
 
 def fetch_next_matches():
     all_matches = []
-    # Richiediamo esplicitamente solo le partite programmate (status=SCHEDULED)
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
     try:
@@ -25,6 +24,7 @@ def fetch_next_matches():
         
         adesso = datetime.now(timezone.utc)
         matches = data.get('matches', [])
+        print(f"Partite programmate trovate dall'API: {len(matches)}")
         
         for match in matches:
             date_str = match.get('utcDate')
@@ -33,7 +33,6 @@ def fetch_next_matches():
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             
-            # Escludiamo eventuali date nel passato per sicurezza
             if date_utc < adesso:
                 continue
                 
@@ -41,7 +40,7 @@ def fetch_next_matches():
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
-            # Conversione orario per l'Italia (+2 ore in regime di ora legale)
+            # Orario italiano stimato (+2 ore)
             date_italy = date_utc + timedelta(hours=2)
             
             all_matches.append({
@@ -54,15 +53,14 @@ def fetch_next_matches():
     except Exception as e:
         print(f"Errore durante il recupero: {e}")
         
-    # Ordinamento cronologico rigoroso dalla più vicina a salire
+    # Ordinamento cronologico stretto
     all_matches.sort(key=lambda x: x['ora'])
-    
-    # Restituisce esattamente le prossime 4 partite in assoluto
     return all_matches[:4]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Corretto//IT')
+    # Identificativo nuovo per confermare l'aggiornamento
+    cal.add('prodid', '-//Calendario Inter V3//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
