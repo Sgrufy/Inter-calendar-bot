@@ -9,7 +9,6 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 }
 
-COMPETITIONS = ['SA', 'CL', 'COI']
 TEAM_ID = 108
 
 def pulisci_nome(nome):
@@ -17,32 +16,27 @@ def pulisci_nome(nome):
 
 def fetch_next_matches():
     all_matches = []
-    url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
+    # Rimuoviamo il filtro rigido sullo status e prendiamo tutte le partite disponibili dell'endpoint
+    url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches"
     
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
         
-        oggi = datetime.now()
-        # Allarghiamo a 90 giorni per assicurarci di catturare le partite disponibili
-        limite_giorni = oggi + timedelta(days=90)
-        
         matches = data.get('matches', [])
-        print(f"Partite totali trovate dall'API: {len(matches)}")
+        print(f"Partite totali ricevute dall'API: {len(matches)}")
         
         for match in matches:
+            # Filtriamo solo quelle programmate (SCHEDULED)
+            if match.get('status') != 'SCHEDULED':
+                continue
+                
             date_str = match.get('utcDate')
             if not date_str:
                 continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             
-            if not (oggi <= date_utc <= limite_giorni):
-                continue
-                
-            if match.get('competition', {}).get('code') not in COMPETITIONS:
-                continue
-                
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
@@ -59,6 +53,8 @@ def fetch_next_matches():
     except Exception as e:
         print(f"Errore durante il recupero: {e}")
         
+    # Ordiniamo per data e prendiamo le prime 4
+    all_matches.sort(key=lambda x: x['ora'])
     return all_matches[:4]
 
 def generate_ics(matches):
