@@ -7,33 +7,45 @@ from icalendar import Calendar, Event
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 HEADERS = {
     'X-Auth-Token': API_KEY,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
 COMPETITIONS = ['SA', 'CL']
 TEAM_ID = 108
 
-def get_scraped_channels(match_date, home, away):
+def get_scraped_channels(home, away):
     channels = []
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+    }
+    
     try:
-        search_url = f"https://www.livesoccertv.com/teams/italy/inter-milan/"
-        response = requests.get(search_url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+        search_url = "https://www.livesoccertv.com/teams/italy/inter-milan/"
+        response = requests.get(search_url, headers=headers, timeout=15)
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            match_row = soup.find(string=lambda t: t and away.lower() in t.lower())
-            if match_row:
-                parent_tr = match_row.find_parent('tr')
-                if parent_tr:
-                    channel_tds = parent_tr.find_all('a', class_='channel-name')
-                    for ch in channel_tds:
-                        channels.append(ch.text.strip())
+            # Cerca le righe della tabella dei match
+            match_elements = soup.find_all('tr')
+            
+            for tr in match_elements:
+                if away.lower() in tr.text.lower() or home.lower() in tr.text.lower():
+                    # Cerca i tag dei canali
+                    channel_tags = tr.find_all('a', class_='channel-name')
+                    for ch in channel_tags:
+                        channel_text = ch.text.strip()
+                        # Filtro per i tuoi network di interesse
+                        if any(c in channel_text for c in ['Canal+', 'Eleven', 'Polsat', 'TVP', 'Eurosport', 'Cosmote', 'Max', 'Nova']):
+                            if channel_text not in channels:
+                                channels.append(channel_text)
+                    if channels: break
         
         if not channels:
             channels = ["Canal+", "Eleven Sports", "Polsat Sport"]
             
     except Exception as e:
-        print(f"Errore durante lo scraping dei canali: {e}")
+        print(f"Errore durante lo scraping di LiveSoccerTV: {e}")
         channels = ["Canal+", "Eleven Sports"]
         
     return channels
@@ -42,12 +54,8 @@ def fetch_next_matches():
     all_matches = []
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
-    if not API_KEY:
-        print("ATTENZIONE: FOOTBALL_DATA_KEY non trovata!")
-        return []
-
     try:
-        print("Interrogazione Football-Data.org e recupero palinsesti...")
+        print("Recupero partite da Football-Data.org...")
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
         
@@ -59,34 +67,29 @@ def fetch_next_matches():
                 
             home = match.get('homeTeam', {}).get('name', 'Casa')
             away = match.get('awayTeam', {}).get('name', 'Ospite')
-            name = f"{home} vs {away}"
             
             date_str = match.get('utcDate')
-            if not date_str:
-                continue
-                
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             date_italy = date_utc + timedelta(hours=2)
             
             comp_name = competition_info.get('name', 'Competizione')
-            exact_channels = get_scraped_channels(date_italy, home, away)
+            exact_channels = get_scraped_channels(home, away)
             
             all_matches.append({
                 'ora': date_italy,
-                'name': name,
+                'name': f"{home} vs {away}",
                 'competizione': comp_name,
                 'canali': exact_channels
             })
             
     except Exception as e:
-        print(f"Errore durante la richiesta: {e}")
+        print(f"Errore: {e}")
         
-    all_matches.sort(key=lambda x: x['ora'])
     return all_matches[:10]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter Auto Globale//IT')
+    cal.add('prodid', '-//Calendario Inter Auto//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -96,15 +99,7 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora'].replace(tzinfo=None))
         evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
         
-        orario_str = p['ora'].strftime('%H:%M')
-        data_str = p['ora'].strftime('%d/%m/%Y')
-        
-        descrizione = (
-            f"🏆 Competizione: {p['competizione']}\n"
-            f"📅 Data: {data_str} alle {orario_str}\n"
-            f"-----------------------------------\n"
-            f"📺 CANALI / EMITTENTI:\n"
-        )
+        descrizione = f"🏆 Competizione: {p['competizione']}\n📺 CANALI:\n"
         for c in p['canali']:
             descrizione += f"  • {c}\n"
             
@@ -113,9 +108,8 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File inter_tv.ics generato con successo!")
+    print("File inter_tv.ics generato.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
-    generate_ics
-    (matches)
+    generate_ics(matches)
