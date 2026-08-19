@@ -1,12 +1,12 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V26 Final//IT
+PRODID:-//Calendario Inter V27 Final//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs AC Monza
 DTSTART:20260822T183000
 DTEND:20260822T203000
-DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 1
+DESCRIPTION:Competizione: Serie A\n\nCanali TV:\n• Eleven Sports 2
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
