@@ -1,5 +1,33 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter Test//IT
+PRODID:-//Calendario Inter Priorita//IT
 X-WR-CALNAME:Inter TV Broadcasts
+BEGIN:VEVENT
+SUMMARY:⚽ FC Inter vs Parma Calcio 1913
+DTSTART:20261011T020000
+DTEND:20261011T040000
+DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • ESPN\n  • Ca
+ nal+ Sport\n  • Eleven Sports 1\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Bologna FC 1909 vs FC Inter
+DTSTART:20261018T020000
+DTEND:20261018T040000
+DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • ESPN\n  • Ca
+ nal+ Sport\n  • Eleven Sports 1\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ FC Inter vs ACF Fiorentina
+DTSTART:20261025T020000
+DTEND:20261025T040000
+DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • ESPN\n  • Ca
+ nal+ Sport\n  • Eleven Sports 1\n
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Venezia FC vs FC Inter
+DTSTART:20261028T020000
+DTEND:20261028T040000
+DESCRIPTION:🏆 Competizione: Serie A\n📺 CANALI:\n  • ESPN\n  • Ca
+ nal+ Sport\n  • Eleven Sports 1\n
+END:VEVENT
 END:VCALENDAR
