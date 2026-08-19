@@ -14,7 +14,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario canali completo
+# Dizionario canali completo (con l'aggiunta dei canali CBS Sports)
 CANALI_EPG = {
     "Eleven Sports 1": "6339",
     "Eleven Sports 2": "6340",
@@ -71,9 +71,15 @@ CANALI_EPG = {
     "beIN Sport 2 FR": "443147",
     "beIN Sports 2 HD": "369741",
     "beIN Sport 2": "453366",
-    "beIN Sport Max 9": "55983"
+    "beIN Sport Max 9": "55983",
+    # Nuovi canali CBS Sports aggiunti
+    "CBS Sport Golazo": "562308",
+    "CBS Sports HQ": "562459",
+    "CBS Sports Network": "464937",
+    "CBS Sports Netw": "408622"
 }
 
+# Tutti i canali tranne i primi 18 originali avranno il pallino blu
 CANALI_BLU = set(CANALI_EPG.keys()) - {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -117,7 +123,6 @@ def get_canale_esatto_xml(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
     
-    # Esegue le richieste in parallelo usando i Thread (velocissimo!)
     with ThreadPoolExecutor(max_workers=15) as executor:
         futures = {
             executor.submit(controlla_singolo_canale, nome, cid, data_str, date_utc, keywords): nome
@@ -176,7 +181,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V31 Fast//IT')
+    cal.add('prodid', '-//Calendario Inter V32 Fast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -204,7 +209,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V31 generato con successo in pochi secondi.")
+    print("File V32 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
