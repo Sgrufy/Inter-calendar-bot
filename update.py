@@ -13,8 +13,9 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Mappa dei canali con ID corretti per allineare Eleven Sports 1 e 2 al palinsesto reale
+# Dizionario ampliato con i nuovi canali inseriti
 CANALI_EPG = {
+    # Canali originari
     "Eleven Sports 1": "6339",
     "Eleven Sports 2": "6340",
     "Eleven Sports 3": "6338",
@@ -32,7 +33,61 @@ CANALI_EPG = {
     "Max Sport 1": "535766",
     "Max Sport 2": "535765",
     "Nova Sport 1": "6263",
-    "Nova Sport 2": "7401"
+    "Nova Sport 2": "7401",
+    
+    # Nuovi canali Fox Sport, TNT Sport e beIN Sport
+    "Fox Sport 2": "431621",
+    "Fox Sport 2 MX": "415584",
+    "Fox Sport 3 AR": "431616",
+    "Fox Sport 3 MX": "415586",
+    "Fox Sport 4K America": "558128",
+    "Fox Sport 501 HD": "537809",
+    "Fox Sport 502": "537762",
+    "Fox Sport 503": "447015",
+    "Fox Sport 504": "537767",
+    "Fox Sport 505": "447007",
+    "Fox Sport 506": "446961",
+    "Fox Sport 506 HD": "560750",
+    "Fox Sport 507": "537782",
+    "Fox Sport HD": "431624",
+    "Fox Sport More": "447025",
+    "Fox Sport 1 America": "465291",
+    "Fox Sport 2 HD": "465355",
+    "TNT Sport 1 HD": "400477",
+    "TNT Sport 10 HD": "463027",
+    "TNT Sport 2 HD": "400480",
+    "TNT Sport 3 HD": "400479",
+    "TNT Sport 4 HD": "400478",
+    "TNT Sport 5 HD": "463026",
+    "TNT Sport 6 HD": "463020",
+    "TNT Sport 7 HD": "463024",
+    "TNT Sport 8 HD": "463025",
+    "TNT Sport 9 HD": "463021",
+    "TNT Sport Premium HD": "431608",
+    "TNT Sports Ultimate HD": "463023",
+    "beIN Sport 3 FR": "372290",
+    "beIN Sport US": "407564",
+    "beIN Sport HD": "369750",
+    "beIN Sport 1 FR": "55773",
+    "beIN Sport 1": "532981",
+    "beIN Sport 2 FR": "443147",
+    "beIN Sports 2 HD": "369741",
+    "beIN Sport 2": "453366",
+    "beIN Sport Max 9": "55983"
+}
+
+# Insieme dei nomi dei canali che devono avere il pallino blu
+CANALI_BLU = {
+    "Fox Sport 2", "Fox Sport 2 MX", "Fox Sport 3 AR", "Fox Sport 3 MX", 
+    "Fox Sport 4K America", "Fox Sport 501 HD", "Fox Sport 502", "Fox Sport 503", 
+    "Fox Sport 504", "Fox Sport 505", "Fox Sport 506", "Fox Sport 506 HD", 
+    "Fox Sport 507", "Fox Sport HD", "Fox Sport More", "Fox Sport 1 America", 
+    "Fox Sport 2 HD", "TNT Sport 1 HD", "TNT Sport 10 HD", "TNT Sport 2 HD", 
+    "TNT Sport 3 HD", "TNT Sport 4 HD", "TNT Sport 5 HD", "TNT Sport 6 HD", 
+    "TNT Sport 7 HD", "TNT Sport 8 HD", "TNT Sport 9 HD", "TNT Sport Premium HD", 
+    "TNT Sports Ultimate HD", "beIN Sport 3 FR", "beIN Sport US", "beIN Sport HD", 
+    "beIN Sport 1 FR", "beIN Sport 1", "beIN Sport 2 FR", "beIN Sports 2 HD", 
+    "beIN Sport 2", "beIN Sport Max 9"
 }
 
 def pulisci_nome(nome):
@@ -121,7 +176,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V29 Final//IT')
+    cal.add('prodid', '-//Calendario Inter V30 Final//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -132,8 +187,17 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        # Layout della descrizione migliorato con le emoji
-        canali_testo = "\n".join([f"📺 {c}" for c in p['canali']])
+        # Assegnazione dinamica del simbolo (🔵 per quelli nuovi, 📺 per gli altri)
+        righe_canali = []
+        for c in p['canali']:
+            if c in CANALI_BLU:
+                righe_canali.append(f"🔵 {c}")
+            elif "In attesa" in c:
+                righe_canali.append(c)
+            else:
+                righe_canali.append(f"📺 {c}")
+                
+        canali_testo = "\n".join(righe_canali)
         descrizione = f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}"
         
         evento.add('description', descrizione)
@@ -141,7 +205,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V29 generato con successo.")
+    print("File V30 generato con successo con i canali Fox/TNT/beIN evidenziati in blu.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
