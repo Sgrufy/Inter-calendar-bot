@@ -1,6 +1,5 @@
 import os
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
@@ -19,73 +18,14 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def scansiona_elevensports(home, away):
-    channels = []
-    try:
-        response = requests.get("https://elevensports.pl/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'div', 'a'], class_=['channel', 'match-channel', 'station']):
-                ch = el.text.strip()
-                if "Eleven" in ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def scansiona_canalplus(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.canalplus.com/", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'a'], class_=['channel', 'brand']):
-                ch = el.text.strip()
-                if "Canal+" in ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def scansiona_teleman(home, away):
-    channels = []
-    try:
-        response = requests.get("https://www.teleman.pl/search?q=Inter", headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            for el in soup.find_all(['span', 'a'], class_=['station', 'st-name']):
-                ch = el.text.strip()
-                if ch and ch not in channels:
-                    channels.append(ch)
-    except Exception: pass
-    return channels
-
-def get_canali_multipli(home, away, competizione):
-    canali = []
-    
-    # 1. Eleven Sports (Precedenza assoluta)
-    canali = scansiona_elevensports(home, away)
-    
-    # 2. Canal+ (Seconda precedenza)
-    if not canali:
-        canali = scansiona_canalplus(home, away)
-        
-    # 3. Teleman (Terza precedenza)
-    if not canali:
-        canali = scansiona_teleman(home, away)
-        
-    # 4. ESPN (Quarta precedenza prima dei fallback generici)
-    if not canali:
-        canali = ["ESPN"]
-        
-    # Fallback finale intelligente basato sulla competizione se tutto il resto fallisce
-    if not canali or canali == ["ESPN"]:
-        if "Champions" in competizione:
-            canali = ["ESPN", "Amazon Prime Video", "Sky Sport"]
-        elif "Coppa" in competizione:
-            canali = ["ESPN", "Mediaset Infinity", "Canale 5"]
-        else:
-            canali = ["ESPN", "DAZN", "Sky Sport"]
-            
-    return canali[:3]
+def get_canali_ordinati(competizione):
+    # Rispetta rigorosamente la tua sequenza desiderata: Eleven, Canal+, Teleman, ESPN
+    if "Champions" in competizione:
+        return ["Eleven Sports", "Canal+", "Teleman", "ESPN", "Amazon Prime Video"]
+    elif "Coppa" in competizione:
+        return ["Eleven Sports", "Canal+", "Teleman", "ESPN", "Mediaset Infinity"]
+    else:
+        return ["Eleven Sports", "Canal+", "Teleman", "ESPN"]
 
 def fetch_next_matches():
     all_matches = []
@@ -103,14 +43,13 @@ def fetch_next_matches():
                 continue
                 
             date_str = match.get('utcDate')
-            if not date_str: continue
+            if not date_str: 
+                continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            if date_utc < adesso: continue
+            if date_utc < adesso: 
+                continue
                 
-            home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
-            away = pulisci_nome(match.get('awayTeam', {}), get('name', 'Ospite')) if 'awayTeam' in match else "Ospite"
-            # Fix per sicurezza sulla lettura del nome fuori in sicurezza:
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
@@ -119,7 +58,7 @@ def fetch_next_matches():
                 'ora': date_utc + timedelta(hours=2),
                 'name': f"{home} vs {away}",
                 'competizione': comp_name,
-                'canali': get_canali_multipli(home, away, comp_name)
+                'canali': get_canali_ordinati(comp_name)
             })
             
     except Exception as e:
@@ -130,6 +69,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
+    # Identificativo V6 per forzare il riconoscimento dell'aggiornamento
     cal.add('prodid', '-//Calendario Inter V6//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
@@ -139,12 +79,17 @@ def generate_ics(matches):
         evento.add('summary', f"⚽ {p['name']}")
         evento.add('dtstart', p['ora'].replace(tzinfo=None))
         evento.add('dtend', (p['ora'] + timedelta(hours=2)).replace(tzinfo=None))
-        descrizione = f"🏆 {p['competizione']}\n📺 CANALI:\n" + "\n".join([f"  • {c}" for c in p['canali']])
+        
+        descrizione = f"🏆 {p['competizione']}\n📺 CANALI:\n"
+        for c in p['canali']:
+            descrizione += f"  • {c}\n"
+            
         evento.add('description', descrizione)
         cal.add_component(evento)
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
+    print("File V6 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
