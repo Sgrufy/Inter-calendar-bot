@@ -14,8 +14,9 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario canali completo (con l'aggiunta dei canali CBS Sports)
+# Dizionario canali completo (inclusi Sport TV e tutti i precedenti)
 CANALI_EPG = {
+    # Canali originari
     "Eleven Sports 1": "6339",
     "Eleven Sports 2": "6340",
     "Eleven Sports 3": "6338",
@@ -34,6 +35,7 @@ CANALI_EPG = {
     "Max Sport 2": "535765",
     "Nova Sport 1": "6263",
     "Nova Sport 2": "7401",
+    # Fox Sports, TNT, beIN e CBS
     "Fox Sport 2": "431621",
     "Fox Sport 2 MX": "415584",
     "Fox Sport 3 AR": "431616",
@@ -72,11 +74,19 @@ CANALI_EPG = {
     "beIN Sports 2 HD": "369741",
     "beIN Sport 2": "453366",
     "beIN Sport Max 9": "55983",
-    # Nuovi canali CBS Sports aggiunti
     "CBS Sport Golazo": "562308",
     "CBS Sports HQ": "562459",
     "CBS Sports Network": "464937",
-    "CBS Sports Netw": "408622"
+    "CBS Sports Netw": "408622",
+    # Nuovi canali Sport TV aggiunti
+    "Sport TV+": "405715",
+    "Sport TV 7": "405669",
+    "Sport TV 5": "408040",
+    "Sport TV 6": "397417",
+    "Sport TV 4": "397404",
+    "Sport TV 3": "397419",
+    "Sport TV 2": "397424",
+    "Sport TV 1": "397418"
 }
 
 # Tutti i canali tranne i primi 18 originali avranno il pallino blu
@@ -123,7 +133,7 @@ def get_canale_esatto_xml(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
     
-    with ThreadPoolExecutor(max_workers=15) as executor:
+    with ThreadPoolExecutor(max_workers=20) as executor:
         futures = {
             executor.submit(controlla_singolo_canale, nome, cid, data_str, date_utc, keywords): nome
             for nome, cid in CANALI_EPG.items()
@@ -181,7 +191,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V32 Fast//IT')
+    cal.add('prodid', '-//Calendario Inter V33 Fast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -209,7 +219,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File V32 generato con successo.")
+    print("File V33 generato con successo.")
 
 if __name__ == '__main__':
     matches = fetch_next_matches()
