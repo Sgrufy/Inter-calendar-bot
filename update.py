@@ -14,7 +14,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario canali completo (inclusi i canali BBC ALBA aggiunti)
+# Dizionario canali completo (inclusi Setanta Sports e tutti i precedenti)
 CANALI_EPG = {
     # Canali originari
     "Eleven Sports 1": "6339",
@@ -92,10 +92,13 @@ CANALI_EPG = {
     "S Football": "450846",
     "Astro Football HD": "533442",
     "Astro Football": "399498",
-    # Nuovi canali BBC ALBA aggiunti
+    # Canali BBC Alba
     "BBC Alba": "12059",
     "BBC Alba HD 1": "486822",
-    "BBC Alba HD 2": "537759"
+    "BBC Alba HD 2": "537759",
+    # Nuovi canali Setanta Sports aggiunti
+    "Setanta Sports 1": "417364",
+    "Setanta Sports 2": "417351"
 }
 
 # Tutti i canali tranne i primi 18 originali avranno il pallino blu
