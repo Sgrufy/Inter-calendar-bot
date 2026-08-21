@@ -14,7 +14,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario canali completo (inclusi Sport TV e tutti i precedenti)
+# Dizionario canali completo (inclusi i nuovi canali aggiunti)
 CANALI_EPG = {
     # Canali originari
     "Eleven Sports 1": "6339",
@@ -78,7 +78,7 @@ CANALI_EPG = {
     "CBS Sports HQ": "562459",
     "CBS Sports Network": "464937",
     "CBS Sports Netw": "408622",
-    # Nuovi canali Sport TV aggiunti
+    # Canali Sport TV
     "Sport TV+": "405715",
     "Sport TV 7": "405669",
     "Sport TV 5": "408040",
@@ -86,7 +86,12 @@ CANALI_EPG = {
     "Sport TV 4": "397404",
     "Sport TV 3": "397419",
     "Sport TV 2": "397424",
-    "Sport TV 1": "397418"
+    "Sport TV 1": "397418",
+    # Nuovi canali aggiunti
+    "SS Football": "463676",
+    "S Football": "450846",
+    "Astro Football HD": "533442",
+    "Astro Football": "399498"
 }
 
 # Tutti i canali tranne i primi 18 originali avranno il pallino blu
