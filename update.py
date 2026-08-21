@@ -117,10 +117,20 @@ def controlla_singolo_canale(nome_canale, channel_id, data_str, date_utc, keywor
                         start_str = programme.get('start')
                         if start_str:
                             try:
-                                clean_start = start_str.split(' ')[0]
-                                prog_start = datetime.strptime(clean_start, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                diff_seconds = (prog_start - date_utc).total_seconds()
-                                if -1200 <= diff_seconds <= 3600:
+                                dt_part = start_str.split(' ')[0]
+                                if len(start_str.split(' ')) > 1:
+                                    offset = start_str.split(' ')[1]
+                                    hours = int(offset[1:3])
+                                    minutes = int(offset[3:5])
+                                    sign = -1 if offset[0] == '-' else 1
+                                    tz = timezone(timedelta(hours=sign * hours, minutes=sign * minutes))
+                                    prog_start = datetime.strptime(dt_part, '%Y%m%d%H%M%S').replace(tzinfo=tz)
+                                else:
+                                    prog_start = datetime.strptime(dt_part, '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                
+                                diff_seconds = (prog_start.astimezone(timezone.utc) - date_utc).total_seconds()
+                                
+                                if abs(diff_seconds) <= 7200:
                                     return nome_canale
                             except:
                                 continue
