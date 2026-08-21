@@ -14,7 +14,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Dizionario canali completo (con l'aggiunta dei nuovi canali Polsat)
+# Dizionario canali completo (con l'aggiunta dei nuovi canali Nova Sport)
 CANALI_EPG = {
     # Canali originari
     "Eleven Sports 1": "6339",
@@ -97,14 +97,20 @@ CANALI_EPG = {
     "BBC Alba HD 2": "537759",
     "Setanta Sports 1": "417364",
     "Setanta Sports 2": "417351",
-    # Nuovi canali Polsat aggiunti con icona TV (inclusi nel gruppo senza pallino blu)
+    # Canali Polsat Sport Premium e Extra
     "Polsat Sport Premium 6": "452290",
     "Polsat Sport Premium 5": "449589",
     "Polsat Sport Premium 4": "449590",
     "Polsat Sport Premium 3": "408447",
     "Polsat Sport Premium 2": "7135",
     "Polsat Sport Premium 1": "7136",
-    "Polsat Sport Extra": "7835"
+    "Polsat Sport Extra": "7835",
+    # Nuovi canali Nova Sport aggiunti con icona TV
+    "Nova Sport 5": "35972",
+    "Nova Sport 6": "392164",
+    "Nova Sport 5 (Alt)": "392147",
+    "Nova Sport 4": "7612",
+    "Nova Sport 3": "7747"
 }
 
 # I canali esclusi da CANALI_BLU useranno l'icona della TV (📺)
@@ -114,7 +120,8 @@ CANALI_BLU = set(CANALI_EPG.keys()) - {
     "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "TVP Sport",
     "Cosmote 1", "Cosmote 2", "Max Sport 1", "Max Sport 2", "Nova Sport 1", "Nova Sport 2",
     "Polsat Sport Premium 6", "Polsat Sport Premium 5", "Polsat Sport Premium 4", 
-    "Polsat Sport Premium 3", "Polsat Sport Premium 2", "Polsat Sport Premium 1", "Polsat Sport Extra"
+    "Polsat Sport Premium 3", "Polsat Sport Premium 2", "Polsat Sport Premium 1", "Polsat Sport Extra",
+    "Nova Sport 5", "Nova Sport 6", "Nova Sport 5 (Alt)", "Nova Sport 4", "Nova Sport 3"
 }
 
 def pulisci_nome(nome):
