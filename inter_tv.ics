@@ -3,14 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V33 Fast//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter vs AC Monza
-DTSTART:20260822T163000Z
-DTEND:20260822T183000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 2\n🔵 Sport TV 3\n🔵 Sport TV 2\n🔵 S Football\n🔵 SS Football
- \n🔵 Astro Football HD\n🔵 Astro Football\n🔵 Setanta Sports 1
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
@@ -28,6 +20,13 @@ BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T184500Z
 DTEND:20260914T204500Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ AS Roma vs Inter
+DTSTART:20260919T160000Z
+DTEND:20260919T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
