@@ -17,9 +17,15 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
+# Lista completa e aggiornata di tutti i canali classici (fissi) con l'icona della TV (📺)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
-    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1"
+    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
+    "Cosmote Sport", "Eurosport Poland", 
+    "Canal+ Sport 1", "Canal+ Sport 3", "Canal+ Sport 4", "Canal+ Sport 5",
+    "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3",
+    "Canal+ Sport Premium 1", "Canal+ Sport Premium 2", 
+    "TVP Sport", "Max Sport", "Nova Sport"
 }
 
 INFO_CANALI = {}  
