@@ -57,9 +57,8 @@ CANALI_BLU_VECCHI = {
 LISTA_NOMI_CANALI = list(CANALI_TV_CLASSICI.union(CANALI_BLU_NUOVI).union(CANALI_BLU_VECCHI))
 TUTTI_I_CANALI_BLU = CANALI_BLU_NUOVI.union(CANALI_BLU_VECCHI)
 
-# Dizionari globali salvati in automatico all'avvio
-INFO_CANALI = {}  # Mappa nome -> {"id": id_canale, "country": codice_paese}
-CACHE_GUIDE = {}  # Evita di riscaricare lo stesso file XML dello stesso paese più volte nella stessa esecuzione
+INFO_CANALI = {}  
+CACHE_GUIDE = {}  
 
 def carica_id_da_github():
     """Scarica il database dei canali da GitHub e mappa nome, ID e nazione"""
@@ -70,14 +69,13 @@ def carica_id_da_github():
         response = requests.get(url_api, timeout=15)
         if response.status_code == 200:
             data = response.json()
-            # Mappa normalizzata dei canali presenti su GitHub
             db_canali = {}
             for canal in data:
                 c_name = canal.get('name')
                 if c_name:
                     db_canali[c_name.lower()] = {
                         "id": canal.get('id'),
-                        "country": canal.get('country', 'it').lower() # Default a 'it' se manca
+                        "country": canal.get('country', 'it').lower()
                     }
             
             for nome in LISTA_NOMI_CANALI:
@@ -85,7 +83,6 @@ def carica_id_da_github():
                 if nome_lower in db_canali:
                     INFO_CANALI[nome] = db_canali[nome_lower]
                 else:
-                    # Ricerca parziale flessibile
                     trovato = False
                     for db_name, info in db_canali.items():
                         if nome_lower in db_name:
@@ -93,7 +90,6 @@ def carica_id_da_github():
                             trovato = True
                             break
                     if not trovato:
-                        # Fallback di sicurezza se non lo trova nel db globale
                         INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "country": "it"}
                         
             print(f"ID e nazioni mappati con successo per {len(INFO_CANALI)} canali.")
@@ -111,7 +107,6 @@ def scarica_guida_paese(country_code):
     if country_code in CACHE_GUIDE:
         return CACHE_GUIDE[country_code]
     
-    # URL della guida ufficiale per nazione di iptv-org (es. it.xml, pl.xml, pt.xml, ecc.)
     url = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
     try:
         response = requests.get(url, timeout=10)
@@ -122,7 +117,6 @@ def scarica_guida_paese(country_code):
     except Exception:
         pass
     
-    # Fallback sul file italiano se la nazione specifica non è disponibile online
     if country_code != 'it' and 'it' not in CACHE_GUIDE:
         try:
             fallback_url = "https://iptv-org.github.io/epg/guides/it.xml"
@@ -157,7 +151,6 @@ def controlla_singolo_canale(nome_canale, info_canale, date_utc, keywords):
                                 prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                                 diff_seconds = (prog_start - date_utc).total_seconds()
                                 
-                                # Tolleranza di 2 ore sull'orario d'inizio
                                 if abs(diff_seconds) <= 7200:
                                     return nome_canale
                             except:
@@ -239,11 +232,24 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        righe_canali = []
+        canali_blu = []
+        altri_canali = []
+        
         for c in p['canali']:
             if c in TUTTI_I_CANALI_BLU:
-                righe_canali.append(f"🔵 {c}")
-            elif "In attesa" in c:
+                canali_blu.append(c)
+            else:
+                altri_canali.append(c)
+                
+        # Ordina in ordine alfabetico i canali con il pallino blu
+        canali_blu.sort()
+        
+        righe_canali = []
+        for c in canali_blu:
+            righe_canali.append(f"🔵 {c}")
+            
+        for c in altri_canali:
+            if "In attesa" in c:
                 righe_canali.append(c)
             else:
                 righe_canali.append(f"📺 {c}")
@@ -256,7 +262,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File ICS generato con successo.")
+    print("File ICS generato con successo (canali blu ordinati alfabeticamente).")
 
 if __name__ == '__main__':
     carica_id_da_github()
