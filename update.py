@@ -25,7 +25,8 @@ CANALI_TV_CLASSICI = {
     "Canal+ Sport 1", "Canal+ Sport 3", "Canal+ Sport 4", "Canal+ Sport 5",
     "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3",
     "Canal+ Sport Premium 1", "Canal+ Sport Premium 2", 
-    "TVP Sport", "Max Sport", "Nova Sport"
+    "TVP Sport", "Max Sport", "Nova Sport",
+    "RSI LA1", "RSI LA2"
 }
 
 INFO_CANALI = {}  
