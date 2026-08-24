@@ -36,7 +36,7 @@ CANALI_BLU_NUOVI = {
     "Paramount+ / TUDN", "Arena Sport", "beIN Sports"
 }
 
-# VECCHI canali che avevano il pallino blu nel tuo script originale
+# VECCHI canali che avevano il pallino blu
 CANALI_BLU_VECCHI = {
     "Fox Sport 2", "Fox Sport 2 MX", "Fox Sport 3 AR", "Fox Sport 3 MX", "Fox Sport 4K America",
     "Fox Sport 501 HD", "Fox Sport 502", "Fox Sport 503", "Fox Sport 504", "Fox Sport 505",
@@ -54,38 +54,51 @@ CANALI_BLU_VECCHI = {
     "Setanta Sports 1", "Setanta Sports 2"
 }
 
-# Unione di tutti i canali per la ricerca
 LISTA_NOMI_CANALI = list(CANALI_TV_CLASSICI.union(CANALI_BLU_NUOVI).union(CANALI_BLU_VECCHI))
-
-# Insieme globale di tutti i canali che devono avere il pallino blu (sia i vecchi che i nuovi)
 TUTTI_I_CANALI_BLU = CANALI_BLU_NUOVI.union(CANALI_BLU_VECCHI)
 
-# Cache globale per gli ID trovati automaticamente da GitHub
-CANALI_EPG_AUTOMATICI = {}
+# Dizionari globali salvati in automatico all'avvio
+INFO_CANALI = {}  # Mappa nome -> {"id": id_canale, "country": codice_paese}
+CACHE_GUIDE = {}  # Evita di riscaricare lo stesso file XML dello stesso paese più volte nella stessa esecuzione
 
 def carica_id_da_github():
-    """Scarica il database dei canali da GitHub e mappa automaticamente i nomi agli ID"""
-    global CANALI_EPG_AUTOMATICI
+    """Scarica il database dei canali da GitHub e mappa nome, ID e nazione"""
+    global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     try:
         print("Scaricamento del database canali da GitHub...")
         response = requests.get(url_api, timeout=15)
         if response.status_code == 200:
             data = response.json()
-            db_canali = {canal.get('name', '').lower(): canal.get('id') for canal in data if canal.get('name')}
+            # Mappa normalizzata dei canali presenti su GitHub
+            db_canali = {}
+            for canal in data:
+                c_name = canal.get('name')
+                if c_name:
+                    db_canali[c_name.lower()] = {
+                        "id": canal.get('id'),
+                        "country": canal.get('country', 'it').lower() # Default a 'it' se manca
+                    }
             
             for nome in LISTA_NOMI_CANALI:
                 nome_lower = nome.lower()
                 if nome_lower in db_canali:
-                    CANALI_EPG_AUTOMATICI[nome] = db_canali[nome_lower]
+                    INFO_CANALI[nome] = db_canali[nome_lower]
                 else:
-                    for db_name, cid in db_canali.items():
+                    # Ricerca parziale flessibile
+                    trovato = False
+                    for db_name, info in db_canali.items():
                         if nome_lower in db_name:
-                            CANALI_EPG_AUTOMATICI[nome] = cid
+                            INFO_CANALI[nome] = info
+                            trovato = True
                             break
-            print(f"ID mappati con successo per {len(CANALI_EPG_AUTOMATICI)} canali.")
+                    if not trovato:
+                        # Fallback di sicurezza se non lo trova nel db globale
+                        INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "country": "it"}
+                        
+            print(f"ID e nazioni mappati con successo per {len(INFO_CANALI)} canali.")
     except Exception as e:
-        print(f"Errore nel caricamento degli ID da GitHub: {e}")
+        print(f"Errore nel caricamento dei dati da GitHub: {e}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -93,42 +106,74 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
-def controlla_singolo_canale(nome_canale, channel_id, data_str, date_utc, keywords):
-    url = f"https://iptv-org.github.io/epg/guides/it.xml" 
+def scarica_guida_paese(country_code):
+    """Scarica e memorizza temporaneamente il file XML della guida in base alla nazione"""
+    if country_code in CACHE_GUIDE:
+        return CACHE_GUIDE[country_code]
+    
+    # URL della guida ufficiale per nazione di iptv-org (es. it.xml, pl.xml, pt.xml, ecc.)
+    url = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
     try:
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=10)
         if response.status_code == 200:
             root = ET.fromstring(response.content)
-            for programme in root.findall('programme'):
-                if programme.get('channel') == channel_id:
-                    title_el = programme.find('title')
-                    if title_el is not None and title_el.text:
-                        t_text = title_el.text.lower()
-                        if any(key in t_text for key in keywords):
-                            start_str = programme.get('start')
-                            if start_str:
-                                try:
-                                    dt_part = start_str.split(' ')[0]
-                                    prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                    diff_seconds = (prog_start - date_utc).total_seconds()
-                                    
-                                    if abs(diff_seconds) <= 7200:
-                                        return nome_canale
-                                except:
-                                    continue
+            CACHE_GUIDE[country_code] = root
+            return root
+    except Exception:
+        pass
+    
+    # Fallback sul file italiano se la nazione specifica non è disponibile online
+    if country_code != 'it' and 'it' not in CACHE_GUIDE:
+        try:
+            fallback_url = "https://iptv-org.github.io/epg/guides/it.xml"
+            resp = requests.get(fallback_url, timeout=10)
+            if resp.status_code == 200:
+                CACHE_GUIDE['it'] = ET.fromstring(resp.content)
+                return CACHE_GUIDE['it']
+        except Exception:
+            pass
+            
+    return None
+
+def controlla_singolo_canale(nome_canale, info_canale, date_utc, keywords):
+    channel_id = info_canale.get("id")
+    country_code = info_canale.get("country", "it")
+    
+    root = scarica_guida_paese(country_code)
+    if root is None:
+        return None
+        
+    try:
+        for programme in root.findall('programme'):
+            if programme.get('channel') == channel_id:
+                title_el = programme.find('title')
+                if title_el is not None and title_el.text:
+                    t_text = title_el.text.lower()
+                    if any(key in t_text for key in keywords):
+                        start_str = programme.get('start')
+                        if start_str:
+                            try:
+                                dt_part = start_str.split(' ')[0]
+                                prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                diff_seconds = (prog_start - date_utc).total_seconds()
+                                
+                                # Tolleranza di 2 ore sull'orario d'inizio
+                                if abs(diff_seconds) <= 7200:
+                                    return nome_canale
+                            except:
+                                continue
     except Exception:
         pass
     return None
 
 def get_canale_esatto_xml(date_utc, home_team, away_team):
-    data_str = date_utc.strftime('%Y%m%d')
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
     
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = {
-            executor.submit(controlla_singolo_canale, nome, cid, data_str, date_utc, keywords): nome
-            for nome, cid in CANALI_EPG_AUTOMATICI.items()
+            executor.submit(controlla_singolo_canale, nome, info, date_utc, keywords): nome
+            for nome, info in INFO_CANALI.items()
         }
         
         for future in as_completed(futures):
@@ -196,7 +241,6 @@ def generate_ics(matches):
         
         righe_canali = []
         for c in p['canali']:
-            # Se il canale è nell'insieme di tutti i blu (vecchi o nuovi), usa il pallino blu
             if c in TUTTI_I_CANALI_BLU:
                 righe_canali.append(f"🔵 {c}")
             elif "In attesa" in c:
