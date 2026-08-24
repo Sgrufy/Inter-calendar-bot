@@ -7,6 +7,8 @@ from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
+URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
+
 HEADERS = {
     'X-Auth-Token': API_KEY,
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -15,55 +17,45 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
 TEAM_ID = 108
 
-# Canali che useranno l'icona della TV (📺)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
-    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
-    "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "TVP Sport",
-    "Cosmote 1", "Cosmote 2", "Max Sport 1", "Max Sport 2", "Nova Sport 1", "Nova Sport 2",
-    "Polsat Sport Premium 6", "Polsat Sport Premium 5", "Polsat Sport Premium 4", 
-    "Polsat Sport Premium 3", "Polsat Sport Premium 2", "Polsat Sport Premium 1", "Polsat Sport Extra",
-    "Nova Sport 5", "Nova Sport 6", "Nova Sport 5 (Alt)", "Nova Sport 4", "Nova Sport 3"
+    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1"
 }
-
-# NUOVI canali con il pallino blu (🔵)
-CANALI_BLU_NUOVI = {
-    "Arena Sport 2 Hrvatska", "Ring bTV", "Band Sports", "CDO PREMIUM SANTIAGO CHILE LATAM",
-    "Sport 1 HD / Sport 1 Baltic / Go3 Sport 1", "Inter Channel Italia", "Rai Sport", "Sky Sport 4 HD Italia",
-    "Telenord", "Tv Luna Sport", "CANAL 11", "PORTO CANAL 1 PT", "Sport TV 3",
-    "Match TV / Match! / Match Futbol", "Viasat Sport Sweden", "DAZN 1(TW)", "K+1 HD",
-    "TNT Sports / Amazon Prime Video", "Movistar Plus+", "DAZN / Amazon Prime Video", "Canal+",
-    "Paramount+ / TUDN", "Arena Sport", "beIN Sports"
-}
-
-# VECCHI canali che avevano il pallino blu
-CANALI_BLU_VECCHI = {
-    "Fox Sport 2", "Fox Sport 2 MX", "Fox Sport 3 AR", "Fox Sport 3 MX", "Fox Sport 4K America",
-    "Fox Sport 501 HD", "Fox Sport 502", "Fox Sport 503", "Fox Sport 504", "Fox Sport 505",
-    "Fox Sport 506", "Fox Sport 506 HD", "Fox Sport 507", "Fox Sport HD", "Fox Sport More",
-    "Fox Sport 1 America", "Fox Sport 2 HD",
-    "TNT Sport 1 HD", "TNT Sport 10 HD", "TNT Sport 2 HD", "TNT Sport 3 HD", "TNT Sport 4 HD",
-    "TNT Sport 5 HD", "TNT Sport 6 HD", "TNT Sport 7 HD", "TNT Sport 8 HD", "TNT Sport 9 HD",
-    "TNT Sport Premium HD", "TNT Sports Ultimate HD",
-    "beIN Sport 3 FR", "beIN Sport US", "beIN Sport HD", "beIN Sport 1 FR", "beIN Sport 1",
-    "beIN Sport 2 FR", "beIN Sports 2 HD", "beIN Sport 2", "beIN Sport Max 9",
-    "CBS Sport Golazo", "CBS Sports HQ", "CBS Sports Network", "CBS Sports Netw",
-    "Sport TV+", "Sport TV 7", "Sport TV 5", "Sport TV 6", "Sport TV 4", "Sport TV 3", "Sport TV 2", "Sport TV 1",
-    "SS Football", "S Football", "Astro Football HD", "Astro Football",
-    "BBC Alba", "BBC Alba HD 1", "BBC Alba HD 2",
-    "Setanta Sports 1", "Setanta Sports 2"
-}
-
-LISTA_NOMI_CANALI = list(CANALI_TV_CLASSICI.union(CANALI_BLU_NUOVI).union(CANALI_BLU_VECCHI))
-TUTTI_I_CANALI_BLU = CANALI_BLU_NUOVI.union(CANALI_BLU_VECCHI)
 
 INFO_CANALI = {}  
 CACHE_GUIDE = {}  
+TUTTI_I_CANALI_BLU = set()
+
+def carica_canali_blu_esterni():
+    global TUTTI_I_CANALI_BLU
+    if not URL_CANALI_BLU:
+        print("Attenzione: URL_CANALI_BLU non trovato nei Secret di GitHub!")
+        return
+
+    try:
+        print("Scaricamento della lista canali dal link sicuro...")
+        response = requests.get(URL_CANALI_BLU, timeout=15)
+        if response.status_code == 200:
+            for line in response.text.splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    if "," in line:
+                        parts = line.split(",", 1)
+                        c_name = parts[1].strip()
+                    else:
+                        c_name = line
+                    if c_name:
+                        TUTTI_I_CANALI_BLU.add(c_name)
+            print(f"Caricati con successo {len(TUTTI_I_CANALI_BLU)} canali blu dal link protetto.")
+    except Exception as e:
+        print(f"Errore nello scaricare la lista canali esterna: {e}")
 
 def carica_id_da_github():
-    """Scarica il database dei canali da GitHub e mappa nome, ID e nazione"""
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
+    
+    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(CANALI_TV_CLASSICI))
+    
     try:
         print("Scaricamento del database canali da GitHub...")
         response = requests.get(url_api, timeout=15)
@@ -78,7 +70,7 @@ def carica_id_da_github():
                         "country": canal.get('country', 'it').lower()
                     }
             
-            for nome in LISTA_NOMI_CANALI:
+            for nome in tutti_i_nomi:
                 nome_lower = nome.lower()
                 if nome_lower in db_canali:
                     INFO_CANALI[nome] = db_canali[nome_lower]
@@ -103,7 +95,6 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def scarica_guida_paese(country_code):
-    """Scarica e memorizza temporaneamente il file XML della guida in base alla nazione"""
     if country_code in CACHE_GUIDE:
         return CACHE_GUIDE[country_code]
     
@@ -241,7 +232,6 @@ def generate_ics(matches):
             else:
                 altri_canali.append(c)
                 
-        # Ordina in ordine alfabetico i canali con il pallino blu
         canali_blu.sort()
         
         righe_canali = []
@@ -262,9 +252,10 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File ICS generato con successo (canali blu ordinati alfabeticamente).")
+    print("File ICS generato con successo.")
 
 if __name__ == '__main__':
+    carica_canali_blu_esterni()
     carica_id_da_github()
     matches = fetch_next_matches()
     generate_ics(matches)
