@@ -15,10 +15,10 @@ HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 }
 
-COMPETITIONS = ['SA', 'CL', 'COI', 'ITC']
+COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Lista completa e aggiornata di tutti i canali classici (fissi) con l'icona della TV (📺)
+# Lista completa e aggiornata di tutti i canali classici (fissi, EPG e Prime Video unico)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -28,7 +28,8 @@ CANALI_TV_CLASSICI = {
     "Canal+ Sport Premium 1", "Canal+ Sport Premium 2", 
     "TVP Sport", "Max Sport", "Nova Sport",
     "RSI LA1", "RSI LA2",
-    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Mediaset 20", "Mediaset Extra"
+    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Mediaset 20", "Mediaset Extra", "TV8",
+    "Prime Video"
 }
 
 INFO_CANALI = {}  
@@ -87,7 +88,6 @@ def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     
-    # Unisce i canali classici, la prima lista blu e la seconda lista nera
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(CANALI_TV_CLASSICI))
     
     try:
@@ -274,16 +274,27 @@ def generate_ics(matches):
         
         righe_canali = []
         for c in canali_blu:
-            righe_canali.append(f"🔵 {c}")
+            if "prime" in c.lower():
+                righe_canali.append("🎬 Prime Video")
+            else:
+                righe_canali.append(f"🔵 {c}")
             
         for c in canali_neri:
-            righe_canali.append(f"⚫ {c}")
+            if "prime" in c.lower():
+                righe_canali.append("🎬 Prime Video")
+            else:
+                righe_canali.append(f"⚫ {c}")
             
-        for c in altrici_canali := altri_canali:
+        for c in altri_canali:
             if "In attesa" in c:
                 righe_canali.append(c)
+            elif "prime" in c.lower():
+                righe_canali.append("🎬 Prime Video")
             else:
                 righe_canali.append(f"📺 {c}")
+                
+        # Rimuove eventuali doppioni esatti nel testo della descrizione dell'evento
+        righe_canali = list(dict.fromkeys(righe_canali))
                 
         canali_testo = "\n".join(righe_canali)
         descrizione = f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}"
