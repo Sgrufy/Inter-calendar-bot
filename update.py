@@ -27,7 +27,8 @@ CANALI_TV_CLASSICI = {
     "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3",
     "Canal+ Sport Premium 1", "Canal+ Sport Premium 2", 
     "TVP Sport", "Max Sport", "Nova Sport",
-    "RSI LA1", "RSI LA2"
+    "RSI LA1", "RSI LA2",
+    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Mediaset 20", "Mediaset Extra"
 }
 
 INFO_CANALI = {}  
@@ -278,7 +279,7 @@ def generate_ics(matches):
         for c in canali_neri:
             righe_canali.append(f"⚫ {c}")
             
-        for c in altri_canali:
+        for c in altrici_canali := altri_canali:
             if "In attesa" in c:
                 righe_canali.append(c)
             else:
