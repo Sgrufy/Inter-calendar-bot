@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
 URL_SECONDA_LISTA = os.getenv("URL_SECONDA_LISTA")
-URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA") # <-- AGGIUNTO: URL della nuova playlist gialla
+URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA")
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
@@ -19,7 +19,6 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Lista completa e aggiornata di tutti i canali classici (fissi, EPG e Prime Video unic)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -37,97 +36,44 @@ INFO_CANALI = {}
 CACHE_GUIDE = {}  
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
-TUTTI_I_CANALI_GIALLI = set() # <-- AGGIUNTO: Set per i canali della nuova playlist
+TUTTI_I_CANALI_GIALLI = set()
 
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     
-    # 1. Caricamento Playlist 1 (Blu 🔵)
-    if URL_CANALI_BLU:
-        try:
-            print("Scaricamento della prima lista canali...")
-            response = requests.get(URL_CANALI_BLU, timeout=15)
-            if response.status_code == 200:
-                for line in response.text.splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        if "," in line:
-                            parts = line.split(",", 1)
-                            c_name = parts[1].strip()
-                        else:
-                            c_name = line
-                        if c_name:
-                            TUTTI_I_CANALI_BLU.add(c_name)
-                print(f"Caricati con successo {len(TUTTI_I_CANALI_BLU)} canali blu.")
-        except Exception as e:
-            print(f"Errore nello scaricare la prima lista canali: {e}")
-    else:
-        print("Attenzione: URL_CANALI_BLU non trovato nei Secret!")
-
-    # 2. Caricamento Playlist 2 (Nera ⚫)
-    if URL_SECONDA_LISTA:
-        try:
-            print("Scaricamento della seconda lista canali...")
-            response = requests.get(URL_SECONDA_LISTA, timeout=15)
-            if response.status_code == 200:
-                for line in response.text.splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        if "," in line:
-                            parts = line.split(",", 1)
-                            c_name = parts[1].strip()
-                        else:
-                            c_name = line
-                        if c_name:
-                            TUTTI_I_CANALI_NERI.add(c_name)
-                print(f"Caricati con successo {len(TUTTI_I_CANALI_NERI)} canali neri.")
-        except Exception as e:
-            print(f"Errore nello scaricare la seconda lista canali: {e}")
-    else:
-        print("Attenzione: URL_SECONDA_LISTA non trovato nei Secret!")
-
-    # 3. Caricamento Playlist 3 (Gialla 🟡) <-- AGGIUNTO BLOCCO COMPLETO
-    if URL_TERZA_LISTA:
-        try:
-            print("Scaricamento della terza lista canali...")
-            response = requests.get(URL_TERZA_LISTA, timeout=15)
-            if response.status_code == 200:
-                for line in response.text.splitlines():
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        if "," in line:
-                            parts = line.split(",", 1)
-                            c_name = parts[1].strip()
-                        else:
-                            c_name = line
-                        if c_name:
-                            TUTTI_I_CANALI_GIALLI.add(c_name)
-                print(f"Caricati con successo {len(TUTTI_I_CANALI_GIALLI)} canali gialli.")
-        except Exception as e:
-            print(f"Errore nello scaricare la terza lista canali: {e}")
-    else:
-        print("Attenzione: URL_TERZA_LISTA non trovato nei Secret!")
+    playlist = [
+        (URL_CANALI_BLU, TUTTI_I_CANALI_BLU, "blu"),
+        (URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI, "neri"),
+        (URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI, "gialli")
+    ]
+    
+    for url, target_set, nome_playlist in playlist:
+        if url:
+            try:
+                print(f"Scaricamento della playlist {nome_playlist}...")
+                response = requests.get(url, timeout=10) # Timeout rigido a 10 secondi
+                if response.status_code == 200:
+                    for line in response.text.splitlines():
+                        line = line.strip()
+                        if line and not line.startswith("#"):
+                            c_name = line.split(",", 1)[1].strip() if "," in line else line
+                            if c_name:
+                                target_set.add(c_name)
+                    print(f"Caricati {len(target_set)} canali {nome_playlist}.")
+            except Exception as e:
+                print(f"Errore nello scaricare la playlist {nome_playlist}: {e}")
 
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
-    
-    # Aggiornato includendo anche il nuovo set unito
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
         print("Scaricamento del database canali da GitHub...")
-        response = requests.get(url_api, timeout=15)
+        response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            db_canali = {}
-            for canal in data:
-                c_name = canal.get('name')
-                if c_name:
-                    db_canali[c_name.lower()] = {
-                        "id": canal.get('id'),
-                        "country": canal.get('country', 'it').lower()
-                    }
+            db_canali = {c.get('name').lower(): {"id": c.get('id'), "country": c.get('country', 'it').lower()} for c in data if c.get('name')}
             
             for nome in tutti_i_nomi:
                 nome_lower = nome.lower()
@@ -142,10 +88,9 @@ def carica_id_da_github():
                             break
                     if not trovato:
                         INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "country": "it"}
-                        
-            print(f"ID e nazioni mappati con successo per {len(INFO_CANALI)} canali.")
+            print(f"Mappati {len(INFO_CANALI)} canali.")
     except Exception as e:
-        print(f"Errore nel caricamento dei dati da GitHub: {e}")
+        print(f"Errore nel caricamento database GitHub: {e}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -159,6 +104,7 @@ def scarica_guida_paese(country_code):
     
     url = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
     try:
+        # Timeout bloccato a 10s: se il server ci mette troppo, evita il blocco totale del workflow
         response = requests.get(url, timeout=10)
         if response.status_code == 200:
             root = ET.fromstring(response.content)
@@ -199,9 +145,7 @@ def controlla_singolo_canale(nome_canale, info_canale, date_utc, keywords):
                             try:
                                 dt_part = start_str.split(' ')[0]
                                 prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                diff_seconds = (prog_start - date_utc).total_seconds()
-                                
-                                if abs(diff_seconds) <= 7200:
+                                if abs((prog_start - date_utc).total_seconds()) <= 7200:
                                     return nome_canale
                             except:
                                 continue
@@ -213,16 +157,20 @@ def get_canale_esatto_xml(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
+    # Aumentato il parallelismo a 15 per velocizzare la scansione dei canali
+    with ThreadPoolExecutor(max_workers=15) as executor:
         futures = {
             executor.submit(controlla_singolo_canale, nome, info, date_utc, keywords): nome
             for nome, info in INFO_CANALI.items()
         }
         
         for future in as_completed(futures):
-            risultato = future.result()
-            if risultato and risultato not in canali_trovati:
-                canali_trovati.append(risultato)
+            try:
+                risultato = future.result(timeout=5) # Timeout di sicurezza per ogni singolo thread
+                if risultato and risultato not in canali_trovati:
+                    canali_trovati.append(risultato)
+            except:
+                continue
                 
     return canali_trovati
 
@@ -233,11 +181,9 @@ def fetch_next_matches():
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
-        
         adesso = datetime.now(timezone.utc)
-        matches = data.get('matches', [])
         
-        for match in matches:
+        for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
                 continue
                 
@@ -252,7 +198,6 @@ def fetch_next_matches():
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
             canali_reali = get_canale_esatto_xml(date_utc, home, away)
-            
             if not canali_reali:
                 canali_reali = ["In attesa di programmazione ufficiale ⏳"]
             
@@ -264,82 +209,53 @@ def fetch_next_matches():
             })
             
     except Exception as e:
-        print(f"Errore: {e}")
+        print(f"Errore API partite: {e}")
         
     all_matches.sort(key=lambda x: x['ora_utc'])
     return all_matches[:4]
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V33 Fast//IT')
+    cal.add('prodid', '-//Calendario Inter V34 Fast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
     for p in matches:
         evento = Event()
         evento.add('summary', f"⚽ {p['name']}")
-        
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        canali_blu = []
-        canali_neri = []
-        canali_gialli = [] # <-- AGGIUNTO: Lista temporanea per i gialli
-        altri_canali = []
+        canali_blu, canali_neri, canali_gialli, altri_canali = [], [], [], []
         
         for c in p['canali']:
-            if c in TUTTI_I_CANALI_BLU:
-                canali_blu.append(c)
-            elif c in TUTTI_I_CANALI_NERI:
-                canali_neri.append(c)
-            elif c in TUTTI_I_CANALI_GIALLI: # <-- AGGIUNTO: Controllo playlist gialla
-                canali_gialli.append(c)
-            else:
-                altri_canali.append(c)
+            if c in TUTTI_I_CANALI_BLU: canali_blu.append(c)
+            elif c in TUTTI_I_CANALI_NERI: canali_neri.append(c)
+            elif c in TUTTI_I_CANALI_GIALLI: canali_gialli.append(c)
+            else: altri_canali.append(c)
                 
         canali_blu.sort()
         canali_neri.sort()
-        canali_gialli.sort() # <-- AGGIUNTO: Ordinamento
+        canali_gialli.sort()
         
         righe_canali = []
         for c in canali_blu:
-            if "prime" in c.lower():
-                righe_canali.append("🎬 Prime Video")
-            else:
-                righe_canali.append(f"🔵 {c}")
-            
+            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🔵 {c}")
         for c in canali_neri:
-            if "prime" in c.lower():
-                righe_canali.append("🎬 Prime Video")
-            else:
-                righe_canali.append(f"⚫ {c}")
-                
-        # --- AGGIUNTO BLOCCO PER I CANALI GIALLI ---
+            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"⚫ {c}")
         for c in canali_gialli:
-            if "prime" in c.lower():
-                righe_canali.append("🎬 Prime Video")
-            else:
-                righe_canali.append(f"🟡 {c}")
-        # ------------------------------------------
-            
+            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🟡 {c}")
         for c in altri_canali:
-            if "In attesa" in c:
-                righe_canali.append(c)
-            elif "prime" in c.lower():
-                righe_canali.append("🎬 Prime Video")
-            else:
-                righe_canali.append(f"📺 {c}")
+            if "In attesa" in c: righe_canali.append(c)
+            elif "prime" in c.lower(): righe_canali.append("🎬 Prime Video")
+            else: righe_canali.append(f"📺 {c}")
                 
-        # Rimuove eventuali doppioni esatti nel testo della descrizione dell'evento
         righe_canali = list(dict.fromkeys(righe_canali))
-                
         canali_testo = "\n".join(righe_canali)
-        descrizione = f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}"
-        
-        evento.add('description', descrizione)
+        evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb' ) as f:
+    with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
