@@ -18,7 +18,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Lista completa e aggiornata di tutti i canali classici (fissi, EPG e Prime Video unico)
+# Lista completa e aggiornata di tutti i canali classici (fissi, EPG e Prime Video unic)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
