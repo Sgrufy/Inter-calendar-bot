@@ -24,6 +24,9 @@ jobs:
       - name: Esegui script di aggiornamento
         env:
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
+          URL_CANALI_BLU: ${{ secrets.URL_CANALI_BLU }}
+          URL_SECONDA_LISTA: ${{ secrets.URL_SECONDA_LISTA }}
+          URL_TERZA_LISTA: ${{ secrets.URL_TERZA_LISTA }}
         run: |
           python update.py
 
