@@ -98,33 +98,29 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Elenco completo esteso con Svizzera e le altre nazioni chiave
+    # Elenco completo e massiccio: TUTTA l'Europa, Turchia, Nord/Sub-Sahara Africa e principali hub mondiali
     nazioni = {
-        "it",  # Italia
-        "ch",  # Svizzera
-        "fr",  # Francia
-        "al",  # Albania
-        "by",  # Bielorussia
-        "ru",  # Russia
-        "ua",  # Ucraina
-        "pl",  # Polonia
-        "gr",  # Grecia
-        "lv",  # Lettonia
-        "pt",  # Portogallo
-        "gb",  # Gran Bretagna
-        "ie",  # Irlanda
-        "es",  # Spagna
-        "de",  # Germania
-        "us",  # Stati Uniti
-        "ca",  # Canada
-        "my"   # Malesia
+        # Europa Occidentale e Centrale
+        "it", "ch", "fr", "es", "de", "nl", "at", "be", "lu", "li", "mc", "ad", "sm", "va",
+        # Europa Orientale e Balcani
+        "al", "by", "ru", "ua", "pl", "cz", "sk", "hu", "ro", "bg", "rs", "hr", "ba", "si", "me", "mk", "xk", "md",
+        # Europa del Nord e Baltici
+        "gb", "ie", "dk", "se", "no", "fi", "is", "ee", "lv", "lt",
+        # Europa del Sud e Mediterraneo
+        "pt", "gr", "cy", "mt",
+        # Turchia e Caucaso
+        "tr", "ge", "am", "az",
+        # Africa (Principali aree linguistiche/sportive)
+        "za", "eg", "ma", "dz", "tn", "ng", "ke", "gh",
+        # Americhe e Mondo
+        "us", "ca", "mx", "br", "ar", "co", "cl", "my"
     }
     
-    print(f"Pre-scaricamento guide EPG per {len(nazioni)} nazioni globali ed europee...")
+    print(f"Pre-scaricamento guide EPG per {len(nazioni)} nazioni globali (Europa completa + Africa + Mondo)...")
     for country_code in nazioni:
         url = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
-            res = requests.get(url, timeout=8)
+            res = requests.get(url, timeout=6)
             if res.status_code == 200:
                 CACHE_GUIDE[country_code] = ET.fromstring(res.content)
         except Exception:
@@ -207,7 +203,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V37 FullEurope//IT')
+    cal.add('prodid', '-//Calendario Inter V38 UltraGlobal//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
