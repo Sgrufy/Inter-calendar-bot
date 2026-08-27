@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
 URL_SECONDA_LISTA = os.getenv("URL_SECONDA_LISTA")
+URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA") # <-- AGGIUNTO: URL della nuova playlist gialla
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
@@ -36,9 +37,10 @@ INFO_CANALI = {}
 CACHE_GUIDE = {}  
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
+TUTTI_I_CANALI_GIALLI = set() # <-- AGGIUNTO: Set per i canali della nuova playlist
 
 def carica_canali_esterni():
-    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI
+    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     
     # 1. Caricamento Playlist 1 (Blu 🔵)
     if URL_CANALI_BLU:
@@ -84,11 +86,34 @@ def carica_canali_esterni():
     else:
         print("Attenzione: URL_SECONDA_LISTA non trovato nei Secret!")
 
+    # 3. Caricamento Playlist 3 (Gialla 🟡) <-- AGGIUNTO BLOCCO COMPLETO
+    if URL_TERZA_LISTA:
+        try:
+            print("Scaricamento della terza lista canali...")
+            response = requests.get(URL_TERZA_LISTA, timeout=15)
+            if response.status_code == 200:
+                for line in response.text.splitlines():
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if "," in line:
+                            parts = line.split(",", 1)
+                            c_name = parts[1].strip()
+                        else:
+                            c_name = line
+                        if c_name:
+                            TUTTI_I_CANALI_GIALLI.add(c_name)
+                print(f"Caricati con successo {len(TUTTI_I_CANALI_GIALLI)} canali gialli.")
+        except Exception as e:
+            print(f"Errore nello scaricare la terza lista canali: {e}")
+    else:
+        print("Attenzione: URL_TERZA_LISTA non trovato nei Secret!")
+
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     
-    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(CANALI_TV_CLASSICI))
+    # Aggiornato includendo anche il nuovo set unito
+    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
         print("Scaricamento del database canali da GitHub...")
@@ -259,6 +284,7 @@ def generate_ics(matches):
         
         canali_blu = []
         canali_neri = []
+        canali_gialli = [] # <-- AGGIUNTO: Lista temporanea per i gialli
         altri_canali = []
         
         for c in p['canali']:
@@ -266,11 +292,14 @@ def generate_ics(matches):
                 canali_blu.append(c)
             elif c in TUTTI_I_CANALI_NERI:
                 canali_neri.append(c)
+            elif c in TUTTI_I_CANALI_GIALLI: # <-- AGGIUNTO: Controllo playlist gialla
+                canali_gialli.append(c)
             else:
                 altri_canali.append(c)
                 
         canali_blu.sort()
         canali_neri.sort()
+        canali_gialli.sort() # <-- AGGIUNTO: Ordinamento
         
         righe_canali = []
         for c in canali_blu:
@@ -284,6 +313,14 @@ def generate_ics(matches):
                 righe_canali.append("🎬 Prime Video")
             else:
                 righe_canali.append(f"⚫ {c}")
+                
+        # --- AGGIUNTO BLOCCO PER I CANALI GIALLI ---
+        for c in canali_gialli:
+            if "prime" in c.lower():
+                righe_canali.append("🎬 Prime Video")
+            else:
+                righe_canali.append(f"🟡 {c}")
+        # ------------------------------------------
             
         for c in altri_canali:
             if "In attesa" in c:
@@ -302,7 +339,7 @@ def generate_ics(matches):
         evento.add('description', descrizione)
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
+    with open("inter_tv.ics", 'wb' ) as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
