@@ -1,6 +1,8 @@
 import os
 import requests
 import json
+import gzip
+import io
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
@@ -99,47 +101,42 @@ def pulisci_nome(nome):
 
 def precarica_guide_necessarie():
     nazioni = {
-        # Europa Occidentale e Centrale
         "it", "ch", "fr", "es", "de", "nl", "at", "be", "lu", "li", "mc", "ad", "sm", "va",
-        # Europa Orientale e Balcani
         "al", "by", "ru", "ua", "pl", "cz", "sk", "hu", "ro", "bg", "rs", "hr", "ba", "si", "me", "mk", "xk", "md",
-        # Europa del Nord e Baltici
         "gb", "ie", "dk", "se", "no", "fi", "is", "ee", "lv", "lt",
-        # Europa del Sud e Mediterraneo
         "pt", "gr", "cy", "mt",
-        # Turchia e Caucaso
         "tr", "ge", "am", "az",
-        # Africa
         "za", "eg", "ma", "dz", "tn", "ng", "ke", "gh",
-        # Americhe e Mondo
         "us", "ca", "mx", "br", "ar", "co", "cl", "my"
     }
     
-    print(f"Pre-scaricamento guide EPG (iptv-org + epg.pw) per {len(nazioni)} nazioni...")
+    print(f"Pre-scaricamento guide EPG (iptv-org + epg.lat) per {len(nazioni)} nazioni...")
     
     for country_code in nazioni:
         # 1. Scarica da iptv-org
         url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
-            res = requests.get(url_iptv, timeout=6)
+            res = requests.get(url_iptv, timeout=5)
             if res.status_code == 200:
                 CACHE_GUIDE[country_code] = ET.fromstring(res.content)
         except Exception:
             pass
 
-        # 2. Scarica da epg.pw (usando il codice nazione in maiuscolo, es: IT, US)
-        url_pw = f"https://epg.pw/xmltv/epg_{country_code.upper()}.xml"
+        # 2. Scarica da epg.lat (.xml.gz)
+        url_lat = f"https://epg.lat/files/{country_code}.xml.gz"
         try:
-            res_pw = requests.get(url_pw, timeout=6)
-            if res_pw.status_code == 200:
-                root_pw = ET.fromstring(res_pw.content)
-                # Se abbiamo già una guida iptv-org per questa nazione, uniamo i programmi
+            res_lat = requests.get(url_lat, timeout=5)
+            if res_lat.status_code == 200:
+                # Decomprime il file .gz al volo
+                with gzip.GzipFile(fileobj=io.BytesIO(res_lat.content)) as gz:
+                    decompressed_content = gz.read()
+                root_lat = ET.fromstring(decompressed_content)
+                
                 if country_code in CACHE_GUIDE:
-                    for prog in root_pw.findall('programme'):
+                    for prog in root_lat.findall('programme'):
                         CACHE_GUIDE[country_code].append(prog)
                 else:
-                    # Altrimenti salviamo direttamente quella di epg.pw
-                    CACHE_GUIDE[country_code] = root_pw
+                    CACHE_GUIDE[country_code] = root_lat
         except Exception:
             pass
 
