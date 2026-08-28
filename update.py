@@ -20,7 +20,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Canali classici fissi aggiornati (Eleven, Canal+, Polsat, Nova, Cosmote, Max Sport, Eurosport PL, TVP, RSI, Rai, Mediaset, TV8, Prime)
+# I 39 canali classici fissi
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -45,9 +45,9 @@ def normalizza_testo(testo):
         return ""
     
     traduzioni_estere = {
-        'интер': 'inter',     # Russo / Ucraino (Cirillico)
-        'ιντερ': 'inter',     # Greco
-        'ınter': 'inter',     # Turco (con la 'ı' senza punto)
+        'интер': 'inter',     
+        'ιντερ': 'inter',     
+        'ınter': 'inter',     
         'милан': 'milan',
         'ювентус': 'juventus',
         'футбол': 'football',
@@ -91,14 +91,18 @@ def analizza_m3u_esteso(testo_m3u, target_set):
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     playlist = [
-        (URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
-        (URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
-        (URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI)
+        ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
+        ("NERA", URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
+        ("GIALLA", URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI)
     ]
-    for url, target_set in playlist:
+    
+    print("\n--- DIAGNOSTICA CARICAMENTO LISTE IPTV ---")
+    for nome_lista, url, target_set in playlist:
         if url:
             try:
+                print(f"Scaricamento lista {nome_lista} da URL...")
                 response = requests.get(url, timeout=15)
+                print(f"Stato risposta {nome_lista}: HTTP {response.status_code}")
                 if response.status_code == 200:
                     if "#EXTM3U" in response.text or "#EXTINF" in response.text:
                         analizza_m3u_esteso(response.text, target_set)
@@ -109,29 +113,38 @@ def carica_canali_esterni():
                                 c_name = line.split(",", 1)[1].strip() if "," in line else line
                                 if c_name:
                                     target_set.add(c_name)
-            except Exception:
-                pass
+                    print(f"Canali trovati e caricati in {nome_lista}: {len(target_set)}")
+                else:
+                    print(f"Errore HTTP per la lista {nome_lista}: {response.status_code}")
+            except Exception as e:
+                print(f"Eccezione durante il download della lista {nome_lista}: {e}")
+        else:
+            print(f"URL per la lista {nome_lista} non configurato (vuoto).")
 
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
+    print(f"\nTotale canali unici da mappare (Classici + Liste IPTV): {len(tutti_i_nomi)}")
     try:
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
             data = response.json()
             db_canali = {normalizza_testo(c.get('name')): {"id": c.get('id')} for c in data if c.get('name')}
             
+            mappati = 0
             for nome in tutti_i_nomi:
                 if nome not in INFO_CANALI:
                     nome_norm = normalizza_testo(nome)
                     if nome_norm in db_canali:
                         INFO_CANALI[nome] = db_canali[nome_norm]
+                        mappati += 1
                     else:
                         INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
-    except Exception:
-        pass
+            print(f"Canali mappati tramite database GitHub: {mappati}")
+    except Exception as e:
+        print(f"Errore connessione a GitHub per gli ID canali: {e}")
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
@@ -171,9 +184,11 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
     try:
         res = requests.get(url_epg, headers=HEADERS, timeout=30)
         if res.status_code == 200:
-            return analizza_epg_stream(res.content, valid_channel_ids)
-    except Exception:
-        pass
+            progs = analizza_epg_stream(res.content, valid_channel_ids)
+            print(f"Paese EPG [{paese}]: scaricati e validati {len(progs)} programmi")
+            return progs
+    except Exception as e:
+        print(f"Errore download EPG paese [{paese}]: {e}")
     return []
 
 def scarica_tutti_gli_epg():
@@ -181,7 +196,7 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING GLOBALE V73 PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING EPG PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -189,6 +204,7 @@ def scarica_tutti_gli_epg():
             risultati_paese = future.result()
             if risultati_paese:
                 PROGRAMMI_EPG.extend(risultati_paese)
+    print(f"Totale programmi totali salvati in memoria dall'EPG: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -282,7 +298,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V73 Expanded Classics//IT')
+    cal.add('prodid', '-//Calendario Inter V74 Debug Mode//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -323,7 +339,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
+    with open("inter_tv.ics", 'wb'] as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
