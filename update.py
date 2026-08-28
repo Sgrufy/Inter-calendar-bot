@@ -6,6 +6,7 @@ from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 import unicodedata
+import re
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -44,6 +45,10 @@ def normalizza_testo(testo):
     if not testo:
         return ""
     
+    # Rimuove suffissi comuni IPTV e tag di qualità/paese
+    testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
+    testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
+    
     traduzioni_estere = {
         'интер': 'inter',     
         'ιντερ': 'inter',     
@@ -60,13 +65,17 @@ def normalizza_testo(testo):
         'podosfairo': 'football'
     }
     
-    testo_lower = testo.lower()
+    testo_lower = testo_pulito.lower()
     for estero, lat in traduzioni_estere.items():
         if estero in testo_lower:
             testo_lower = testo_lower.replace(estero, lat)
 
+    # Sostituisce trattini bassi o punti con spazi
+    testo_lower = testo_lower.replace('_', ' ').replace('.', ' ')
+
     nfkd_form = unicodedata.normalize('NFKD', testo_lower)
-    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).strip()
+    risultato = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
+    return " ".join(risultato.split()).strip()
 
 def analizza_m3u_esteso(testo_m3u, target_set):
     current_tvg_id = None
@@ -86,7 +95,9 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name:
                 target_set.add(c_name)
                 if current_tvg_id:
+                    # Salva sia il nome esatto che quello normalizzato associato al tvg-id nativo
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
+                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
 
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
@@ -230,7 +241,8 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         if ch_id:
             if ch_id not in id_to_names:
                 id_to_names[ch_id] = []
-            id_to_names[ch_id].append(nome_canale)
+            if nome_canale not in id_to_names[ch_id]:
+                id_to_names[ch_id].append(nome_canale)
 
     for prog in PROGRAMMI_EPG:
         ch_id = prog['channel']
@@ -298,7 +310,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V75 Debug Mode//IT')
+    cal.add('prodid', '-//Calendario Inter V76 Smart Match//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
