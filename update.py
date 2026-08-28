@@ -22,7 +22,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# I 39 canali classici fissi (Unici ad avere diritto alla TV 📺)
+# I 39 canali classici fissi con la TV 📺
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -34,6 +34,23 @@ CANALI_TV_CLASSICI = {
     "TVP Sport",
     "RSI LA1", "RSI LA2",
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
+}
+
+# CANALI PRIORITARI SPECIALI CON PALLINO ARANCIONE 🟠 (Setanta, Sport TV PT, beIN, TNT, CBS Golazo, Fox)
+CANALI_PRIORITARI_SPECIALI = {
+    # Setanta
+    "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+", "Setanta Sports Eurasia",
+    # Sport TV (Portogallo)
+    "Sport TV 1", "Sport TV 2", "Sport TV 3", "Sport TV 4", "Sport TV 5", "Sport TV 6", "Sport TV +",
+    # beIN Sports
+    "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", "beIN Sports 4", "beIN Sports 5", 
+    "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX",
+    # TNT
+    "TNT", "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4",
+    # CBS Golazo
+    "CBS Sports Golazo", "CBS Sports Network",
+    # Fox (tutti)
+    "Fox", "Fox Sports 1", "Fox Sports 2", "Fox Soccer Plus", "Fox Deportes"
 }
 
 INFO_CANALI = {}  
@@ -148,7 +165,6 @@ def carica_canali_esterni():
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
             
-    # Aggiunta dei nuovi canali sportivi (nei blu con pallino 🔵)
     nuovi_canali_stregati = {
         "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
         "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV"
@@ -162,7 +178,7 @@ def carica_canali_esterni():
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
-    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
+    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI))
     
     print(f"\nTotale canali unici da mappare: {len(tutti_i_nomi)}")
     try:
@@ -269,8 +285,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         return canali_trovati
         
     keywords = [normalizza_testo("inter"), normalizza_testo(home_team), normalizza_testo(away_team)]
-    
-    # Aggiunti "w24" e "tagesschau" per bloccare i falsi positivi tedeschi
     canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
 
     id_to_names = {}
@@ -369,6 +383,8 @@ def generate_ics(matches):
                 righe_canali.append(c)
             elif c in CANALI_TV_CLASSICI or "prime" in c.lower():
                 righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"📺 {c}")
+            elif c in CANALI_PRIORITARI_SPECIALI:
+                righe_canali.append(f"🟠 {c}")
             elif c in TUTTI_I_CANALI_BLU:
                 righe_canali.append(f"🔵 {c}")
             elif c in TUTTI_I_CANALI_NERI:
