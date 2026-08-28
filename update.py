@@ -2,8 +2,10 @@ import os
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
+from calendar import Calendar, Event # o icalendar
 from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import io
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -27,7 +29,7 @@ CANALI_TV_CLASSICI = {
 }
 
 INFO_CANALI = {}  
-ROOT_EPG_LIST = []  
+PROGRAMMI_EPG = [] # Memorizziamo i programmi trovati in modo efficiente
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
@@ -42,7 +44,7 @@ def carica_canali_esterni():
     for url, target_set in playlist:
         if url:
             try:
-                response = requests.get(url, timeout=5)
+                response = requests.get(url, timeout=10)
                 if response.status_code == 200:
                     for line in response.text.splitlines():
                         line = line.strip()
@@ -59,7 +61,7 @@ def carica_id_da_github():
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
-        response = requests.get(url_api, timeout=5)
+        response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
             data = response.json()
             db_canali = {c.get('name').lower(): {"id": c.get('id')} for c in data if c.get('name')}
@@ -73,28 +75,56 @@ def carica_id_da_github():
     except Exception:
         pass
 
-def scarica_singolo_epg(paese):
-    url_epg = f"https://iptv-epg.org/files/epg-{paese}.xml"
+def analizza_epg_stream(content_bytes, valid_channel_ids):
+    """Usa iterparse per estrarre solo i programmi dei canali che ci interessano senza consumare RAM."""
+    programmi_locali = []
     try:
-        res = requests.get(url_epg, headers=HEADERS, timeout=4)
-        if res.status_code == 200:
-            return ET.fromstring(res.content)
+        # Usiamo io.BytesIO per leggere il flusso binario in modo sicuro
+        context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
+        for event, elem in context:
+            if elem.tag == 'programme':
+                ch = elem.get('channel')
+                if ch in valid_channel_ids:
+                    title_el = elem.find('title')
+                    title_text = title_el.text if (title_el is not None and title_el.text) else ""
+                    start_str = elem.get('start')
+                    if title_text and start_str:
+                        programmi_locali.append({
+                            'channel': ch,
+                            'title': title_text.lower(),
+                            'start': start_str
+                        })
+                # Svuotiamo l'elemento dalla memoria subito dopo l'uso per alleggerire RAM
+                elem.clear()
     except Exception:
         pass
-    return None
+    return programmi_locali
 
-def scarica_epg_mirate():
-    global ROOT_EPG_LIST
-    # Paesi estesi: Italia, Francia, Spagna, Portogallo, Polonia, Stati Uniti, Svizzera + mercati Sport TV
+def scarica_e_processa_paese(paese, valid_channel_ids):
+    url_epg = f"https://iptv-epg.org/files/epg-{paese}.xml"
+    try:
+        res = requests.get(url_epg, headers=HEADERS, timeout=30)
+        if res.status_code == 200:
+            return analizza_epg_stream(res.content, valid_channel_ids)
+    except Exception:
+        pass
+    return []
+
+def scarica_tutti_gli_epg():
+    global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
-    print("\n--- DOWNLOAD PARALLELO EPG MIRATE ---")
     
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(scarica_singolo_epg, p): p for p in paesi}
+    # Raccogliamo tutti gli ID canale validi cercati nelle nostre liste
+    valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
+    
+    print(f"\n--- DOWNLOAD E PARSING VERITIERO (iterparse) PER {len(paesi)} PAESI ---")
+    
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
         for future in as_completed(futures):
-            result = future.result()
-            if result is not None:
-                ROOT_EPG_LIST.append(result)
+            risultati_paese = future.result()
+            if risultati_paese:
+                PROGRAMMI_EPG.extend(risultati_paese)
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -104,41 +134,35 @@ def pulisci_nome(nome):
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
-    if not ROOT_EPG_LIST:
+    if not PROGRAMMI_EPG:
         return canali_trovati
         
     keywords = ["inter", home_team.lower(), away_team.lower()]
-    
+    # Creiamo un mapping inverso da channel_id a nome_canale
+    id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
-        channel_id = info.get("id")
-        if not channel_id:
-            continue
-            
-        trovato_canale = False
-        for root_epg in ROOT_EPG_LIST:
-            if trovato_canale: break
-            try:
-                for programme in root_epg.findall('programme'):
-                    if programme.get('channel') == channel_id:
-                        title_el = programme.find('title')
-                        if title_el is not None and title_el.text:
-                            t_text = title_el.text.lower()
-                            if any(key in t_text for key in keywords):
-                                start_str = programme.get('start')
-                                if start_str:
-                                    dt_part = start_str.split(' ')[0]
-                                    try:
-                                        prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                        if abs((prog_start - date_utc).total_seconds()) <= 7200:
-                                            if nome_canale not in canali_trovati:
-                                                canali_trovati.append(nome_canale)
-                                            trovato_canale = True
-                                            break
-                                    except ValueError:
-                                        continue
-            except Exception:
-                continue
-                
+        ch_id = info.get("id")
+        if ch_id:
+            if ch_id not in id_to_names:
+                id_to_names[ch_id] = []
+            id_to_names[ch_id].append(nome_canale)
+
+    for prog in PROGRAMMI_EPG:
+        ch_id = prog['channel']
+        if any(key in prog['title'] for key in keywords):
+            start_str = prog['start']
+            if start_str:
+                dt_part = start_str.split(' ')[0]
+                try:
+                    prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                    if abs((prog_start - date_utc).total_seconds()) <= 7200:
+                        if ch_id in id_to_names:
+                            for nome_canale in id_to_names[ch_id]:
+                                if nome_canale not in canali_trovati:
+                                    canali_trovati.append(nome_canale)
+                except ValueError:
+                    continue
+                    
     return canali_trovati
 
 def fetch_next_matches():
@@ -146,11 +170,12 @@ def fetch_next_matches():
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
     try:
-        response = requests.get(url, headers=HEADERS, timeout=5)
+        response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
-        scarica_epg_mirate()
+        # Scarica ed elabora con precisione chirurgica
+        scarica_tutti_gli_epg()
         
         for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
@@ -185,7 +210,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V53 Multi-threading//IT')
+    cal.add('prodid', '-//Calendario Inter V54 Iterparse Veritiero//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
