@@ -20,10 +20,15 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Solo i veri canali standard universali (rimossi i Setanta e Sport TV per farli gestire dalle liste IPTV con il colore corretto)
+# I 32 canali classici e fissi (scansionati in ogni caso)
 CANALI_TV_CLASSICI = {
+    "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
+    "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
+    "Sport TV1", "Sport TV2", "Sport TV3", "Sport TV4", "Sport TV5", "Sport TV6",
+    "Setanta Sports", "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+",
     "RSI LA1", "RSI LA2",
-    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
+    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
+    "Sky Sport Uno", "Sky Sport Calcio", "Sky Sport 251", "DAZN 1", "DAZN 2", "Eurosport 1"
 }
 
 INFO_CANALI = {}  
@@ -173,7 +178,7 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING GLOBALE V70 PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING GLOBALE V71 PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -274,7 +279,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V70 Strict List Colors//IT')
+    cal.add('prodid', '-//Calendario Inter V71 Classic Restored//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
