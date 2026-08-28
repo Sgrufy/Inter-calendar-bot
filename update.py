@@ -298,7 +298,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V74 Debug Mode//IT')
+    cal.add('prodid', '-//Calendario Inter V75 Debug Mode//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -339,7 +339,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb'] as f:
+    with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
