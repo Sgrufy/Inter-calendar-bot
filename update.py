@@ -39,17 +39,14 @@ TUTTI_I_CANALI_GIALLI = set()
 
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
-    
     playlist = [
         (URL_CANALI_BLU, TUTTI_I_CANALI_BLU, "blu"),
         (URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI, "neri"),
         (URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI, "gialli")
     ]
-    
     for url, target_set, nome_playlist in playlist:
         if url:
             try:
-                print(f"Scaricamento playlist {nome_playlist}...")
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
                     for line in response.text.splitlines():
@@ -58,22 +55,18 @@ def carica_canali_esterni():
                             c_name = line.split(",", 1)[1].strip() if "," in line else line
                             if c_name:
                                 target_set.add(c_name)
-                    print(f"-> Caricati {len(target_set)} canali {nome_playlist}.")
-            except Exception as e:
-                print(f"Errore caricamento playlist {nome_playlist}: {e}")
+            except Exception:
+                pass
 
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
-    
     try:
-        print("Scaricamento database canali IPTV-org...")
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
             data = response.json()
             db_canali = {c.get('name').lower(): {"id": c.get('id'), "country": c.get('country', 'it').lower()} for c in data if c.get('name')}
-            
             for nome in tutti_i_nomi:
                 nome_lower = nome.lower()
                 if nome_lower in db_canali:
@@ -87,9 +80,8 @@ def carica_id_da_github():
                             break
                     if not trovato:
                         INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "country": "it"}
-            print(f"-> Mappati {len(INFO_CANALI)} canali totali.")
-    except Exception as e:
-        print(f"Errore database GitHub: {e}")
+    except Exception:
+        pass
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -98,66 +90,45 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    nazioni = [
-        "it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"
-    ]
+    # Nazioni mirate principali
+    nazioni = ["it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"]
+    print("\n--- SCARICAMENTO GUIDE IPTV-ORG PER NAZIONE ---")
     
-    print(f"\n--- FASE DI PRE-CARICAMENTO GUIDE ---")
-    
-    # 1. IPTV-org
     for country_code in nazioni:
         url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
-            res = requests.get(url_iptv, timeout=6)
-            if res.status_code == 200:
-                CACHE_GUIDE[f"iptv_{country_code}"] = ET.fromstring(res.content)
-                print(f"[OK] IPTV-org caricata per: {country_code}")
-        except Exception:
-            pass
-
-    # 2. FreeEPG.de
-    for country_code in nazioni:
-        url_free_alt = f"https://www.free-epg.de/fileadmin/epg/{country_code}.xml"
-        for u in [f"https://www.free-epg.de/etv/get.php?country={country_code}", url_free_alt]:
-            try:
-                res_free = requests.get(u, timeout=6)
-                if res_free.status_code == 200 and len(res_free.content) > 1000:
-                    CACHE_GUIDE[f"free_{country_code}"] = ET.fromstring(res_free.content)
-                    print(f"[OK] FreeEPG caricata per: {country_code}")
-                    break
-            except Exception:
-                pass
-                
-    print(f"Totale guide caricate in cache: {len(CACHE_GUIDE)}\n")
+            res = requests.get(url_iptv, timeout=8)
+            if res.status_code == 200 and len(res.content) > 500:
+                CACHE_GUIDE[country_code] = ET.fromstring(res.content)
+                print(f"[OK] Guida caricata per: {country_code}")
+        except Exception as e:
+            print(f"[ERRORE] Impossibile scaricare {country_code}: {e}")
+            
+    print(f"Totale guide caricate con successo in cache: {len(CACHE_GUIDE)}\n")
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
-    print(f"\n==================================================")
-    print(f"CERCO MATCH: {home_team} vs {away_team}")
-    print(f"Orario UTC match: {date_utc.strftime('%Y-%m-%d %H:%M')}")
-    print(f"Parole chiave cercate: {keywords}")
-    print(f"==================================================")
     
     for nome_canale, info in INFO_CANALI.items():
         channel_id = info.get("id")
         country_code = info.get("country", "it")
         
-        chiavi_primarie = [f"iptv_{country_code}", f"free_{country_code}"]
-        altre_chiavi = [k for k in CACHE_GUIDE.keys() if k not in chiavi_primarie]
-        ordine_guide = [CACHE_GUIDE[k] for k in chiavi_primarie if k in CACHE_GUIDE] + [CACHE_GUIDE[k] for k in altre_chiavi if k in CACHE_GUIDE]
+        # Cerca prima nella nazione del canale, poi nelle altre se necessario
+        ordine_nazioni = [country_code] + [n for n in CACHE_GUIDE.keys() if n != country_code]
         
-        canale_verificato = False
-        for root in ordine_guide:
-            if canale_verificato: 
-                break
+        trovato_per_canale = False
+        for c_code in ordine_nazioni:
+            if trovato_per_canale: break
+            root = CACHE_GUIDE.get(c_code)
+            if root is None: continue
+            
             try:
                 for programme in root.findall('programme'):
                     if channel_id and programme.get('channel') == channel_id:
                         title_el = programme.find('title')
                         if title_el is not None and title_el.text:
                             t_text = title_el.text.lower()
-                            
                             if any(key in t_text for key in keywords):
                                 start_str = programme.get('start')
                                 if start_str:
@@ -165,18 +136,15 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                                     diff_ore = abs((prog_start - date_utc).total_seconds()) / 3600
                                     
-                                    print(f" -> [MATCH PARZIALE] Trovato '{title_el.text}' su '{nome_canale}' (Diff oraria: {diff_ore:.1f}h)")
-                                    
                                     if diff_ore <= 2:
                                         if nome_canale not in canali_trovati:
                                             canali_trovati.append(nome_canale)
-                                            print(f"    >>> AGGANCIATO CON SUCCESSO! Aggiunto canale: {nome_canale}")
-                                        canale_verificato = True
+                                            print(f"Trovata corrispondenza! Partita: {home_team}-{away_team} | Canale: {nome_canale} | Programma: {title_el.text}")
+                                        trovato_per_canale = True
                                         break
             except Exception:
                 continue
                 
-    print(f"Risultato finale canali per {home_team} vs {away_team}: {canali_trovati if canali_trovati else 'Nessun canale trovato (In attesa)'}\n")
     return canali_trovati
 
 def fetch_next_matches():
@@ -223,7 +191,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V40 Debug//IT')
+    cal.add('prodid', '-//Calendario Inter V41 Fast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
