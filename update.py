@@ -231,8 +231,8 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
 
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
-    # Aggiunti Argentina ('ar') e Sudafrica ('za') insieme a Russia ('ru') e Turchia ('tr')
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
+    # Aggiunti Croazia (hr), Serbia (rs), Ungheria (hu) e Slovacchia (sk)
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
     print(f"\n--- DOWNLOAD E PARSING EPG ---")
@@ -341,7 +341,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V82 EPG Global//IT')
+    cal.add('prodid', '-//Calendario Inter V84 EPG BalkansAndCEE//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
