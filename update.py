@@ -36,7 +36,7 @@ CANALI_TV_CLASSICI = {
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
-# Canali prioritari speciali con pallino arancione 🟠 (Setanta, Sport TV PT, beIN, TNT, CBS Golazo, Fox)
+# Canali prioritari speciali con pallino arancione 🟠 (inclusi internazionali, russi, turchi e cecoslovacchi)
 CANALI_PRIORITARI_SPECIALI = {
     # Setanta
     "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+", "Setanta Sports Eurasia",
@@ -50,7 +50,17 @@ CANALI_PRIORITARI_SPECIALI = {
     # CBS Golazo
     "CBS Sports Golazo", "CBS Sports Network",
     # Fox (tutti)
-    "Fox", "Fox Sports 1", "Fox Sports 2", "Fox Soccer Plus", "Fox Deportes"
+    "Fox", "Fox Sports 1", "Fox Sports 2", "Fox Soccer Plus", "Fox Deportes",
+    # Canali Russi / Bielorussi
+    "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
+    "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV",
+    # Canali Turchi
+    "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", "Tivibu Spor 2", 
+    "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", "beIN Sports 3 Turkey",
+    # Canali Cecoslovacchi (Repubblica Ceca e Slovacchia)
+    "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", "Nova Sport 5", "Nova Sport 6",
+    "Premier Sport 1", "Premier Sport 2", "Premier Sport 3",
+    "Sport 1", "Sport 2", "Arena Sport 1", "Arena Sport 2"
 }
 
 INFO_CANALI = {}  
@@ -165,16 +175,13 @@ def carica_canali_esterni():
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
             
-    nuovi_canali_stregati = {
-        "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
-        "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV"
-    }
-    for nc in nuovi_canali_stregati:
+    for nc in CANALI_PRIORITARI_SPECIALI:
         TUTTI_I_CANALI_BLU.add(nc)
-        INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
+        if nc not in INFO_CANALI:
+            INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
-    # AGGIUNTA SORGENTI EPG.LAT PRINCIPALI (Italia, Portogallo, Spagna, Francia, UK, USA, ecc.)
-    epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de']
+    # Inclusione di Turchia (tr), Repubblica Ceca (cz) e Slovacchia (sk) tra i paesi EPG dinamici
+    epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de', 'tr', 'cz', 'sk', 'ru']
     for p in epg_lat_paesi:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
 
