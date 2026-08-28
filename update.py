@@ -19,7 +19,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Reiseriti i canali classici che avevamo messo in precedenza
+# Canali classici (senza Sky o DAZN)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -64,7 +64,7 @@ def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
     
-    # Unisce i canali classici e i canali delle tre liste (blu, nera, gialla)
+    # Unisce i canali classici e le tre liste IPTV
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
@@ -89,21 +89,22 @@ def carica_id_da_github():
     except Exception:
         pass
 
-def scarica_epg_globale():
+def scarica_epg_pw():
     global ROOT_EPG
-    url_epg = "https://iptv-org.github.io/epg/index.xml.gz"
-    print("\n--- DOWNLOAD EPG GLOBALE ---")
+    # Utilizziamo l'endpoint ufficiale ed efficiente di epg.pw
+    url_epg = "https://epg.pw/xmltv/epg.xml.gz"
+    print("\n--- DOWNLOAD EPG DA EPG.PW ---")
     try:
         res = requests.get(url_epg, headers=HEADERS, timeout=30)
-        print(f"Status code EPG: {res.status_code}")
+        print(f"Status code EPG.pw: {res.status_code}")
         if res.status_code == 200:
             content_decompressed = gzip.decompress(res.content)
             ROOT_EPG = ET.fromstring(content_decompressed)
-            print("[OK] EPG globale scaricata e caricata con successo!")
+            print("[OK] EPG di epg.pw scaricata e caricata con successo!")
         else:
-            print(f"[ERRORE] Impossibile scaricare l'EPG, codice: {res.status_code}")
+            print(f"[ERRORE] Impossibile scaricare l'EPG da epg.pw, codice: {res.status_code}")
     except Exception as e:
-        print(f"[Eccezione EPG] {e}")
+        print(f"[Eccezione EPG.pw] {e}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -155,7 +156,7 @@ def fetch_next_matches():
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
-        scarica_epg_globale()
+        scarica_epg_pw()
         
         for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
@@ -190,7 +191,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V47 Classici e Liste//IT')
+    cal.add('prodid', '-//Calendario Inter V49 EPG.pw//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
