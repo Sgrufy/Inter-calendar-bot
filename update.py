@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
+import unicodedata
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -32,6 +33,13 @@ PROGRAMMI_EPG = []
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
+
+def normalizza_testo(testo):
+    if not testo:
+        return ""
+    # Normalizzazione Unicode per gestire accenti, diacritici e uniformare i caratteri globali
+    nfkd_form = unicodedata.normalize('NFKD', testo)
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower().strip()
 
 def analizza_m3u_esteso(testo_m3u, target_set):
     current_tvg_id = None
@@ -86,13 +94,13 @@ def carica_id_da_github():
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
             data = response.json()
-            db_canali = {c.get('name').lower(): {"id": c.get('id')} for c in data if c.get('name')}
+            db_canali = {normalizza_testo(c.get('name')): {"id": c.get('id')} for c in data if c.get('name')}
             
             for nome in tutti_i_nomi:
                 if nome not in INFO_CANALI:
-                    nome_lower = nome.lower()
-                    if nome_lower in db_canali:
-                        INFO_CANALI[nome] = db_canali[nome_lower]
+                    nome_norm = normalizza_testo(nome)
+                    if nome_norm in db_canali:
+                        INFO_CANALI[nome] = db_canali[nome_norm]
                     else:
                         INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
     except Exception:
@@ -100,6 +108,8 @@ def carica_id_da_github():
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
+    parole_da_scartare = ["journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin"]
+    
     try:
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
         for event, elem in context:
@@ -108,11 +118,15 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                 if ch in valid_channel_ids:
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
+                    title_norm = normalizza_testo(title_text)
+                    
+                    is_news = any(scarto in title_norm for scarto in parole_da_scartare)
+                    
                     start_str = elem.get('start')
-                    if title_text and start_str:
+                    if title_text and start_str and not is_news:
                         programmi_locali.append({
                             'channel': ch,
-                            'title': title_text.lower(),
+                            'title': title_norm,
                             'start': start_str
                         })
                 elem.clear()
@@ -135,7 +149,7 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING VERITIERO (M3U + EPG) PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING UNIVERSALE (M3U + EPG) PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -155,7 +169,7 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
     if not PROGRAMMI_EPG:
         return canali_trovati
         
-    keywords = ["inter", home_team.lower(), away_team.lower()]
+    keywords = [normalizza_testo("inter"), normalizza_testo(home_team), normalizza_testo(away_team)]
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
         ch_id = info.get("id")
@@ -226,7 +240,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V57 TV In Cima//IT')
+    cal.add('prodid', '-//Calendario Inter V60 Universal Unicode//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -250,13 +264,11 @@ def generate_ics(matches):
         
         righe_canali = []
         
-        # 1. Televisori e Prime Video messi IN CIMA
         for c in altri_canali:
             if "In attesa" in c: righe_canali.append(c)
             elif "prime" in c.lower(): righe_canali.append("🎬 Prime Video")
             else: righe_canali.append(f"📺 {c}")
             
-        # 2. Pallini colorati posizionati sotto
         for c in canali_blu:
             righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🔵 {c}")
         for c in canali_neri:
