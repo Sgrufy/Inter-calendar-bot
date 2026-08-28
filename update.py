@@ -58,7 +58,7 @@ def carica_canali_esterni():
                             c_name = line.split(",", 1)[1].strip() if "," in line else line
                             if c_name:
                                 target_set.add(c_name)
-                    print(f"Caricati {len(target_set)} canali {nome_playlist}.")
+                    print(f"-> Caricati {len(target_set)} canali {nome_playlist}.")
             except Exception as e:
                 print(f"Errore caricamento playlist {nome_playlist}: {e}")
 
@@ -87,7 +87,7 @@ def carica_id_da_github():
                             break
                     if not trovato:
                         INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "country": "it"}
-            print(f"Mappati {len(INFO_CANALI)} canali.")
+            print(f"-> Mappati {len(INFO_CANALI)} canali totali.")
     except Exception as e:
         print(f"Errore database GitHub: {e}")
 
@@ -103,68 +103,90 @@ def precarica_guide_necessarie():
         "it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"
     ]
     
-    print(f"Pre-scaricamento guide EPG mirate da IPTV-org ({len(nazioni)} nazioni)...")
+    print(f"\n--- FASE DI PRE-CARICAMENTO GUIDE ---")
+    
+    # 1. IPTV-org
     for country_code in nazioni:
         url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
-            res = requests.get(url_iptv, timeout=5)
+            res = requests.get(url_iptv, timeout=6)
             if res.status_code == 200:
                 CACHE_GUIDE[f"iptv_{country_code}"] = ET.fromstring(res.content)
+                print(f"[OK] IPTV-org caricata per: {country_code}")
         except Exception:
             pass
 
-    # Pre-scaricamento guide di backup da Open-EPG (mappatura nomi file basata sui paesi)
-    open_epg_mapping = {
-        "it": "italy", "ch": "switzerland", "gb": "uk", "es": "spain", "fr": "france", 
-        "pl": "poland", "pt": "portugal", "ua": "ukraine", "ie": "ireland", 
-        "cz": "czech", "gr": "greece", "za": "southafrica", "tr": "turkey", 
-        "us": "usa", "ca": "canada", "al": "albania"
-    }
-
-    print("Pre-scaricamento guide di backup da Open-EPG...")
-    for country_code, open_name in open_epg_mapping.items():
-        url_open = f"https://www.open-epg.com/files/{open_name}.xml"
-        try:
-            res_open = requests.get(url_open, timeout=5)
-            if res_open.status_code == 200:
-                CACHE_GUIDE[f"open_{country_code}"] = ET.fromstring(res_open.content)
-        except Exception:
-            pass
-            
-    print("Guide caricate con successo!")
+    # 2. FreeEPG.de (mappa le sigle nei codici nazione usati da free-epg.de, es. it, de, uk, ecc.)
+    # Free-epg usa generalmente le sigle minuscole standard (it, es, fr, pl, pt, tr, us, ca, gb, ecc.)
+    for country_code in nazioni:
+        url_free = f"https://www.free-epg.de/etv/get.php?ch={country_code}" # URL standard o file nazione di free-epg
+        # Nota: FreeEPG mette a disposizione i file per nazione solitamente tramite i loro link diretti XMLTV
+        # Proviamo la struttura standard di free-epg.de per nazione:
+        url_free_alt = f"https://www.free-epg.de/fileadmin/epg/{country_code}.xml"
+        
+        for u in [f"https://www.free-epg.de/etv/get.php?country={country_code}", url_free_alt]:
+            try:
+                res_free = requests.get(u, timeout=6)
+                if res_free.status_code == 200 and len(res_free.content) > 1000:
+                    CACHE_GUIDE[f"free_{country_code}"] = ET.fromstring(res_free.content)
+                    print(f"[OK] FreeEPG caricata per: {country_code}")
+                    break
+            except Exception:
+                pass
+                
+    print(Totale guide caricate in cache: {len(CACHE_GUIDE)})\n)
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
+    print(f"\n==================================================")
+    print(f"CERCO MATCH: {home_team} vs {away_team}")
+    print(f"Orario UTC match: {date_utc.strftime('%Y-%m-%d %H:%M')}")
+    print(f"Parole chiave cercate: {keywords}")
+    print(f"==================================================")
     
     for nome_canale, info in INFO_CANALI.items():
         channel_id = info.get("id")
         country_code = info.get("country", "it")
         
-        # Cerchiamo prima nella nazione specifica (IPTV-org e Open-EPG), poi nelle altre come fallback
-        chiavi_primarie = [f"iptv_{country_code}", f"open_{country_code}"]
+        # Ordine di controllo: prima le guide della nazione specifica, poi le altre
+        chiavi_primarie = [f"iptv_{country_code}", f"free_{country_code}"]
         altre_chiavi = [k for k in CACHE_GUIDE.keys() if k not in chiavi_primarie]
         ordine_guide = [CACHE_GUIDE[k] for k in chiavi_primarie if k in CACHE_GUIDE] + [CACHE_GUIDE[k] for k in altre_chiavi if k in CACHE_GUIDE]
         
+        canale_verificato = False
         for root in ordine_guide:
+            if canale_verificato: 
+                break
             try:
                 for programme in root.findall('programme'):
                     if channel_id and programme.get('channel') == channel_id:
                         title_el = programme.find('title')
                         if title_el is not None and title_el.text:
                             t_text = title_el.text.lower()
+                            
+                            # Se vuoi spiare tutto quello che passa sul canale, scommenta la riga sotto:
+                            # print(f"Canale [{nome_canale}] trasmette: {title_el.text}")
+                            
                             if any(key in t_text for key in keywords):
                                 start_str = programme.get('start')
                                 if start_str:
                                     dt_part = start_str.split(' ')[0]
                                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                    if abs((prog_start - date_utc).total_seconds()) <= 7200:
+                                    diff_ore = abs((prog_start - date_utc).total_seconds()) / 3600
+                                    
+                                    print(f" -> [MATCH PARZIALE] Trovato '{title_el.text}' su '{nome_canale}' (Diff oraria: {diff_ore:.1f}h)")
+                                    
+                                    if diff_ore <= 2:
                                         if nome_canale not in canali_trovati:
                                             canali_trovati.append(nome_canale)
+                                            print(f"    >>> AGGANCIATO CON SUCCESSO! Aggiunto canale: {nome_canale}")
+                                        canale_verificato = True
                                         break
             except Exception:
                 continue
                 
+    print(f"Risultato finale canali per {home_team} vs {away_team}: {canali_trovati if canali_trovati else 'Nessun canale trovato (In attesa)'}\n")
     return canali_trovati
 
 def fetch_next_matches():
@@ -211,7 +233,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V39 UltraFast//IT')
+    cal.add('prodid', '-//Calendario Inter V40 Debug//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
