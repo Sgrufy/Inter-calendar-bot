@@ -110,13 +110,12 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
                     INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
-            # Gestione alternativa per liste miste o basate su formato CSV/Testo
             parti = line.split(",", 1)
             c_name = parti[0].strip()
             if c_name and len(c_name) < 50:
                 target_set.add(c_name)
 
-def carica_canali_externi():
+def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
@@ -341,7 +340,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V79 Fix Blu//IT')
+    cal.add('prodid', '-//Calendario Inter V80 Fix Blu//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
