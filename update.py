@@ -16,7 +16,7 @@ URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA")
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
@@ -109,8 +109,14 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                 if current_tvg_id:
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
                     INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
+        elif "," in line and not line.startswith("#") and not line.startswith("http"):
+            # Gestione alternativa per liste miste o basate su formato CSV/Testo
+            parti = line.split(",", 1)
+            c_name = parti[0].strip()
+            if c_name and len(c_name) < 50:
+                target_set.add(c_name)
 
-def carica_canali_esterni():
+def carica_canali_externi():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
@@ -123,7 +129,7 @@ def carica_canali_esterni():
         if url:
             try:
                 print(f"Scaricamento lista {nome_lista} da URL...")
-                response = requests.get(url, timeout=15)
+                response = requests.get(url, headers=HEADERS, timeout=20)
                 print(f"Stato risposta {nome_lista}: HTTP {response.status_code}")
                 if response.status_code == 200:
                     if "#EXTM3U" in response.text or "#EXTINF" in response.text:
@@ -131,9 +137,9 @@ def carica_canali_esterni():
                     else:
                         for line in response.text.splitlines():
                             line = line.strip()
-                            if line and not line.startswith("#"):
-                                c_name = line.split(",", 1)[1].strip() if "," in line else line
-                                if c_name:
+                            if line and not line.startswith("#") and not line.startswith("http"):
+                                c_name = line.split(",", 1)[0].strip() if "," in line else line
+                                if c_name and len(c_name) < 50:
                                     target_set.add(c_name)
                     print(f"Canali trovati e caricati in {nome_lista}: {len(target_set)}")
                 else:
@@ -335,7 +341,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V78 Strict Icons//IT')
+    cal.add('prodid', '-//Calendario Inter V79 Fix Blu//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -359,7 +365,6 @@ def generate_ics(matches):
             elif c in TUTTI_I_CANALI_GIALLI:
                 righe_canali.append(f"🟡 {c}")
             else:
-                # Per qualsiasi canale non mappato esplicitamente, evitiamo la TV generica se è IPTV
                 continue
                 
         righe_canali = list(dict.fromkeys(righe_canali))
