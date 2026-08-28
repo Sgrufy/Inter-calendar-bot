@@ -148,7 +148,7 @@ def carica_canali_esterni():
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
             
-    # Aggiunta dei nuovi canali sportivi dati stasera (nei blu con pallino 🔵)
+    # Aggiunta dei nuovi canali sportivi (nei blu con pallino 🔵)
     nuovi_canali_stregati = {
         "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
         "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV"
@@ -269,7 +269,9 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         return canali_trovati
         
     keywords = [normalizza_testo("inter"), normalizza_testo(home_team), normalizza_testo(away_team)]
-    canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc"]
+    
+    # Aggiunti "w24" e "tagesschau" per bloccare i falsi positivi tedeschi
+    canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
 
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
