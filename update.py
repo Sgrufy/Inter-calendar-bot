@@ -3,6 +3,7 @@ import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -20,14 +21,9 @@ TEAM_ID = 108
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
-    "Cosmote Sport", "Eurosport Poland", 
-    "Canal+ Sport 1", "Canal+ Sport 3", "Canal+ Sport 4", "Canal+ Sport 5",
-    "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3",
-    "Canal+ Sport Premium 1", "Canal+ Sport Premium 2", 
-    "TVP Sport", "Max Sport", "Nova Sport",
+    "Sport TV1", "Sport TV2", "Sport TV3", "Sport TV4", "Sport TV5", "Sport TV6",
     "RSI LA1", "RSI LA2",
-    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Mediaset 20", "Mediaset Extra", "TV8",
-    "Prime Video"
+    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
 INFO_CANALI = {}  
@@ -46,7 +42,7 @@ def carica_canali_esterni():
     for url, target_set in playlist:
         if url:
             try:
-                response = requests.get(url, timeout=10)
+                response = requests.get(url, timeout=5)
                 if response.status_code == 200:
                     for line in response.text.splitlines():
                         line = line.strip()
@@ -63,7 +59,7 @@ def carica_id_da_github():
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
-        response = requests.get(url_api, timeout=10)
+        response = requests.get(url_api, timeout=5)
         if response.status_code == 200:
             data = response.json()
             db_canali = {c.get('name').lower(): {"id": c.get('id')} for c in data if c.get('name')}
@@ -73,39 +69,32 @@ def carica_id_da_github():
                 if nome_lower in db_canali:
                     INFO_CANALI[nome] = db_canali[nome_lower]
                 else:
-                    trovato = False
-                    for db_name, info in db_canali.items():
-                        if nome_lower in db_name or db_name in nome_lower:
-                            INFO_CANALI[nome] = info
-                            trovato = True
-                            break
-                    if not trovato:
-                        INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
+                    INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
     except Exception:
         pass
 
+def scarica_singolo_epg(paese):
+    url_epg = f"https://iptv-epg.org/files/epg-{paese}.xml"
+    try:
+        res = requests.get(url_epg, headers=HEADERS, timeout=4)
+        if res.status_code == 200:
+            return ET.fromstring(res.content)
+    except Exception:
+        pass
+    return None
+
 def scarica_epg_mirate():
     global ROOT_EPG_LIST
-    # Paesi di origine + paesi richiesti (inclusi quelli con beIN: Francia, USA, Spagna, Turchia, ecc.)
-    paesi = [
-        'it', 'pl', 'ch', 'gr',  # Precedenti (Italia, Polonia, Svizzera, Grecia)
-        'pt', 'my', 'tr', 'ua', 'us', 'gb', 'za', 'ie', 'cz', 'ru', 'al', 'nl', 'fr', 'es'
-    ]
-    print("\n--- DOWNLOAD EPG MIRATE PER PAESE ---")
+    # Paesi estesi: Italia, Francia, Spagna, Portogallo, Polonia, Stati Uniti, Svizzera + mercati Sport TV
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
+    print("\n--- DOWNLOAD PARALLELO EPG MIRATE ---")
     
-    for paese in paesi:
-        url_epg = f"https://iptv-epg.org/files/epg-{paese}.xml"
-        try:
-            print(f"Scaricamento EPG per {paese.upper()}...")
-            res = requests.get(url_epg, headers=HEADERS, timeout=15)
-            if res.status_code == 200:
-                root = ET.fromstring(res.content)
-                ROOT_EPG_LIST.append(root)
-                print(f"[OK] EPG {paese.upper()} caricata con successo!")
-            else:
-                print(f"[AVVISO] EPG {paese.upper()} non disponibile (Codice: {res.status_code})")
-        except Exception as e:
-            print(f"[Eccezione EPG {paese}] {e}")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = {executor.submit(scarica_singolo_epg, p): p for p in paesi}
+        for future in as_completed(futures):
+            result = future.result()
+            if result is not None:
+                ROOT_EPG_LIST.append(result)
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -157,7 +146,7 @@ def fetch_next_matches():
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
     
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(url, headers=HEADERS, timeout=5)
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
@@ -196,7 +185,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V51 EPG Estese//IT')
+    cal.add('prodid', '-//Calendario Inter V53 Multi-threading//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
