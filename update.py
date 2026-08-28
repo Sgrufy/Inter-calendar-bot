@@ -22,7 +22,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# I 39 canali classici fissi con la terza fonte EPG (es. epg.pw)
+# I 39 canali classici fissi con la terza fonte EPG (epg_lite.xml)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -107,8 +107,8 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name:
                 target_set.add(c_name)
                 if current_tvg_id:
-                    INFO_CANALI[c_name] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]}
-                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]}
+                    INFO_CANALI[c_name] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]}
+                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]}
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
@@ -156,20 +156,20 @@ def carica_canali_esterni():
         TUTTI_I_CANALI_BLU.add(nc)
         INFO_CANALI[nc] = {
             "id": nc.lower().replace(" ", "."),
-            "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+            "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]
         }
 
     for c_classico in CANALI_TV_CLASSICI:
         if c_classico not in INFO_CANALI:
             INFO_CANALI[c_classico] = {
                 "id": c_classico.lower().replace(" ", "."),
-                "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+                "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]
             }
         else:
             if "epg_sources" not in INFO_CANALI[c_classico]:
-                INFO_CANALI[c_classico]["epg_sources"] = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
-            elif "https://epg.pw/xmltv/epg.xml" not in INFO_CANALI[c_classico]["epg_sources"]:
-                INFO_CANALI[c_classico]["epg_sources"].append("https://epg.pw/xmltv/epg.xml")
+                INFO_CANALI[c_classico]["epg_sources"] = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]
+            elif "https://epg.pw/xmltv/epg_lite.xml" not in INFO_CANALI[c_classico]["epg_sources"]:
+                INFO_CANALI[c_classico]["epg_sources"].append("https://epg.pw/xmltv/epg_lite.xml")
 
     print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) nelle intestazioni M3U.")
 
@@ -189,7 +189,7 @@ def carica_id_da_github():
             for nome in tutti_i_nomi:
                 if nome not in INFO_CANALI or not INFO_CANALI[nome].get("id"):
                     nome_norm = normalizza_testo(nome)
-                    sources = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+                    sources = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg_lite.xml"]
                     if nome_norm in db_canali:
                         INFO_CANALI[nome] = {"id": db_canali[nome_norm]["id"], "epg_sources": sources}
                         mappati += 1
@@ -267,7 +267,8 @@ def scarica_tutti_gli_epg():
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
         
-        futures[executor.submit(scarica_e_processa_url_personalizzato, "https://epg.pw/xmltv/epg.xml", valid_channel_ids)] = "epg_pw"
+        # Sostituito con epg_lite.xml per maggiore stabilità e velocità
+        futures[executor.submit(scarica_e_processa_url_personalizzato, "https://epg.pw/xmltv/epg_lite.xml", valid_channel_ids)] = "epg_pw_lite"
 
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
             futures[executor.submit(scarica_e_processa_url_personalizzato, url_gz, valid_channel_ids)] = f"gz_{idx}"
