@@ -37,9 +37,34 @@ TUTTI_I_CANALI_GIALLI = set()
 def normalizza_testo(testo):
     if not testo:
         return ""
-    # Normalizzazione Unicode per gestire accenti, diacritici e uniformare i caratteri globali
-    nfkd_form = unicodedata.normalize('NFKD', testo)
-    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower().strip()
+    
+    # Dizionario esteso per coprire le grafie internazionali di Inter e termini sportivi
+    traduzioni_estere = {
+        # Variazioni di Inter in altre lingue / alfabeti
+        'интер': 'inter',     # Russo / Ucraino (Cirillico)
+        'ιντερ': 'inter',     # Greco
+        'ınter': 'inter',     # Turco (con la 'ı' senza punto)
+        
+        # Altri termini chiave e squadre estere
+        'милан': 'milan',
+        'ювентус': 'juventus',
+        'футбол': 'football',
+        'матч': 'match',
+        'mecz': 'match',
+        'pilka nozna': 'football',
+        'mac': 'match',
+        'futbol': 'football',
+        'agonas': 'match',
+        'podosfairo': 'football'
+    }
+    
+    testo_lower = testo.lower()
+    for estero, lat in traduzioni_estere.items():
+        if estero in testo_lower:
+            testo_lower = testo_lower.replace(estero, lat)
+
+    nfkd_form = unicodedata.normalize('NFKD', testo_lower)
+    return "".join([c for c in nfkd_form if not unicodedata.combining(c)]).strip()
 
 def analizza_m3u_esteso(testo_m3u, target_set):
     current_tvg_id = None
@@ -108,7 +133,13 @@ def carica_id_da_github():
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
-    parole_da_scartare = ["journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin"]
+    # Parole e rubriche non sportive da scartare categoricamente
+    parole_da_scartare = [
+        "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
+        "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
+        "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
+        "haber", "deltio"
+    ]
     
     try:
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
@@ -120,10 +151,10 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
                     title_norm = normalizza_testo(title_text)
                     
-                    is_news = any(scarto in title_norm for scarto in parole_da_scartare)
+                    is_scartato = any(scarto in title_norm for scarto in parole_da_scartare)
                     
                     start_str = elem.get('start')
-                    if title_text and start_str and not is_news:
+                    if title_text and start_str and not is_scartato:
                         programmi_locali.append({
                             'channel': ch,
                             'title': title_norm,
@@ -146,10 +177,11 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
 
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
+    # Copertura completa dei 14 paesi principali (inclusi Polonia, Russia, Ucraina, Turchia, Grecia)
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING UNIVERSALE (M3U + EPG) PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING GLOBALE V65 PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -180,7 +212,11 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
 
     for prog in PROGRAMMI_EPG:
         ch_id = prog['channel']
-        if any(key in prog['title'] for key in keywords):
+        title = prog['title']
+        
+        ha_keyword = any(key in title for key in keywords)
+        
+        if ha_keyword:
             start_str = prog['start']
             if start_str:
                 dt_part = start_str.split(' ')[0]
@@ -240,7 +276,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V60 Universal Unicode//IT')
+    cal.add('prodid', '-//Calendario Inter V65 Global Multi-Alphabet//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -281,7 +317,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
+    with open("inter_tv.ics", 'wb'] as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
