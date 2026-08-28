@@ -36,7 +36,7 @@ CANALI_TV_CLASSICI = {
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
-# CANALI PRIORITARI SPECIALI CON PALLINO ARANCIONE 🟠 (Setanta, Sport TV PT, beIN, TNT, CBS Golazo, Fox)
+# Canali prioritari speciali con pallino arancione 🟠 (Setanta, Sport TV PT, beIN, TNT, CBS Golazo, Fox)
 CANALI_PRIORITARI_SPECIALI = {
     # Setanta
     "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+", "Setanta Sports Eurasia",
@@ -133,7 +133,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                 target_set.add(c_name)
 
 def carica_canali_esterni():
-    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
+    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, URLS_EPG_DINAMICI
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
         ("NERA", URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
@@ -173,7 +173,12 @@ def carica_canali_esterni():
         TUTTI_I_CANALI_BLU.add(nc)
         INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
-    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) nelle intestazioni M3U.")
+    # AGGIUNTA SORGENTI EPG.LAT PRINCIPALI (Italia, Portogallo, Spagna, Francia, UK, USA, ecc.)
+    epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de']
+    for p in epg_lat_paesi:
+        URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
+
+    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali (inclusi epg.lat).")
 
 def carica_id_da_github():
     global INFO_CANALI
