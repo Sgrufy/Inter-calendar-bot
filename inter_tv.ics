@@ -1,13 +1,13 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V69 Global with Malaysia//IT
+PRODID:-//Calendario Inter V70 Strict List Colors//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 1
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
