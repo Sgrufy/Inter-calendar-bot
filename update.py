@@ -40,12 +40,9 @@ def normalizza_testo(testo):
     
     # Dizionario esteso per coprire le grafie internazionali di Inter e termini sportivi
     traduzioni_estere = {
-        # Variazioni di Inter in altre lingue / alfabeti
         'интер': 'inter',     # Russo / Ucraino (Cirillico)
         'ιντερ': 'inter',     # Greco
         'ınter': 'inter',     # Turco (con la 'ı' senza punto)
-        
-        # Altri termini chiave e squadre estere
         'милан': 'milan',
         'ювентус': 'juventus',
         'футбол': 'football',
@@ -179,7 +176,7 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING GLOBALE V66 PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING GLOBALE V67 PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -200,8 +197,16 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         return canali_trovati
         
     keywords = [normalizza_testo("inter"), normalizza_testo(home_team), normalizza_testo(away_team)]
+    
+    # Filtro rigoroso: scarta a priori i canali che nel nome contengono termini di news o cronaca
+    canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc"]
+
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
+        nome_lower = nome_canale.lower()
+        if any(evitare in nome_lower for evitare in canali_da_evitare):
+            continue
+            
         ch_id = info.get("id")
         if ch_id:
             if ch_id not in id_to_names:
@@ -274,7 +279,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V66 Global Multi-Alphabet//IT')
+    cal.add('prodid', '-//Calendario Inter V67 Global Anti-False-Positives//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
