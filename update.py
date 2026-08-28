@@ -90,61 +90,48 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Nazioni mirate principali
-    nazioni = ["it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"]
-    print("\n--- SCARICAMENTO GUIDE IPTV-ORG PER NAZIONE ---")
-    
-    for country_code in nazioni:
-        url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
-        try:
-            res = requests.get(url_iptv, timeout=8)
-            if res.status_code == 200 and len(res.content) > 500:
-                CACHE_GUIDE[country_code] = ET.fromstring(res.content)
-                print(f"[OK] Guida caricata per: {country_code}")
-        except Exception as e:
-            print(f"[ERRORE] Impossibile scaricare {country_code}: {e}")
-            
-    print(f"Totale guide caricate con successo in cache: {len(CACHE_GUIDE)}\n")
+    # Proviamo intanto con l'Italia per testare il download diretto
+    url_test = "https://iptv-org.github.io/epg/guides/it.xml"
+    print(f"\n--- TEST DOWNLOAD GUIDA ITALIA ---")
+    try:
+        res = requests.get(url_test, headers=HEADERS, timeout=15)
+        print(f"Status code ricevuto: {res.status_code}")
+        if res.status_code == 200:
+            CACHE_GUIDE["it"] = ET.fromstring(res.content)
+            print("[OK] Guida Italia caricata con successo!")
+        else:
+            print(f"[ERRORE] Il server ha risposto con codice: {res.status_code}")
+    except Exception as e:
+        print(f"[eccezione] {e}")
+        
+    print(f"Totale guide in cache: {len(CACHE_GUIDE)}\n")
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
     keywords = ["inter", home_team.lower(), away_team.lower()]
-    
+    root = CACHE_GUIDE.get("it")
+    if not root:
+        return canali_trovati
+        
     for nome_canale, info in INFO_CANALI.items():
         channel_id = info.get("id")
-        country_code = info.get("country", "it")
-        
-        # Cerca prima nella nazione del canale, poi nelle altre se necessario
-        ordine_nazioni = [country_code] + [n for n in CACHE_GUIDE.keys() if n != country_code]
-        
-        trovato_per_canale = False
-        for c_code in ordine_nazioni:
-            if trovato_per_canale: break
-            root = CACHE_GUIDE.get(c_code)
-            if root is None: continue
-            
-            try:
-                for programme in root.findall('programme'):
-                    if channel_id and programme.get('channel') == channel_id:
-                        title_el = programme.find('title')
-                        if title_el is not None and title_el.text:
-                            t_text = title_el.text.lower()
-                            if any(key in t_text for key in keywords):
-                                start_str = programme.get('start')
-                                if start_str:
-                                    dt_part = start_str.split(' ')[0]
-                                    prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                    diff_ore = abs((prog_start - date_utc).total_seconds()) / 3600
-                                    
-                                    if diff_ore <= 2:
-                                        if nome_canale not in canali_trovati:
-                                            canali_trovati.append(nome_canale)
-                                            print(f"Trovata corrispondenza! Partita: {home_team}-{away_team} | Canale: {nome_canale} | Programma: {title_el.text}")
-                                        trovato_per_canale = True
-                                        break
-            except Exception:
-                continue
-                
+        try:
+            for programme in root.findall('programme'):
+                if channel_id and programme.get('channel') == channel_id:
+                    title_el = programme.find('title')
+                    if title_el is not None and title_el.text:
+                        t_text = title_el.text.lower()
+                        if any(key in t_text for key in keywords):
+                            start_str = programme.get('start')
+                            if start_str:
+                                dt_part = start_str.split(' ')[0]
+                                prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                if abs((prog_start - date_utc).total_seconds()) <= 7200:
+                                    if nome_canale not in canali_trovati:
+                                        canali_trovati.append(nome_canale)
+                                    break
+        except Exception:
+            continue
     return canali_trovati
 
 def fetch_next_matches():
@@ -191,7 +178,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V41 Fast//IT')
+    cal.add('prodid', '-//Calendario Inter V42 Test//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
