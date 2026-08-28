@@ -1,33 +1,33 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V43 GZ//IT
+PRODID:-//Calendario Inter V44 Definitivo//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 DAZN 1\n
+ 📺 Sky Sport Calcio\n📺 Sky Sport Uno
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T160000Z
 DTEND:20260905T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 DAZN 1\n
+ 📺 Sky Sport Calcio\n📺 Sky Sport Uno
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T184500Z
 DTEND:20260914T204500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 DAZN 1\n
+ 📺 Sky Sport Calcio\n📺 Sky Sport Uno
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ AS Roma vs Inter
 DTSTART:20260919T160000Z
 DTEND:20260919T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 DAZN 1\n
+ 📺 Sky Sport Calcio\n📺 Sky Sport Uno
 END:VEVENT
 END:VCALENDAR
