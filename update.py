@@ -98,7 +98,6 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Nazioni chiave richieste (sigle standard)
     nazioni = [
         "it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"
     ]
@@ -116,14 +115,9 @@ def precarica_guide_necessarie():
         except Exception:
             pass
 
-    # 2. FreeEPG.de (mappa le sigle nei codici nazione usati da free-epg.de, es. it, de, uk, ecc.)
-    # Free-epg usa generalmente le sigle minuscole standard (it, es, fr, pl, pt, tr, us, ca, gb, ecc.)
+    # 2. FreeEPG.de
     for country_code in nazioni:
-        url_free = f"https://www.free-epg.de/etv/get.php?ch={country_code}" # URL standard o file nazione di free-epg
-        # Nota: FreeEPG mette a disposizione i file per nazione solitamente tramite i loro link diretti XMLTV
-        # Proviamo la struttura standard di free-epg.de per nazione:
         url_free_alt = f"https://www.free-epg.de/fileadmin/epg/{country_code}.xml"
-        
         for u in [f"https://www.free-epg.de/etv/get.php?country={country_code}", url_free_alt]:
             try:
                 res_free = requests.get(u, timeout=6)
@@ -134,7 +128,7 @@ def precarica_guide_necessarie():
             except Exception:
                 pass
                 
-    print(Totale guide caricate in cache: {len(CACHE_GUIDE)})\n)
+    print(f"Totale guide caricate in cache: {len(CACHE_GUIDE)}\n")
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
@@ -149,7 +143,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         channel_id = info.get("id")
         country_code = info.get("country", "it")
         
-        # Ordine di controllo: prima le guide della nazione specifica, poi le altre
         chiavi_primarie = [f"iptv_{country_code}", f"free_{country_code}"]
         altre_chiavi = [k for k in CACHE_GUIDE.keys() if k not in chiavi_primarie]
         ordine_guide = [CACHE_GUIDE[k] for k in chiavi_primarie if k in CACHE_GUIDE] + [CACHE_GUIDE[k] for k in altre_chiavi if k in CACHE_GUIDE]
@@ -164,9 +157,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                         title_el = programme.find('title')
                         if title_el is not None and title_el.text:
                             t_text = title_el.text.lower()
-                            
-                            # Se vuoi spiare tutto quello che passa sul canale, scommenta la riga sotto:
-                            # print(f"Canale [{nome_canale}] trasmette: {title_el.text}")
                             
                             if any(key in t_text for key in keywords):
                                 start_str = programme.get('start')
