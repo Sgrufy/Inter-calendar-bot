@@ -1,8 +1,6 @@
 import os
 import requests
 import json
-import gzip
-import io
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
@@ -100,33 +98,40 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Lista mirata delle nazioni richieste per IPTV-org
-    nazioni = {
+    # Nazioni chiave richieste (sigle standard)
+    nazioni = [
         "it", "ch", "gb", "es", "fr", "pl", "pt", "ua", "ie", "cz", "gr", "za", "tr", "us", "ca", "al"
-    }
+    ]
     
-    print(f"Pre-scaricamento guide EPG mirate ({len(nazioni)} nazioni) da IPTV-org...")
+    print(f"Pre-scaricamento guide EPG mirate da IPTV-org ({len(nazioni)} nazioni)...")
     for country_code in nazioni:
         url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
             res = requests.get(url_iptv, timeout=5)
             if res.status_code == 200:
-                CACHE_GUIDE[country_code] = ET.fromstring(res.content)
+                CACHE_GUIDE[f"iptv_{country_code}"] = ET.fromstring(res.content)
         except Exception:
             pass
 
-    # Scaricamento della guida globale EPGTalk come super-backup
-    print("Scaricamento guida globale EPGTalk...")
-    url_epgtalk = "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/guide.xml.gz"
-    try:
-        res_talk = requests.get(url_epgtalk, timeout=15)
-        if res_talk.status_code == 200:
-            with gzip.GzipFile(fileobj=io.BytesIO(res_talk.content)) as gz:
-                decompressed_content = gz.read()
-            CACHE_GUIDE["epgtalk_global"] = ET.fromstring(decompressed_content)
-            print("Guida globale EPGTalk caricata con successo!")
-    except Exception as e:
-        print(f"Errore caricamento EPGTalk: {e}")
+    # Pre-scaricamento guide di backup da Open-EPG (mappatura nomi file basata sui paesi)
+    open_epg_mapping = {
+        "it": "italy", "ch": "switzerland", "gb": "uk", "es": "spain", "fr": "france", 
+        "pl": "poland", "pt": "portugal", "ua": "ukraine", "ie": "ireland", 
+        "cz": "czech", "gr": "greece", "za": "southafrica", "tr": "turkey", 
+        "us": "usa", "ca": "canada", "al": "albania"
+    }
+
+    print("Pre-scaricamento guide di backup da Open-EPG...")
+    for country_code, open_name in open_epg_mapping.items():
+        url_open = f"https://www.open-epg.com/files/{open_name}.xml"
+        try:
+            res_open = requests.get(url_open, timeout=5)
+            if res_open.status_code == 200:
+                CACHE_GUIDE[f"open_{country_code}"] = ET.fromstring(res_open.content)
+        except Exception:
+            pass
+            
+    print("Guide caricate con successo!")
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
@@ -136,14 +141,15 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         channel_id = info.get("id")
         country_code = info.get("country", "it")
         
-        roots_da_cercare = [CACHE_GUIDE.get(country_code)] + [r for c, r in CACHE_GUIDE.items() if c not in [country_code, "epgtalk_global"]] + [CACHE_GUIDE.get("epgtalk_global")]
+        # Cerchiamo prima nella nazione specifica (IPTV-org e Open-EPG), poi nelle altre come fallback
+        chiavi_primarie = [f"iptv_{country_code}", f"open_{country_code}"]
+        altre_chiavi = [k for k in CACHE_GUIDE.keys() if k not in chiavi_primarie]
+        ordine_guide = [CACHE_GUIDE[k] for k in chiavi_primarie if k in CACHE_GUIDE] + [CACHE_GUIDE[k] for k in altre_chiavi if k in CACHE_GUIDE]
         
-        for root in roots_da_cercare:
-            if root is None:
-                continue
+        for root in ordine_guide:
             try:
                 for programme in root.findall('programme'):
-                    if programme.get('channel') == channel_id or (root == CACHE_GUIDE.get("epgtalk_global")):
+                    if channel_id and programme.get('channel') == channel_id:
                         title_el = programme.find('title')
                         if title_el is not None and title_el.text:
                             t_text = title_el.text.lower()
@@ -205,7 +211,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V38 UltraGlobal//IT')
+    cal.add('prodid', '-//Calendario Inter V39 UltraFast//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
