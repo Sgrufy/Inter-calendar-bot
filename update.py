@@ -1,8 +1,6 @@
 import os
 import requests
-import json
 import xml.etree.ElementTree as ET
-import gzip
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
@@ -19,7 +17,6 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# Canali classici (senza Sky o DAZN)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -34,7 +31,7 @@ CANALI_TV_CLASSICI = {
 }
 
 INFO_CANALI = {}  
-ROOT_EPG = None  
+ROOT_EPG_LIST = []  
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
@@ -63,8 +60,6 @@ def carica_canali_esterni():
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
-    
-    # Unisce i canali classici e le tre liste IPTV
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
     try:
@@ -89,22 +84,28 @@ def carica_id_da_github():
     except Exception:
         pass
 
-def scarica_epg_pw():
-    global ROOT_EPG
-    # Utilizziamo l'endpoint ufficiale ed efficiente di epg.pw
-    url_epg = "https://epg.pw/xmltv/epg.xml.gz"
-    print("\n--- DOWNLOAD EPG DA EPG.PW ---")
-    try:
-        res = requests.get(url_epg, headers=HEADERS, timeout=30)
-        print(f"Status code EPG.pw: {res.status_code}")
-        if res.status_code == 200:
-            content_decompressed = gzip.decompress(res.content)
-            ROOT_EPG = ET.fromstring(content_decompressed)
-            print("[OK] EPG di epg.pw scaricata e caricata con successo!")
-        else:
-            print(f"[ERRORE] Impossibile scaricare l'EPG da epg.pw, codice: {res.status_code}")
-    except Exception as e:
-        print(f"[Eccezione EPG.pw] {e}")
+def scarica_epg_mirate():
+    global ROOT_EPG_LIST
+    # Paesi di origine + paesi richiesti (inclusi quelli con beIN: Francia, USA, Spagna, Turchia, ecc.)
+    paesi = [
+        'it', 'pl', 'ch', 'gr',  # Precedenti (Italia, Polonia, Svizzera, Grecia)
+        'pt', 'my', 'tr', 'ua', 'us', 'gb', 'za', 'ie', 'cz', 'ru', 'al', 'nl', 'fr', 'es'
+    ]
+    print("\n--- DOWNLOAD EPG MIRATE PER PAESE ---")
+    
+    for paese in paesi:
+        url_epg = f"https://iptv-epg.org/files/epg-{paese}.xml"
+        try:
+            print(f"Scaricamento EPG per {paese.upper()}...")
+            res = requests.get(url_epg, headers=HEADERS, timeout=15)
+            if res.status_code == 200:
+                root = ET.fromstring(res.content)
+                ROOT_EPG_LIST.append(root)
+                print(f"[OK] EPG {paese.upper()} caricata con successo!")
+            else:
+                print(f"[AVVISO] EPG {paese.upper()} non disponibile (Codice: {res.status_code})")
+        except Exception as e:
+            print(f"[Eccezione EPG {paese}] {e}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -114,7 +115,7 @@ def pulisci_nome(nome):
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
-    if ROOT_EPG is None:
+    if not ROOT_EPG_LIST:
         return canali_trovati
         
     keywords = ["inter", home_team.lower(), away_team.lower()]
@@ -124,27 +125,31 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         if not channel_id:
             continue
             
-        try:
-            for programme in ROOT_EPG.findall('programme'):
-                if programme.get('channel') == channel_id:
-                    title_el = programme.find('title')
-                    if title_el is not None and title_el.text:
-                        t_text = title_el.text.lower()
-                        if any(key in t_text for key in keywords):
-                            start_str = programme.get('start')
-                            if start_str:
-                                dt_part = start_str.split(' ')[0]
-                                try:
-                                    prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                                    if abs((prog_start - date_utc).total_seconds()) <= 7200:
-                                        if nome_canale not in canali_trovati:
-                                            canali_trovati.append(nome_canale)
-                                        break
-                                except ValueError:
-                                    continue
-        except Exception:
-            continue
-            
+        trovato_canale = False
+        for root_epg in ROOT_EPG_LIST:
+            if trovato_canale: break
+            try:
+                for programme in root_epg.findall('programme'):
+                    if programme.get('channel') == channel_id:
+                        title_el = programme.find('title')
+                        if title_el is not None and title_el.text:
+                            t_text = title_el.text.lower()
+                            if any(key in t_text for key in keywords):
+                                start_str = programme.get('start')
+                                if start_str:
+                                    dt_part = start_str.split(' ')[0]
+                                    try:
+                                        prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                        if abs((prog_start - date_utc).total_seconds()) <= 7200:
+                                            if nome_canale not in canali_trovati:
+                                                canali_trovati.append(nome_canale)
+                                            trovato_canale = True
+                                            break
+                                    except ValueError:
+                                        continue
+            except Exception:
+                continue
+                
     return canali_trovati
 
 def fetch_next_matches():
@@ -156,7 +161,7 @@ def fetch_next_matches():
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
-        scarica_epg_pw()
+        scarica_epg_mirate()
         
         for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
@@ -191,7 +196,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V49 EPG.pw//IT')
+    cal.add('prodid', '-//Calendario Inter V51 EPG Estese//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
