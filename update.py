@@ -22,7 +22,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# I 39 canali classici fissi (Unici ad avere diritto alla TV 📺)
+# I 39 canali classici fissi (Unici ad avere diritto alla TV 📺) con l'aggiunta del terzo EPG (es. epg.pw)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -107,8 +107,8 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name:
                 target_set.add(c_name)
                 if current_tvg_id:
-                    INFO_CANALI[c_name] = {"id": current_tvg_id}
-                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
+                    INFO_CANALI[c_name] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]}
+                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id, "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]}
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
@@ -147,6 +147,32 @@ def carica_canali_esterni():
                 print(f"Eccezione durante il download della lista {nome_lista}: {e}")
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
+    
+    # Includiamo esplicitamente i nuovi canali discussi stasera (Match!, Okko, Go3, LRT, Arryadia, MNS, Prime TV, ecc.)
+    nuovi_canali_stregati = {
+        "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
+        "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV"
+    }
+    for nc in nuovi_canali_stregati:
+        TUTTI_I_CANALI_BLU.add(nc) # Li cataloghiamo come blu o generali
+        INFO_CANALI[nc] = {
+            "id": nc.lower().replace(" ", "."),
+            "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+        }
+
+    # Aggiungiamo il terzo EPG anche ai canali classici fissi
+    for c_classico in CANALI_TV_CLASSICI:
+        if c_classico not in INFO_CANALI:
+            INFO_CANALI[c_classico] = {
+                "id": c_classico.lower().replace(" ", "."),
+                "epg_sources": ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+            }
+        else:
+            if "epg_sources" not in INFO_CANALI[c_classico]:
+                INFO_CANALI[c_classico]["epg_sources"] = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
+            elif "https://epg.pw/xmltv/epg.xml" not in INFO_CANALI[c_classico]["epg_sources"]:
+                INFO_CANALI[c_classico]["epg_sources"].append("https://epg.pw/xmltv/epg.xml")
+
     print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) nelle intestazioni M3U.")
 
 def carica_id_da_github():
@@ -163,13 +189,15 @@ def carica_id_da_github():
             
             mappati = 0
             for nome in tutti_i_nomi:
-                if nome not in INFO_CANALI:
+                if nome not in INFO_CANALI or not INFO_CANALI[nome].get("id"):
                     nome_norm = normalizza_testo(nome)
+                    sources = ["epg_primario", "epg_secondario", "https://epg.pw/xmltv/epg.xml"]
                     if nome_norm in db_canali:
-                        INFO_CANALI[nome] = db_canali[nome_norm]
+                        INFO_CANALI[nome] = {"id": db_canali[nome_norm]["id"], "epg_sources": sources}
                         mappati += 1
                     else:
-                        INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
+                        if nome not in INFO_CANALI:
+                            INFO_CANALI[nome] = {"id": nome.replace(" ", ""), "epg_sources": sources}
             print(f"Canali mappati tramite database GitHub: {mappati}")
     except Exception as e:
         print(f"Errore connessione a GitHub per gli ID canali: {e}")
@@ -218,12 +246,14 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
         pass
     return []
 
-def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
+def scarica_e_processa_url_personalizzato(url_epg, valid_channel_ids):
     try:
-        res = requests.get(url_gz, headers=HEADERS, timeout=30)
+        res = requests.get(url_epg, headers=HEADERS, timeout=30)
         if res.status_code == 200:
-            xml_content = gzip.decompress(res.content)
-            progs = analizza_epg_stream(xml_content, valid_channel_ids)
+            content = res.content
+            if url_epg.endswith('.gz'):
+                content = gzip.decompress(content)
+            progs = analizza_epg_stream(content, valid_channel_ids)
             return progs
     except Exception:
         pass
@@ -231,15 +261,18 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
 
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
-    # Aggiunti Croazia (hr), Serbia (rs), Ungheria (hu) e Slovacchia (sk)
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
     print(f"\n--- DOWNLOAD E PARSING EPG ---")
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
+        
+        # Aggiunta esplicita dell'EPG epg.pw come terzo epg richiesto
+        futures[executor.submit(scarica_e_processa_url_personalizzato, "https://epg.pw/xmltv/epg.xml", valid_channel_ids)] = "epg_pw"
+
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
-            futures[executor.submit(scarica_e_processa_gz_dinamico, url_gz, valid_channel_ids)] = f"gz_{idx}"
+            futures[executor.submit(scarica_e_processa_url_personalizzato, url_gz, valid_channel_ids)] = f"gz_{idx}"
 
         for future in as_completed(futures):
             risultati = future.result()
