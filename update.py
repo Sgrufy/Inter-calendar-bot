@@ -33,6 +33,33 @@ TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
 
+def analizza_m3u_esteso(testo_m3u, target_set):
+    """Estrae in modo intelligente i nomi e i tvg-id dalle playlist M3U."""
+    current_tvg_id = None
+    for line in testo_m3u.splitlines():
+        line = line.strip()
+        if line.startswith("#EXTINF:"):
+            current_tvg_id = None
+            if 'tvg-id="' in line:
+                try:
+                    part = line.split('tvg-id="')[1]
+                    current_tvg_id = part.split('"')[0].strip()
+                except Exception:
+                    pass
+        elif line and not line.startswith("#"):
+            # Questa è la riga con il link, il nome del canale di solito è dopo la virgola nell'EXTINF precedente 
+            # o lo ricaviamo dal nome del file/link, ma gestiamo il nome pulito salvandolo.
+            pass
+        
+        # Estraiamo anche il nome reale del canale alla fine della riga #EXTINF
+        if line.startswith("#EXTINF:") and "," in line:
+            c_name = line.split(",")[-1].strip()
+            if c_name:
+                target_set.add(c_name)
+                if current_tvg_id:
+                    # Se c'è un tvg-id esplicito, lo salviamo direttamente come ID ufficiale
+                    INFO_CANALI[c_name] = {"id": current_tvg_id}
+
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI
     playlist = [
@@ -43,14 +70,18 @@ def carica_canali_esterni():
     for url, target_set in playlist:
         if url:
             try:
-                response = requests.get(url, timeout=10)
+                response = requests.get(url, timeout=15)
                 if response.status_code == 200:
-                    for line in response.text.splitlines():
-                        line = line.strip()
-                        if line and not line.startswith("#"):
-                            c_name = line.split(",", 1)[1].strip() if "," in line else line
-                            if c_name:
-                                target_set.add(c_name)
+                    # Controlliamo se è un M3U o un TXT semplice
+                    if "#EXTM3U" in response.text or "#EXTINF" in response.text:
+                        analizza_m3u_esteso(response.text, target_set)
+                    else:
+                        for line in response.text.splitlines():
+                            line = line.strip()
+                            if line and not line.startswith("#"):
+                                c_name = line.split(",", 1)[1].strip() if "," in line else line
+                                if c_name:
+                                    target_set.add(c_name)
             except Exception:
                 pass
 
@@ -66,11 +97,13 @@ def carica_id_da_github():
             db_canali = {c.get('name').lower(): {"id": c.get('id')} for c in data if c.get('name')}
             
             for nome in tutti_i_nomi:
-                nome_lower = nome.lower()
-                if nome_lower in db_canali:
-                    INFO_CANALI[nome] = db_canali[nome_lower]
-                else:
-                    INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
+                # Se non ha già un ID assegnato dall'M3U, proviamo a cercarlo su GitHub
+                if nome not in INFO_CANALI:
+                    nome_lower = nome.lower()
+                    if nome_lower in db_canali:
+                        INFO_CANALI[nome] = db_canali[nome_lower]
+                    else:
+                        INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
     except Exception:
         pass
 
@@ -111,7 +144,7 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING VERITIERO (iterparse) PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING VERITIERO (M3U + EPG) PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -202,7 +235,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V55 Corretto//IT')
+    cal.add('prodid', '-//Calendario Inter V56 M3U Parser//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
