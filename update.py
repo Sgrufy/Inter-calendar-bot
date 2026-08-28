@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
 import unicodedata
 import re
+import gzip
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -40,6 +41,7 @@ PROGRAMMI_EPG = []
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
+URLS_EPG_DINAMICI = set()
 
 def normalizza_testo(testo):
     if not testo:
@@ -78,9 +80,22 @@ def normalizza_testo(testo):
     return " ".join(risultato.split()).strip()
 
 def analizza_m3u_esteso(testo_m3u, target_set):
+    global URLS_EPG_DINAMICI
     current_tvg_id = None
     for line in testo_m3u.splitlines():
         line = line.strip()
+        
+        # Estrae gli URL EPG dinamici dall'intestazione x-tvg-url
+        if line.startswith("#EXTM3U") and 'x-tvg-url="' in line:
+            try:
+                parte_url = line.split('x-tvg-url="')[1].split('"')[0]
+                for u in parte_url.replace(',', ' ').split():
+                    u_clean = u.strip()
+                    if u_clean.startswith('http'):
+                        URLS_EPG_DINAMICI.add(u_clean)
+            except Exception:
+                pass
+
         if line.startswith("#EXTINF:"):
             current_tvg_id = None
             if 'tvg-id="' in line:
@@ -95,7 +110,6 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name:
                 target_set.add(c_name)
                 if current_tvg_id:
-                    # Salva sia il nome esatto che quello normalizzato associato al tvg-id nativo
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
                     INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
 
@@ -131,6 +145,7 @@ def carica_canali_esterni():
                 print(f"Eccezione durante il download della lista {nome_lista}: {e}")
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
+    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) nelle intestazioni M3U.")
 
 def carica_id_da_github():
     global INFO_CANALI
@@ -202,19 +217,37 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
         print(f"Errore download EPG paese [{paese}]: {e}")
     return []
 
+def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
+    try:
+        res = requests.get(url_gz, headers=HEADERS, timeout=30)
+        if res.status_code == 200:
+            xml_content = gzip.decompress(res.content)
+            progs = analizza_epg_stream(xml_content, valid_channel_ids)
+            return progs
+    except Exception:
+        pass
+    return []
+
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING EPG PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING EPG (Nazionali + Dinamici GZ) ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
-        futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
+        # Futures per i paesi tradizionali
+        futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
+        
+        # Futures per gli URL .gz dinamici trovati nelle liste M3U
+        for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
+            futures[executor.submit(scarica_e_processa_gz_dinamico, url_gz, valid_channel_ids)] = f"gz_{idx}"
+
         for future in as_completed(futures):
-            risultati_paese = future.result()
-            if risultati_paese:
-                PROGRAMMI_EPG.extend(risultati_paese)
+            risultati = future.result()
+            if risultati:
+                PROGRAMMI_EPG.extend(risultati)
+                
     print(f"Totale programmi totali salvati in memoria dall'EPG: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
@@ -310,7 +343,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V76 Smart Match//IT')
+    cal.add('prodid', '-//Calendario Inter V77 Dynamic GZ//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
