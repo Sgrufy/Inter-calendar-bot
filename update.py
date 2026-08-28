@@ -22,7 +22,7 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# I 39 canali classici fissi
+# I 39 canali classici fissi (Unici ad avere diritto alla TV 📺)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -47,7 +47,6 @@ def normalizza_testo(testo):
     if not testo:
         return ""
     
-    # Rimuove suffissi comuni IPTV e tag di qualità/paese
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     
@@ -72,7 +71,6 @@ def normalizza_testo(testo):
         if estero in testo_lower:
             testo_lower = testo_lower.replace(estero, lat)
 
-    # Sostituisce trattini bassi o punti con spazi
     testo_lower = testo_lower.replace('_', ' ').replace('.', ' ')
 
     nfkd_form = unicodedata.normalize('NFKD', testo_lower)
@@ -85,7 +83,6 @@ def analizza_m3u_esteso(testo_m3u, target_set):
     for line in testo_m3u.splitlines():
         line = line.strip()
         
-        # Estrae gli URL EPG dinamici dall'intestazione x-tvg-url
         if line.startswith("#EXTM3U") and 'x-tvg-url="' in line:
             try:
                 parte_url = line.split('x-tvg-url="')[1].split('"')[0]
@@ -152,7 +149,7 @@ def carica_id_da_github():
     url_api = "https://iptv-org.github.io/api/channels.json"
     tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI))
     
-    print(f"\nTotale canali unici da mappare (Classici + Liste IPTV): {len(tutti_i_nomi)}")
+    print(f"\nTotale canali unici da mappare: {len(tutti_i_nomi)}")
     try:
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
@@ -211,10 +208,9 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
         res = requests.get(url_epg, headers=HEADERS, timeout=30)
         if res.status_code == 200:
             progs = analizza_epg_stream(res.content, valid_channel_ids)
-            print(f"Paese EPG [{paese}]: scaricati e validati {len(progs)} programmi")
             return progs
-    except Exception as e:
-        print(f"Errore download EPG paese [{paese}]: {e}")
+    except Exception:
+        pass
     return []
 
 def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
@@ -233,13 +229,9 @@ def scarica_tutti_gli_epg():
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING EPG (Nazionali + Dinamici GZ) ---")
-    
+    print(f"\n--- DOWNLOAD E PARSING EPG ---")
     with ThreadPoolExecutor(max_workers=6) as executor:
-        # Futures per i paesi tradizionali
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
-        
-        # Futures per gli URL .gz dinamici trovati nelle liste M3U
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
             futures[executor.submit(scarica_e_processa_gz_dinamico, url_gz, valid_channel_ids)] = f"gz_{idx}"
 
@@ -248,7 +240,7 @@ def scarica_tutti_gli_epg():
             if risultati:
                 PROGRAMMI_EPG.extend(risultati)
                 
-    print(f"Totale programmi totali salvati in memoria dall'EPG: {len(PROGRAMMI_EPG)}")
+    print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -343,7 +335,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V77 Dynamic GZ//IT')
+    cal.add('prodid', '-//Calendario Inter V78 Strict Icons//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -353,33 +345,27 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
-        canali_blu, canali_neri, canali_gialli, altri_canali = [], [], [], []
-        
-        for c in p['canali']:
-            if c in TUTTI_I_CANALI_BLU: canali_blu.append(c)
-            elif c in TUTTI_I_CANALI_NERI: canali_neri.append(c)
-            elif c in TUTTI_I_CANALI_GIALLI: canali_gialli.append(c)
-            else: altri_canali.append(c)
-                
-        canali_blu.sort()
-        canali_neri.sort()
-        canali_gialli.sort()
-        
         righe_canali = []
         
-        for c in altri_canali:
-            if "In attesa" in c: righe_canali.append(c)
-            elif "prime" in c.lower(): righe_canali.append("🎬 Prime Video")
-            else: righe_canali.append(f"📺 {c}")
-            
-        for c in canali_blu:
-            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🔵 {c}")
-        for c in canali_neri:
-            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"⚫ {c}")
-        for c in canali_gialli:
-            righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🟡 {c}")
+        for c in p['canali']:
+            if "In attesa" in c:
+                righe_canali.append(c)
+            elif c in CANALI_TV_CLASSICI or "prime" in c.lower():
+                righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"📺 {c}")
+            elif c in TUTTI_I_CANALI_BLU:
+                righe_canali.append(f"🔵 {c}")
+            elif c in TUTTI_I_CANALI_NERI:
+                righe_canali.append(f"⚫ {c}")
+            elif c in TUTTI_I_CANALI_GIALLI:
+                righe_canali.append(f"🟡 {c}")
+            else:
+                # Per qualsiasi canale non mappato esplicitamente, evitiamo la TV generica se è IPTV
+                continue
                 
         righe_canali = list(dict.fromkeys(righe_canali))
+        if not righe_canali:
+            righe_canali = ["In attesa di programmazione ufficiale ⏳"]
+            
         canali_testo = "\n".join(righe_canali)
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
