@@ -28,7 +28,6 @@ CANALI_TV_CLASSICI = {
     "Setanta Sports", "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+",
     "RSI LA1", "RSI LA2",
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
-    "Sky Sport Uno", "Sky Sport Calcio", "Sky Sport 251", "DAZN 1", "DAZN 2", "Eurosport 1"
 }
 
 INFO_CANALI = {}  
