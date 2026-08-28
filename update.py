@@ -110,10 +110,8 @@ def precarica_guide_necessarie():
         "us", "ca", "mx", "br", "ar", "co", "cl", "my"
     }
     
-    print(f"Pre-scaricamento guide EPG (iptv-org + epg.lat) per {len(nazioni)} nazioni...")
-    
+    print(f"Pre-scaricamento guide EPG (iptv-org) per {len(nazioni)} nazioni...")
     for country_code in nazioni:
-        # 1. Scarica da iptv-org
         url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
             res = requests.get(url_iptv, timeout=5)
@@ -122,23 +120,21 @@ def precarica_guide_necessarie():
         except Exception:
             pass
 
-        # 2. Scarica da epg.lat (.xml.gz)
-        url_lat = f"https://epg.lat/files/{country_code}.xml.gz"
-        try:
-            res_lat = requests.get(url_lat, timeout=5)
-            if res_lat.status_code == 200:
-                # Decomprime il file .gz al volo
-                with gzip.GzipFile(fileobj=io.BytesIO(res_lat.content)) as gz:
-                    decompressed_content = gz.read()
-                root_lat = ET.fromstring(decompressed_content)
-                
-                if country_code in CACHE_GUIDE:
-                    for prog in root_lat.findall('programme'):
-                        CACHE_GUIDE[country_code].append(prog)
-                else:
-                    CACHE_GUIDE[country_code] = root_lat
-        except Exception:
-            pass
+    # Integrazione EPGTalk (File Globale Compresso .xml.gz)
+    print("Scaricamento guida globale di backup da EPGTalk...")
+    url_epgtalk = "https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/guide.xml.gz"
+    try:
+        res_talk = requests.get(url_epgtalk, timeout=15)
+        if res_talk.status_code == 200:
+            with gzip.GzipFile(fileobj=io.BytesIO(res_talk.content)) as gz:
+                decompressed_content = gz.read()
+            root_talk = ET.fromstring(decompressed_content)
+            
+            # Salviamo EPGTalk come jolly globale sotto una chiave dedicata nella cache
+            CACHE_GUIDE["epgtalk_global"] = root_talk
+            print("Guida EPGTalk caricata e decompressa con successo!")
+    except Exception as e:
+        print(f"Errore caricamento EPGTalk: {e}")
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
@@ -148,14 +144,16 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         channel_id = info.get("id")
         country_code = info.get("country", "it")
         
-        roots_da_cercare = [CACHE_GUIDE.get(country_code)] + [r for c, r in CACHE_GUIDE.items() if c != country_code]
+        # Mettiamo come priorità la nazione del canale, poi tutte le altre e infine EPGTalk globale
+        roots_da_cercare = [CACHE_GUIDE.get(country_code)] + [r for c, r in CACHE_GUIDE.items() if c not in [country_code, "epgtalk_global"]] + [CACHE_GUIDE.get("epgtalk_global")]
         
         for root in roots_da_cercare:
             if root is None:
                 continue
             try:
                 for programme in root.findall('programme'):
-                    if programme.get('channel') == channel_id:
+                    # Controllo sia per ID canale che per riscontro testuale nel caso di EPGTalk globale
+                    if programme.get('channel') == channel_id or "epgtalk_global" in CACHE_GUIDE and root == CACHE_GUIDE.get("epgtalk_global"):
                         title_el = programme.find('title')
                         if title_el is not None and title_el.text:
                             t_text = title_el.text.lower()
