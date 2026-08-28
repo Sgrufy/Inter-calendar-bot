@@ -267,7 +267,6 @@ def scarica_tutti_gli_epg():
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
         
-        # Monitoraggio specifico per epg.pw
         futures[executor.submit(scarica_e_processa_url_personalizzato, "https://epg.pw/xmltv/epg.xml", valid_channel_ids)] = "epg_pw"
 
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
@@ -407,7 +406,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb'] as f:
+    with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
