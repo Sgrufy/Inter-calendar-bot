@@ -20,14 +20,18 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
-# I 32 canali classici e fissi (scansionati in ogni caso)
+# Canali classici fissi aggiornati (Eleven, Canal+, Polsat, Nova, Cosmote, Max Sport, Eurosport PL, TVP, RSI, Rai, Mediaset, TV8, Prime)
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
-    "Sport TV1", "Sport TV2", "Sport TV3", "Sport TV4", "Sport TV5", "Sport TV6",
-    "Setanta Sports", "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+",
+    "Polsat Sport", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport Fight", "Polsat Sport Premium 1", "Polsat Sport Premium 2",
+    "Nova Sports 1", "Nova Sports 2", "Nova Sports 3", "Nova Sports 4", "Nova Sports Start",
+    "Cosmote Sport 1", "Cosmote Sport 2", "Cosmote Sport 3", "Cosmote Sport 4", "Cosmote Sport 5", "Cosmote Sport 6", "Cosmote Sport 7", "Cosmote Sport 8", "Cosmote Sport 9",
+    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
+    "Eurosport 1 Poland", "Eurosport 2 Poland",
+    "TVP Sport",
     "RSI LA1", "RSI LA2",
-    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
+    "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
 INFO_CANALI = {}  
@@ -174,10 +178,10 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
 
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING GLOBALE V71 PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING GLOBALE V73 PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -278,7 +282,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V71 Classic Restored//IT')
+    cal.add('prodid', '-//Calendario Inter V73 Expanded Classics//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
