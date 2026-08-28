@@ -2,6 +2,8 @@ import os
 import requests
 import json
 import xml.etree.ElementTree as ET
+import gzip
+import io
 from datetime import datetime, timezone, timedelta
 from icalendar import Calendar, Event
 
@@ -90,19 +92,21 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Proviamo intanto con l'Italia per testare il download diretto
-    url_test = "https://iptv-org.github.io/epg/guides/it.xml"
-    print(f"\n--- TEST DOWNLOAD GUIDA ITALIA ---")
+    # IPTV-org distribuisce le guide per nazione in formato compresso .xml.gz nella cartella epg/
+    url_test = "https://iptv-org.github.io/epg/guides/it.xml.gz"
+    print(f"\n--- DOWNLOAD GUIDA ITALIA (GZ) ---")
     try:
         res = requests.get(url_test, headers=HEADERS, timeout=15)
         print(f"Status code ricevuto: {res.status_code}")
         if res.status_code == 200:
-            CACHE_GUIDE["it"] = ET.fromstring(res.content)
-            print("[OK] Guida Italia caricata con successo!")
+            # Decomprimiamo il file .gz al volo
+            content_decompressed = gzip.decompress(res.content)
+            CACHE_GUIDE["it"] = ET.fromstring(content_decompressed)
+            print("[OK] Guida Italia scaricata e decompressa con successo!")
         else:
             print(f"[ERRORE] Il server ha risposto con codice: {res.status_code}")
     except Exception as e:
-        print(f"[eccezione] {e}")
+        print(f"[Eccezione] {e}")
         
     print(f"Totale guide in cache: {len(CACHE_GUIDE)}\n")
 
@@ -178,7 +182,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V42 Test//IT')
+    cal.add('prodid', '-//Calendario Inter V43 GZ//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
