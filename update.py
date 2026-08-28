@@ -2,7 +2,6 @@ import os
 import requests
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
-from calendar import Calendar, Event # o icalendar
 from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
@@ -29,7 +28,7 @@ CANALI_TV_CLASSICI = {
 }
 
 INFO_CANALI = {}  
-PROGRAMMI_EPG = [] # Memorizziamo i programmi trovati in modo efficiente
+PROGRAMMI_EPG = [] 
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
@@ -76,10 +75,8 @@ def carica_id_da_github():
         pass
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
-    """Usa iterparse per estrarre solo i programmi dei canali che ci interessano senza consumare RAM."""
     programmi_locali = []
     try:
-        # Usiamo io.BytesIO per leggere il flusso binario in modo sicuro
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
         for event, elem in context:
             if elem.tag == 'programme':
@@ -94,7 +91,6 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                             'title': title_text.lower(),
                             'start': start_str
                         })
-                # Svuotiamo l'elemento dalla memoria subito dopo l'uso per alleggerire RAM
                 elem.clear()
     except Exception:
         pass
@@ -113,8 +109,6 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl']
-    
-    # Raccogliamo tutti gli ID canale validi cercati nelle nostre liste
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
     print(f"\n--- DOWNLOAD E PARSING VERITIERO (iterparse) PER {len(paesi)} PAESI ---")
@@ -138,7 +132,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         return canali_trovati
         
     keywords = ["inter", home_team.lower(), away_team.lower()]
-    # Creiamo un mapping inverso da channel_id a nome_canale
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
         ch_id = info.get("id")
@@ -174,7 +167,6 @@ def fetch_next_matches():
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
-        # Scarica ed elabora con precisione chirurgica
         scarica_tutti_gli_epg()
         
         for match in data.get('matches', []):
@@ -210,7 +202,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V54 Iterparse Veritiero//IT')
+    cal.add('prodid', '-//Calendario Inter V55 Corretto//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
