@@ -1,13 +1,13 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V82 EPG Global//IT
+PRODID:-//Calendario Inter V84 EPG BalkansAndCEE//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 1\n🟡 Tagesschau24\n🟡 W24
+ rts 1\n🟡 W24\n🟡 Tagesschau24
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
