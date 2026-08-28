@@ -34,7 +34,6 @@ TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
 
 def analizza_m3u_esteso(testo_m3u, target_set):
-    """Estrae in modo intelligente i nomi e i tvg-id dalle playlist M3U."""
     current_tvg_id = None
     for line in testo_m3u.splitlines():
         line = line.strip()
@@ -46,18 +45,12 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                     current_tvg_id = part.split('"')[0].strip()
                 except Exception:
                     pass
-        elif line and not line.startswith("#"):
-            # Questa è la riga con il link, il nome del canale di solito è dopo la virgola nell'EXTINF precedente 
-            # o lo ricaviamo dal nome del file/link, ma gestiamo il nome pulito salvandolo.
-            pass
         
-        # Estraiamo anche il nome reale del canale alla fine della riga #EXTINF
         if line.startswith("#EXTINF:") and "," in line:
             c_name = line.split(",")[-1].strip()
             if c_name:
                 target_set.add(c_name)
                 if current_tvg_id:
-                    # Se c'è un tvg-id esplicito, lo salviamo direttamente come ID ufficiale
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
 
 def carica_canali_esterni():
@@ -72,7 +65,6 @@ def carica_canali_esterni():
             try:
                 response = requests.get(url, timeout=15)
                 if response.status_code == 200:
-                    # Controlliamo se è un M3U o un TXT semplice
                     if "#EXTM3U" in response.text or "#EXTINF" in response.text:
                         analizza_m3u_esteso(response.text, target_set)
                     else:
@@ -97,7 +89,6 @@ def carica_id_da_github():
             db_canali = {c.get('name').lower(): {"id": c.get('id')} for c in data if c.get('name')}
             
             for nome in tutti_i_nomi:
-                # Se non ha già un ID assegnato dall'M3U, proviamo a cercarlo su GitHub
                 if nome not in INFO_CANALI:
                     nome_lower = nome.lower()
                     if nome_lower in db_canali:
@@ -235,7 +226,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V56 M3U Parser//IT')
+    cal.add('prodid', '-//Calendario Inter V57 TV In Cima//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -258,16 +249,20 @@ def generate_ics(matches):
         canali_gialli.sort()
         
         righe_canali = []
+        
+        # 1. Televisori e Prime Video messi IN CIMA
+        for c in altri_canali:
+            if "In attesa" in c: righe_canali.append(c)
+            elif "prime" in c.lower(): righe_canali.append("🎬 Prime Video")
+            else: righe_canali.append(f"📺 {c}")
+            
+        # 2. Pallini colorati posizionati sotto
         for c in canali_blu:
             righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🔵 {c}")
         for c in canali_neri:
             righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"⚫ {c}")
         for c in canali_gialli:
             righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"🟡 {c}")
-        for c in altri_canali:
-            if "In attesa" in c: righe_canali.append(c)
-            elif "prime" in c.lower(): righe_canali.append("🎬 Prime Video")
-            else: righe_canali.append(f"📺 {c}")
                 
         righe_canali = list(dict.fromkeys(righe_canali))
         canali_testo = "\n".join(righe_canali)
