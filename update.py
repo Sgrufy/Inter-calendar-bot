@@ -133,7 +133,6 @@ def carica_id_da_github():
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
-    # Parole e rubriche non sportive da scartare categoricamente
     parole_da_scartare = [
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
         "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
@@ -177,11 +176,10 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
 
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
-    # Copertura completa dei 14 paesi principali (inclusi Polonia, Russia, Ucraina, Turchia, Grecia)
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ch', 'cz', 'al', 'tr', 'nl', 'ru', 'ua', 'el']
     valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
     
-    print(f"\n--- DOWNLOAD E PARSING GLOBALE V65 PER {len(paesi)} PAESI ---")
+    print(f"\n--- DOWNLOAD E PARSING GLOBALE V66 PER {len(paesi)} PAESI ---")
     
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): p for p in paesi}
@@ -276,7 +274,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V65 Global Multi-Alphabet//IT')
+    cal.add('prodid', '-//Calendario Inter V66 Global Multi-Alphabet//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -317,7 +315,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb'] as f:
+    with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
