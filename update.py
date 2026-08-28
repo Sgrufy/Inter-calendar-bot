@@ -98,7 +98,6 @@ def pulisci_nome(nome):
                 .replace("Internazionale", "Inter"))
 
 def precarica_guide_necessarie():
-    # Elenco completo e massiccio: TUTTA l'Europa, Turchia, Nord/Sub-Sahara Africa e principali hub mondiali
     nazioni = {
         # Europa Occidentale e Centrale
         "it", "ch", "fr", "es", "de", "nl", "at", "be", "lu", "li", "mc", "ad", "sm", "va",
@@ -110,19 +109,37 @@ def precarica_guide_necessarie():
         "pt", "gr", "cy", "mt",
         # Turchia e Caucaso
         "tr", "ge", "am", "az",
-        # Africa (Principali aree linguistiche/sportive)
+        # Africa
         "za", "eg", "ma", "dz", "tn", "ng", "ke", "gh",
         # Americhe e Mondo
         "us", "ca", "mx", "br", "ar", "co", "cl", "my"
     }
     
-    print(f"Pre-scaricamento guide EPG per {len(nazioni)} nazioni globali (Europa completa + Africa + Mondo)...")
+    print(f"Pre-scaricamento guide EPG (iptv-org + epg.pw) per {len(nazioni)} nazioni...")
+    
     for country_code in nazioni:
-        url = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
+        # 1. Scarica da iptv-org
+        url_iptv = f"https://iptv-org.github.io/epg/guides/{country_code}.xml"
         try:
-            res = requests.get(url, timeout=6)
+            res = requests.get(url_iptv, timeout=6)
             if res.status_code == 200:
                 CACHE_GUIDE[country_code] = ET.fromstring(res.content)
+        except Exception:
+            pass
+
+        # 2. Scarica da epg.pw (usando il codice nazione in maiuscolo, es: IT, US)
+        url_pw = f"https://epg.pw/xmltv/epg_{country_code.upper()}.xml"
+        try:
+            res_pw = requests.get(url_pw, timeout=6)
+            if res_pw.status_code == 200:
+                root_pw = ET.fromstring(res_pw.content)
+                # Se abbiamo già una guida iptv-org per questa nazione, uniamo i programmi
+                if country_code in CACHE_GUIDE:
+                    for prog in root_pw.findall('programme'):
+                        CACHE_GUIDE[country_code].append(prog)
+                else:
+                    # Altrimenti salviamo direttamente quella di epg.pw
+                    CACHE_GUIDE[country_code] = root_pw
         except Exception:
             pass
 
