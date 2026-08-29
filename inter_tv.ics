@@ -17,16 +17,16 @@ DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
+SUMMARY:⚽ Real Madrid CF vs Inter
+DTSTART:20260908T190000Z
+DTEND:20260908T210000Z
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
+ n attesa di programmazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T184500Z
 DTEND:20260914T204500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
-END:VEVENT
-BEGIN:VEVENT
-SUMMARY:⚽ AS Roma vs Inter
-DTSTART:20260919T160000Z
-DTEND:20260919T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
