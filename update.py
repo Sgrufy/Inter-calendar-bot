@@ -36,7 +36,7 @@ CANALI_TV_CLASSICI = {
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
-# Canali prioritari speciali con pallino arancione 🟠 (inclusi internazionali, russi, turchi e cecoslovacchi)
+# Canali prioritari speciali con pallino arancione 🟠
 CANALI_PRIORITARI_SPECIALI = {
     # Setanta
     "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+", "Setanta Sports Eurasia",
@@ -180,12 +180,15 @@ def carica_canali_esterni():
         if nc not in INFO_CANALI:
             INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
-    # Inclusione di Turchia (tr), Repubblica Ceca (cz) e Slovacchia (sk) tra i paesi EPG dinamici
+    # 1. URL EPG.lat e paesi aggiuntivi
     epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de', 'tr', 'cz', 'sk', 'ru']
     for p in epg_lat_paesi:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
 
-    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali (inclusi epg.lat).")
+    # 2. AGGIUNTA EPGSHARE01 (File globale cumulativo)
+    URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
+
+    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali (inclusi epg.lat ed EPGSHARE01).")
 
 def carica_id_da_github():
     global INFO_CANALI
