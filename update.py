@@ -185,8 +185,10 @@ def carica_canali_esterni():
     for p in epg_lat_paesi:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
 
-    # 2. AGGIUNTA EPGSHARE01 (File globale cumulativo)
-    URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
+    # 2. AGGIUNTA FILE SPECIFICI EPGSHARE01 (Italia, Spagna, Francia, Germania, UK, US, Turchia, ecc.)
+    epgshare_paesi = ['IT1', 'ES1', 'FR1', 'DE1', 'UK1', 'US1', 'TR1', 'PL1', 'PT1', 'CZ1', 'GR1']
+    for p in epgshare_paesi:
+        URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p}.xml.gz")
 
     print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali (inclusi epg.lat ed EPGSHARE01).")
 
