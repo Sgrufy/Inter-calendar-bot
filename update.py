@@ -85,11 +85,14 @@ def normalizza_testo(testo):
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     
+    # Dizionario esteso per traduzioni estere e varianti locali (es. portoghese)
     traduzioni_estere = {
         'интер': 'inter',     
         'ιντερ': 'inter',     
         'ınter': 'inter',     
-        'милан': 'milan',
+        'inter de milao': 'inter', 
+        'inter milao': 'inter',    
+        'milan': 'milan',
         'ювентус': 'juventus',
         'футбол': 'football',
         'матч': 'match',
