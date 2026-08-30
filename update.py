@@ -192,22 +192,18 @@ def carica_canali_esterni():
             if nc not in INFO_CANALI:
                 INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
-    # Lista unificata di paesi di riferimento (32 paesi base)
     lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
 
-    # 1. URL EPG.lat (mappati sui codici paese)
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
 
-    # 2. URL EPGSHARE01 (mappati in formato maiuscolo con suffisso 1)
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
 
-    # 3. OPEN-EPG (mappati sui nomi standard dei file open-epg)
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
         'us': 'usa', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae', 'sa': 'saudiarabia', 
-        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia', # croazia/balcani vicini
+        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia', 
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1'
@@ -216,7 +212,6 @@ def carica_canali_esterni():
         nome_open = open_epg_mappatura.get(p, p)
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
-    # 4. EPG.PW (Globale)
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
 
     print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali con copertura estesa.")
@@ -263,17 +258,23 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
             if elem.tag == 'programme':
                 ch = elem.get('channel')
                 if ch in valid_channel_ids or normalizza_testo(ch) in valid_channel_ids:
+                    # Leggiamo sia il titolo che la descrizione per non perdere eventi descritti nei dettagli
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
-                    title_norm = normalizza_testo(title_text)
                     
-                    is_scartato = any(scarto in title_norm for scarto in parole_da_scartare)
+                    desc_el = elem.find('desc')
+                    desc_text = desc_el.text if (desc_el is not None and desc_el.text) else ""
+                    
+                    testo_combinato = f"{title_text} {desc_text}"
+                    testo_norm = normalizza_testo(testo_combinato)
+                    
+                    is_scartato = any(scarto in normalizza_testo(title_text) for scarto in parole_da_scartare)
                     
                     start_str = elem.get('start')
-                    if title_text and start_str and not is_scartato:
+                    if testo_norm and start_str and not is_scartato:
                         programmi_locali.append({
                             'channel': ch,
-                            'title': title_norm,
+                            'title': testo_norm,
                             'start': start_str
                         })
                 elem.clear()
@@ -373,7 +374,8 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 dt_part = start_str.split(' ')[0]
                 try:
                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
+                    # Finestra temporale ampliata a 4 ore (14400 secondi) per coprire eventuali sfasamenti orari esteri
+                    if abs((prog_start - date_utc).total_seconds()) <= 14400:
                         matches_keys = [ch_id, normalizza_testo(ch_id)]
                         for mk in matches_keys:
                             if mk in id_to_names:
