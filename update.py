@@ -420,8 +420,10 @@ def generate_ics(matches):
         righe_canali = []
         
         for c in p['canali']:
-            if c in BLACKLIST_CANALI:
+            # BLOCCO DI SICUREZZA ASSOLUTO PER LA BLACKLIST
+            if any(black in c for black in BLACKLIST_CANALI):
                 continue
+                
             if "In attesa" in c:
                 righe_canali.append(c)
             elif c in CANALI_TV_CLASSICI or "prime" in c.lower():
