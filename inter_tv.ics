@@ -7,14 +7,13 @@ SUMMARY:⚽ Cagliari Calcio vs Inter
 DTSTART:20260830T184500Z
 DTEND:20260830T204500Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 1
+ rts 1\n🟡 Šport\n⚫ Sport\n🟡 Tagesschau24\n🟡 W24\n🟡 10 HD
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs SSC Napoli
 DTSTART:20260905T160000Z
 DTEND:20260905T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n🟡 10 HD
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Real Madrid CF vs Inter
