@@ -356,7 +356,8 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 dt_part = start_str.split(' ')[0]
                 try:
                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    if abs((prog_start - date_utc).total_seconds()) <= 7200:
+                    # Tolleranza portata a 3 ore (10800 secondi) per coprire fusi orari e scostamenti nei palinsesti esteri
+                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
                         if ch_id in id_to_names:
                             for nome_canale in id_to_names[ch_id]:
                                 if nome_canale not in canali_trovati and nome_canale not in BLACKLIST_CANALI:
