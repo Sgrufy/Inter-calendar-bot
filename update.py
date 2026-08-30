@@ -26,9 +26,20 @@ TEAM_ID = 108
 # BLACKLIST CANALI (Falsi positivi da escludere)
 # ==========================================
 BLACKLIST_CANALI = {
-    "Focus",
-    "HRT 4",
-    "Das Erste",
+    "Focus", "HRT 4", "Das Erste",
+    "BOING", "Boing", "Gulli", "CStar", "LCP", 
+    "RTP Memória", "RTP Madeira", "RTP Açores", "RTP Aço", "RTP3", "RTP 2",
+    "Crónica TV", "Encuentro", "Telemax", "Televisión Pública", "Canal Extremadura", 
+    "Canal 26", "Cine.AR", "Cuatro", "Esport3", "ETB1", "ETB2", 
+    "La 1 (Catalunya)", "La Otra", "La Sexta", "Mega", "Telecinco", 
+    "Telemadrid", "Televisión Canaria", "À Punt TV", "FDF", "Canal Sur Andalucia",
+    "RTS 2", "HRT 1", "HRT 3", "FEN3 (TV2 Klub)", "RTS Un", "SRF 1", 
+    "TV Republika", "TVP2", "TVP Polonia", "RTL 102.5", 
+    "Rai Gulp", "Rai Scuola", "Rai Sport", "Rai Movie", "Rai Storia",
+    "K2", "ATV", "Kanal Ri", "Prima", "TVE RS", "3/24", "Be Mad", 
+    "La 2 (Catalunya)", "La 8 Mediterráneo", "6ter", "LCI", "El Nueve", 
+    "Virgin Media 4", "Virgin Media 2", "Sevdah", "DR1", "DR2", "BTV", 
+    "Golf Channel[geo-blocked]", "NHL Network", "KiKa", "WION", "10 HD", "BFM TV"
 }
 
 # I 39 canali classici fissi con la TV 📺
@@ -258,7 +269,6 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
             if elem.tag == 'programme':
                 ch = elem.get('channel')
                 if ch in valid_channel_ids or normalizza_testo(ch) in valid_channel_ids:
-                    # Leggiamo sia il titolo che la descrizione per non perdere eventi descritti nei dettagli
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
                     
@@ -374,7 +384,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 dt_part = start_str.split(' ')[0]
                 try:
                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    # Finestra temporale ampliata a 4 ore (14400 secondi) per coprire eventuali sfasamenti orari esteri
                     if abs((prog_start - date_utc).total_seconds()) <= 14400:
                         matches_keys = [ch_id, normalizza_testo(ch_id)]
                         for mk in matches_keys:
