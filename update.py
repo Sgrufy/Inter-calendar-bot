@@ -119,7 +119,6 @@ EPG_PW_TARGET_IDS = {
     "562459": "CBS Sports"
 }
 
-# Canali TV classici fissi con la TV 📺
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -391,7 +390,7 @@ def scarica_epg_mirato_per_data(data_partita_str):
                 programmi_mirati.extend(progs)
     return programmi_mirati
 
-def scarica_tutti_gli_epg(data_partita_str):
+def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     
@@ -415,9 +414,11 @@ def scarica_tutti_gli_epg(data_partita_str):
             if risultati:
                 PROGRAMMI_EPG.extend(risultati)
                 
-    progs_mirati = scarica_epg_mirato_per_data(data_partita_str)
-    if progs_mirati:
-        PROGRAMMI_EPG.extend(progs_mirati)
+    # Scarica i dati mirati per tutte le date necessarie (es. oggi + prossima partita)
+    for data_str in date_str_list:
+        progs_mirati = scarica_epg_mirato_per_data(data_str)
+        if progs_mirati:
+            PROGRAMMI_EPG.extend(progs_mirati)
                 
     print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
@@ -516,8 +517,9 @@ def fetch_next_matches():
         partite_da_analizzare = partite_da_analizzare[:4]
         
         if partite_da_analizzare:
-            data_str_epg = partite_da_analizzare[0]['ora_utc'].strftime('%Y%m%d')
-            scarica_tutti_gli_epg(data_str_epg)
+            # Raccogliamo la data odierna + la data della prima partita in programma per l'EPG mirato
+            date_da_scaricare = {datetime.now(timezone.utc).strftime('%Y%m%d'), partite_da_analizzare[0]['ora_utc'].strftime('%Y%m%d')}
+            scarica_tutti_gli_epg(list(date_da_scaricare))
             
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
