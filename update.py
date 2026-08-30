@@ -22,6 +22,14 @@ HEADERS = {
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
+# ==========================================
+# BLACKLIST CANALI (Falsi positivi da escludere)
+# ==========================================
+BLACKLIST_CANALI = {
+    "Focus",
+    # Aggiungi qui altri falsi positivi se ne trovi in futuro
+}
+
 # I 39 canali classici fissi con la TV 📺
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
@@ -131,7 +139,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         
         if line.startswith("#EXTINF:") and "," in line:
             c_name = line.split(",")[-1].strip()
-            if c_name:
+            if c_name and c_name not in BLACKLIST_CANALI:
                 target_set.add(c_name)
                 if current_tvg_id:
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
@@ -139,7 +147,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
-            if c_name and len(c_name) < 50:
+            if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
                 target_set.add(c_name)
 
 def carica_canali_esterni():
@@ -165,7 +173,7 @@ def carica_canali_esterni():
                             line = line.strip()
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
-                                if c_name and len(c_name) < 50:
+                                if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
                                     target_set.add(c_name)
                     print(f"Canali trovati e caricati in {nome_lista}: {len(target_set)}")
                 else:
@@ -176,9 +184,10 @@ def carica_canali_esterni():
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
             
     for nc in CANALI_PRIORITARI_SPECIALI:
-        TUTTI_I_CANALI_BLU.add(nc)
-        if nc not in INFO_CANALI:
-            INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
+        if nc not in BLACKLIST_CANALI:
+            TUTTI_I_CANALI_BLU.add(nc)
+            if nc not in INFO_CANALI:
+                INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
     # 1. URL EPG.lat
     epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de', 'tr', 'cz', 'sk', 'ru']
@@ -216,6 +225,8 @@ def carica_id_da_github():
             
             mappati = 0
             for nome in tutti_i_nomi:
+                if nome in BLACKLIST_CANALI:
+                    continue
                 if nome not in INFO_CANALI:
                     nome_norm = normalizza_testo(nome)
                     if nome_norm in db_canali:
@@ -285,7 +296,7 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
-    valid_channel_ids = {info.get("id") for info in INFO_CANALI.values() if info.get("id")}
+    valid_channel_ids = {info.get("id") for nome, info in INFO_CANALI.items() if info.get("id") and nome not in BLACKLIST_CANALI}
     
     print(f"\n--- DOWNLOAD E PARSING EPG ---")
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -316,6 +327,9 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
 
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
+        if nome_canale in BLACKLIST_CANALI:
+            continue
+            
         nome_lower = nome_canale.lower()
         if any(evitare in nome_lower for evitare in canali_da_evitare):
             continue
@@ -342,7 +356,7 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                     if abs((prog_start - date_utc).total_seconds()) <= 7200:
                         if ch_id in id_to_names:
                             for nome_canale in id_to_names[ch_id]:
-                                if nome_canale not in canali_trovati:
+                                if nome_canale not in canali_trovati and nome_canale not in BLACKLIST_CANALI:
                                     canali_trovati.append(nome_canale)
                 except ValueError:
                     continue
@@ -406,6 +420,8 @@ def generate_ics(matches):
         righe_canali = []
         
         for c in p['canali']:
+            if c in BLACKLIST_CANALI:
+                continue
             if "In attesa" in c:
                 righe_canali.append(c)
             elif c in CANALI_TV_CLASSICI or "prime" in c.lower():
