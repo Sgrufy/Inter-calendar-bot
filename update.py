@@ -40,6 +40,44 @@ BLACKLIST_CANALI = {
     "10",
 }
 
+# ==========================================
+# ID ESCLUSIVI EPG.PW (Target mirati ad alta precisione)
+# ==========================================
+EPG_PW_TARGET_IDS = {
+    "397418": "Sport TV 1",
+    "397424": "Sport TV 2",
+    "397419": "Sport TV 3",
+    "397404": "Sport TV 4",
+    "408040": "Sport TV 5",
+    "397417": "Sport TV 6",
+    "405669": "Sport TV 7",
+    "405715": "Sport TV +",
+    "417364": "Setanta Sports 1",
+    "325011": "Setanta Sports 2",
+    "534228": "Setanta Sports 3",
+    "400477": "TNT Sports 1",
+    "400480": "TNT Sports 2",
+    "400479": "TNT Sports 3",
+    "400478": "TNT Sports 4",
+    "562308": "CBS Sports Golazo",
+    "480375": "Okko Sport",
+    "563613": "Go3 Sport",
+    "55898": "Arryadia",
+    "381850": "Arena Sport 1",
+    "381848": "Arena Sport 2",
+    "381849": "Arena Sport 3",
+    "540363": "Premier Sport 1",
+    "540369": "Premier Sport 2",
+    "465156": "Fox Deportes",
+    "465291": "Fox Sports 1",
+    "415586": "Fox Sports 3",
+    "415584": "Fox Sports 2",
+    "465214": "Fox Soccer Plus",
+    "408622": "CBS Sports Network",
+    "464937": "CBS Sports Network",
+    "562459": "CBS Sports"
+}
+
 # I 39 canali classici fissi con la TV 📺
 CANALI_TV_CLASSICI = {
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
@@ -54,32 +92,17 @@ CANALI_TV_CLASSICI = {
     "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 }
 
-# Canali prioritari speciali con pallino arancione 🟠
-CANALI_PRIORITARI_SPECIALI = {
-    # Setanta
-    "Setanta Sports 1", "Setanta Sports 2", "Setanta Sports+", "Setanta Sports Eurasia",
-    # Sport TV (Portogallo)
-    "Sport TV 1", "Sport TV 2", "Sport TV 3", "Sport TV 4", "Sport TV 5", "Sport TV 6", "Sport TV +",
-    # beIN Sports
-    "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", "beIN Sports 4", "beIN Sports 5", 
-    "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX",
-    # TNT
-    "TNT", "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4",
-    # CBS Golazo
-    "CBS Sports Golazo", "CBS Sports Network",
-    # Fox (tutti)
-    "Fox", "Fox Sports 1", "Fox Sports 2", "Fox Soccer Plus", "Fox Deportes",
-    # Canali Russi / Bielorussi
-    "Match! Arena", "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", 
-    "Okko Sport Sport", "Go3 Sport 1", "LRT Plius", "Arryadia", "MNS Sports", "Prime TV",
-    # Canali Turchi
-    "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", "Tivibu Spor 2", 
-    "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", "beIN Sports 3 Turkey",
-    # Canali Cecoslovacchi (Repubblica Ceca e Slovacchia)
-    "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", "Nova Sport 5", "Nova Sport 6",
-    "Premier Sport 1", "Premier Sport 2", "Premier Sport 3",
-    "Sport 1", "Sport 2", "Arena Sport 1", "Arena Sport 2"
-}
+# Canali prioritari speciali con pallino arancione 🟠 (Include i nomi associati agli ID mirati)
+CANALI_PRIORITARI_SPECIALI = set(EPG_PW_TARGET_IDS.values()).union({
+    "Setanta Sports Eurasia", "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", 
+    "beIN Sports 4", "beIN Sports 5", "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", 
+    "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX", "TNT", "Fox", "Match! Arena", 
+    "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", "LRT Plius", 
+    "MNS Sports", "Prime TV", "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", 
+    "Tivibu Spor 2", "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", 
+    "beIN Sports 3 Turkey", "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", 
+    "Nova Sport 5", "Nova Sport 6", "Sport 1", "Sport 2"
+})
 
 INFO_CANALI = {}  
 PROGRAMMI_EPG = [] 
@@ -195,6 +218,12 @@ def carica_canali_esterni():
         else:
             print(f"URL per la lista {nome_lista} non configurato (vuoto).")
             
+    # Assicura che tutti i canali mirati siano presenti in blu e nel database INFO_CANALI
+    for cid, cname in EPG_PW_TARGET_IDS.items():
+        TUTTI_I_CANALI_BLU.add(cname)
+        INFO_CANALI[cname] = {"id": cid}
+        INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
+
     for nc in CANALI_PRIORITARI_SPECIALI:
         if nc not in BLACKLIST_CANALI:
             TUTTI_I_CANALI_BLU.add(nc)
@@ -205,8 +234,6 @@ def carica_canali_esterni():
 
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
-
-    for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
 
     open_epg_mappatura = {
@@ -240,6 +267,9 @@ def carica_id_da_github():
             mappati = 0
             for nome in tutti_i_nomi:
                 if nome in BLACKLIST_CANALI:
+                    continue
+                # Se il canale ha già un ID mirato in epg.pw, non sovrascriverlo con GitHub
+                if nome in EPG_PW_TARGET_IDS.values():
                     continue
                 if nome not in INFO_CANALI:
                     nome_norm = normalizza_testo(nome)
@@ -287,10 +317,16 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     elem.clear()
                     continue
                 
-                if (ch in valid_channel_ids or 
+                # Accetta se l'ID è esplicitamente nei target mirati di epg.pw o valido
+                if (ch in EPG_PW_TARGET_IDS or
+                    ch in valid_channel_ids or 
                     ch_lookup in valid_channel_ids or 
                     normalizza_testo(ch_lookup) in valid_channel_ids or 
                     ch.isdigit()):
+                    
+                    # Se il canale è mappato in epg.pw con ID specifico, correggiamo il nome al volo
+                    if ch in EPG_PW_TARGET_IDS:
+                        ch_lookup = EPG_PW_TARGET_IDS[ch]
                     
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
@@ -333,19 +369,40 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
         pass
     return []
 
-def scarica_tutti_gli_epg():
+def scarica_epg_mirato_per_data(data_partita_str, valid_channel_ids):
+    """Scarica flussi mirati specifici per ciascuno degli ID epg.pw forniti per quella data"""
+    programmi_mirati = []
+    print(f"\n--- DOWNLOAD MIRATO EPG.PW PER DATA: {data_partita_str} ---")
+    
+    for ch_id, ch_name in EPG_PW_TARGET_IDS.items():
+        url_mirato = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}"
+        try:
+            res = requests.get(url_mirato, headers=HEADERS, timeout=15)
+            if res.status_code == 200 and len(res.content) > 200:
+                progs = analizza_epg_stream(res.content, valid_channel_ids)
+                if progs:
+                    for p in progs:
+                        p['channel_name'] = ch_name # Forza il nome pulito ufficiale
+                    programmi_mirati.extend(progs)
+                    print(f"[MIRATO OK] {ch_name} (ID: {ch_id}): trovati {len(progs)} programmi")
+        except Exception as e:
+            pass
+            
+    return programmi_mirati
+
+def scarica_tutti_gli_epg(data_partita_str=None):
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     
-    valid_channel_ids = set()
+    valid_channel_ids = set(EPG_PW_TARGET_IDS.keys())
     for nome, info in INFO_CANALI.items():
         if nome not in BLACKLIST_CANALI:
             if info.get("id"):
-                valid_channel_ids.add(info.get("id"))
+                valid_channel_ids.add(str(info.get("id")))
             valid_channel_ids.add(normalizza_testo(nome))
             valid_channel_ids.add(nome)
     
-    print(f"\n--- DOWNLOAD E PARSING EPG ---")
+    print(f"\n--- DOWNLOAD E PARSING EPG GLOBALE ---")
     with ThreadPoolExecutor(max_workers=6) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
@@ -355,6 +412,12 @@ def scarica_tutti_gli_epg():
             risultati = future.result()
             if risultati:
                 PROGRAMMI_EPG.extend(risultati)
+                
+    # Aggiunge i dati mirati puntuali per la data della partita se fornita
+    if data_partita_str:
+        progs_mirati = scarica_epg_mirato_per_data(data_partita_str, valid_channel_ids)
+        if progs_mirati:
+            PROGRAMMI_EPG.extend(progs_mirati)
                 
     print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
@@ -366,6 +429,11 @@ def pulisci_nome(nome):
 
 def cerca_canali_per_partita(date_utc, home_team, away_team):
     canali_trovati = []
+    
+    # Estrae la data in formato YYYYMMDD per il download mirato EPG.PW
+    data_str_epg = date_utc.strftime('%Y%m%d')
+    scarica_tutti_gli_epg(data_str_epg)
+
     if not PROGRAMMI_EPG:
         return canali_trovati
         
@@ -381,7 +449,7 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
         if any(evitare in nome_lower for evitare in canali_da_evitare):
             continue
             
-        ch_id = info.get("id")
+        ch_id = str(info.get("id"))
         keys_to_map = [ch_id, normalizza_testo(nome_canale), nome_canale]
         
         for k in keys_to_map:
@@ -395,7 +463,7 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
     match_trovati_nei_log = 0
 
     for prog in PROGRAMMI_EPG:
-        ch_id = prog['channel']
+        ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
         title = prog['title']
         
@@ -412,6 +480,12 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                     if diff_secondi <= 10800:
                         match_trovati_nei_log += 1
                         print(f"[TROVATO NELL'EPG] Canale ID: '{ch_id}' (Nome: '{ch_name}') | Titolo: '{title}' | Orario diff: {diff_secondi}s")
+
+                        # Se il canale è nei nostri target ID mirati, prendiamolo subito
+                        if ch_id in EPG_PW_TARGET_IDS:
+                            canale_ufficiale = EPG_PW_TARGET_IDS[ch_id]
+                            if canale_ufficiale not in canali_trovati and canale_ufficiale not in BLACKLIST_CANALI:
+                                canali_trovati.append(canale_ufficiale)
 
                         matches_keys = [ch_id, ch_name, normalizza_testo(ch_id), normalizza_testo(ch_name)]
                         for mk in matches_keys:
@@ -443,8 +517,6 @@ def fetch_next_matches():
         data = response.json()
         adesso = datetime.now(timezone.utc)
         
-        scarica_tutti_gli_epg()
-        
         for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
                 continue
@@ -458,6 +530,10 @@ def fetch_next_matches():
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
             comp_name = match.get('competition', {}).get('name', 'Competizione')
+            
+            # Svuota i programmi precedenti per ogni partita per ricaricare i target mirati della data specifica
+            global PROGRAMMI_EPG
+            PROGRAMMI_EPG = []
             
             canali_reali = cerca_canali_per_partita(date_utc, home, away)
             if not canali_reali:
@@ -498,7 +574,7 @@ def generate_ics(matches):
                 righe_canali.append(c)
             elif c in CANALI_TV_CLASSICI or "prime" in c.lower():
                 righe_canali.append("🎬 Prime Video" if "prime" in c.lower() else f"📺 {c}")
-            elif c in CANALI_PRIORITARI_SPECIALI:
+            elif c in CANALI_PRIORITARI_SPECIALI or c in EPG_PW_TARGET_IDS.values():
                 righe_canali.append(f"🟠 {c}")
             elif c in TUTTI_I_CANALI_BLU:
                 righe_canali.append(f"🔵 {c}")
@@ -507,7 +583,7 @@ def generate_ics(matches):
             elif c in TUTTI_I_CANALI_GIALLI:
                 righe_canali.append(f"🟡 {c}")
             else:
-                continue
+                righe_canali.append(f"🟠 {c}") # Fallback sicuro per i canali mirati
                 
         righe_canali = list(dict.fromkeys(righe_canali))
         if not righe_canali:
@@ -517,7 +593,7 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
+    with open("inter_tv.ics", 'wb5') if False else open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
     print("File ICS generato con successo.")
 
