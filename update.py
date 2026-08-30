@@ -71,7 +71,10 @@ EPG_PW_TV_IDS = {
     "7135": "Polsat Sport Premium 2",
     "7136": "Polsat Sport Premium 1",
     "7835": "Polsat Sport Extra",
-    "6003": "Polsat Sport"
+    "6003": "Polsat Sport",
+    "535982": "Diema Sport",
+    "535981": "Diema Sport 2",
+    "535980": "Diema Sport 3"
 }
 
 # ==========================================
@@ -112,7 +115,7 @@ EPG_PW_TARGET_IDS = {
     "562459": "CBS Sports"
 }
 
-# I 39 canali classici fissi con la TV 📺
+# Canali TV classici fissi con la TV 📺 (inclusi Diema Sport 1, 2, 3)
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -121,6 +124,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Cosmote Sport 1", "Cosmote Sport 2", "Cosmote Sport 3", "Cosmote Sport 4", "Cosmote Sport 5", 
     "Cosmote Sport 6", "Cosmote Sport 7", "Cosmote Sport 8", "Cosmote Sport 9",
     "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
+    "Diema Sport", "Diema Sport 2", "Diema Sport 3",
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 })
@@ -565,7 +569,6 @@ def generate_ics(matches):
                 nome_formattato = f"🟠 {c}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
-        # Unione ordinata per blocchi richiesti: Televisore, Blu, Nero, Giallo, Arancione
         righe_ordinate = gruppo_tv + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["In attesa di programmazione ufficiale ⏳"]
