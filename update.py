@@ -115,7 +115,7 @@ EPG_PW_TARGET_IDS = {
     "562459": "CBS Sports"
 }
 
-# Canali TV classici fissi con la TV 📺 (inclusi Diema Sport 1, 2, 3)
+# Canali TV classici fissi con la TV 📺
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -262,6 +262,9 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
+    
+    # Aggiunta della nuova sorgente Gist personalizzata
+    URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
 
 def carica_id_da_github():
     global INFO_CANALI
