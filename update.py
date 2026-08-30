@@ -27,7 +27,8 @@ TEAM_ID = 108
 # ==========================================
 BLACKLIST_CANALI = {
     "Focus",
-    # Aggiungi qui altri falsi positivi se ne trovi in futuro
+    "HRT 4",
+    "Das Erste",
 }
 
 # I 39 canali classici fissi con la TV 📺
@@ -85,7 +86,6 @@ def normalizza_testo(testo):
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     
-    # Dizionario esteso per traduzioni estere e varianti locali (es. portoghese)
     traduzioni_estere = {
         'интер': 'inter',     
         'ιντερ': 'inter',     
@@ -192,27 +192,34 @@ def carica_canali_esterni():
             if nc not in INFO_CANALI:
                 INFO_CANALI[nc] = {"id": nc.lower().replace(" ", ".")}
 
-    # 1. URL EPG.lat
-    epg_lat_paesi = ['it', 'pt', 'es', 'fr', 'uk', 'us', 'pl', 'gr', 'nl', 'de', 'tr', 'cz', 'sk', 'ru']
-    for p in epg_lat_paesi:
+    # Lista unificata di paesi di riferimento (32 paesi base)
+    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
+
+    # 1. URL EPG.lat (mappati sui codici paese)
+    for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
 
-    # 2. URL EPGSHARE01
-    epgshare_paesi = ['IT1', 'ES1', 'FR1', 'DE1', 'UK1', 'US1', 'TR1', 'PL1', 'PT1', 'CZ1', 'GR1']
-    for p in epgshare_paesi:
-        URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p}.xml.gz")
+    # 2. URL EPGSHARE01 (mappati in formato maiuscolo con suffisso 1)
+    for p in lista_paesi_standard:
+        URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
 
-    # 3. AGGIUNTA OPEN-EPG (Tutti i paesi corrispondenti)
-    open_epg_files = [
-        'italy1', 'italy2', 'italy3', 'italy4', 'italy5', 'italy6', 'italy7', 'italy8',
-        'france', 'spain', 'portugal', 'portugal2', 'poland', 'germany', 
-        'greece', 'netherlands', 'uk', 'ireland', 'usa', 'turkey', 
-        'czech4', 'czech', 'slovakia', 'russia'
-    ]
-    for f in open_epg_files:
-        URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{f}.xml.gz")
+    # 3. OPEN-EPG (mappati sui nomi standard dei file open-epg)
+    open_epg_mappatura = {
+        'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
+        'us': 'usa', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae', 'sa': 'saudiarabia', 
+        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia', # croazia/balcani vicini
+        'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
+        'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
+        'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1'
+    }
+    for p in lista_paesi_standard:
+        nome_open = open_epg_mappatura.get(p, p)
+        URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
-    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali (inclusi epg.lat, EPGSHARE01 e Open-EPG).")
+    # 4. EPG.PW (Globale)
+    URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
+
+    print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali con copertura estesa.")
 
 def carica_id_da_github():
     global INFO_CANALI
@@ -255,7 +262,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
         for event, elem in context:
             if elem.tag == 'programme':
                 ch = elem.get('channel')
-                if ch in valid_channel_ids:
+                if ch in valid_channel_ids or normalizza_testo(ch) in valid_channel_ids:
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
                     title_norm = normalizza_testo(title_text)
@@ -289,7 +296,7 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
     try:
         res = requests.get(url_gz, headers=HEADERS, timeout=30)
         if res.status_code == 200:
-            xml_content = gzip.decompress(res.content)
+            xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
             progs = analizza_epg_stream(xml_content, valid_channel_ids)
             return progs
     except Exception:
@@ -299,7 +306,14 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
 def scarica_tutti_gli_epg():
     global PROGRAMMI_EPG
     paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
-    valid_channel_ids = {info.get("id") for nome, info in INFO_CANALI.items() if info.get("id") and nome not in BLACKLIST_CANALI}
+    
+    valid_channel_ids = set()
+    for nome, info in INFO_CANALI.items():
+        if nome not in BLACKLIST_CANALI:
+            if info.get("id"):
+                valid_channel_ids.add(info.get("id"))
+            valid_channel_ids.add(normalizza_testo(nome))
+            valid_channel_ids.add(nome)
     
     print(f"\n--- DOWNLOAD E PARSING EPG ---")
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -338,11 +352,14 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
             continue
             
         ch_id = info.get("id")
-        if ch_id:
-            if ch_id not in id_to_names:
-                id_to_names[ch_id] = []
-            if nome_canale not in id_to_names[ch_id]:
-                id_to_names[ch_id].append(nome_canale)
+        keys_to_map = [ch_id, normalizza_testo(nome_canale), nome_canale]
+        
+        for k in keys_to_map:
+            if k:
+                if k not in id_to_names:
+                    id_to_names[k] = []
+                if nome_canale not in id_to_names[k]:
+                    id_to_names[k].append(nome_canale)
 
     for prog in PROGRAMMI_EPG:
         ch_id = prog['channel']
@@ -356,12 +373,13 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 dt_part = start_str.split(' ')[0]
                 try:
                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    # Tolleranza portata a 3 ore (10800 secondi) per coprire fusi orari e scostamenti nei palinsesti esteri
                     if abs((prog_start - date_utc).total_seconds()) <= 10800:
-                        if ch_id in id_to_names:
-                            for nome_canale in id_to_names[ch_id]:
-                                if nome_canale not in canali_trovati and nome_canale not in BLACKLIST_CANALI:
-                                    canali_trovati.append(nome_canale)
+                        matches_keys = [ch_id, normalizza_testo(ch_id)]
+                        for mk in matches_keys:
+                            if mk in id_to_names:
+                                for nome_canale in id_to_names[mk]:
+                                    if nome_canale not in canali_trovati and nome_canale not in BLACKLIST_CANALI:
+                                        canali_trovati.append(nome_canale)
                 except ValueError:
                     continue
                     
@@ -424,8 +442,7 @@ def generate_ics(matches):
         righe_canali = []
         
         for c in p['canali']:
-            # BLOCCO DI SICUREZZA ASSOLUTO PER LA BLACKLIST
-            if any(black in c for black in BLACKLIST_CANALI):
+            if any(black.lower() in c.lower() for black in BLACKLIST_CANALI):
                 continue
                 
             if "In attesa" in c:
