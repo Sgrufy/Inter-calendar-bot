@@ -90,6 +90,10 @@ EPG_PW_TARGET_IDS = {
     "405669": "Sport TV 7",
     "405715": "Sport TV +",
     "417364": "Setanta Sports 1",
+    "325010": "Setanta Sports 1 Eurasia",
+    "325011": "Setanta Sports+ Eurasia",
+    "62227": "Setanta Sports 1",
+    "534194": "Setanta Sports 1",
     "325011": "Setanta Sports 2",
     "534228": "Setanta Sports 3",
     "400477": "TNT Sports 1",
@@ -130,7 +134,9 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
 })
 
 CANALI_PRIORITARI_SPECIALI = set(EPG_PW_TARGET_IDS.values()).union({
-    "Setanta Sports Eurasia", "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", 
+    "Setanta Sports Eurasia", "Setanta Sports+ Eurasia", 
+    "Setanta Sports Ukraine", "Setanta Sports+ Ukraine",
+    "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", 
     "beIN Sports 4", "beIN Sports 5", "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", 
     "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX", "TNT", "Fox", "Match! Arena", 
     "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", "LRT Plius", 
@@ -262,8 +268,6 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
-    
-    # Aggiunta della nuova sorgente Gist personalizzata
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
 
 def carica_id_da_github():
