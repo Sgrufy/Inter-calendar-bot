@@ -356,6 +356,9 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 if nome_canale not in id_to_names[k]:
                     id_to_names[k].append(nome_canale)
 
+    print(f"\n--- DIAGNOSTICA CERCA CANALI PER: {home_team} vs {away_team} ({date_utc}) ---")
+    match_trovati_nei_log = 0
+
     for prog in PROGRAMMI_EPG:
         ch_id = prog['channel']
         title = prog['title']
@@ -368,7 +371,12 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 dt_part = start_str.split(' ')[0]
                 try:
                     prog_start = datetime.strptime(dt_part[:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
+                    diff_secondi = abs((prog_start - date_utc).total_seconds())
+                    
+                    if diff_secondi <= 10800:
+                        match_trovati_nei_log += 1
+                        print(f"[TROVATO NELL'EPG] Canale XML ID: '{ch_id}' | Titolo: '{title}' | Orario diff: {diff_secondi}s")
+
                         matches_keys = [ch_id, normalizza_testo(ch_id)]
                         for mk in matches_keys:
                             if mk in id_to_names:
@@ -378,6 +386,8 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                 except ValueError:
                     continue
                     
+    print(f"Totale match EPG temporali trovati per questa partita: {match_trovati_nei_log}")
+    print(f"Canali mappati e associati con successo: {canali_trovati}\n")
     return canali_trovati
 
 def fetch_next_matches():
