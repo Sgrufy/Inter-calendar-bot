@@ -224,6 +224,9 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
+    
+    # Aggiunta dell'archivio globale unificato EPGShare01
+    URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
 
     print(f"Trovati {len(URLS_EPG_DINAMICI)} URL EPG compressi (.gz) totali con copertura estesa.")
 
