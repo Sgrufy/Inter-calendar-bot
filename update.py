@@ -29,6 +29,15 @@ BLACKLIST_CANALI = {
     "Focus",
     "HRT 4",
     "Das Erste",
+    "CNews",
+    "Court TV",
+    "CNN",
+    "BBC News",
+    "BMT",
+    "Tagesschau24",
+    "W24",
+    "10 HD",
+    "10",
 }
 
 # I 39 canali classici fissi con la TV 📺
@@ -249,12 +258,11 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
         "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
         "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
-        "haber", "deltio"
+        "haber", "deltio", "interview"
     ]
     
     try:
         channel_id_to_name = {}
-        # Prima passata rapida per mappare i canali (incluso supporto ai display-name per ID numerici tipo epg.pw)
         for event, elem in ET.iterparse(io.BytesIO(content_bytes), events=("end",)):
             if elem.tag == 'channel':
                 ch_id = elem.get('id')
@@ -263,25 +271,26 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     if display_name_el is not None and display_name_el.text:
                         ch_name = display_name_el.text.strip()
                         channel_id_to_name[ch_id] = ch_name
-                        # Mappa dinamicamente anche l'ID numerico come chiave accettata
                         valid_channel_ids.add(ch_id)
                         valid_channel_ids.add(ch_name)
                         valid_channel_ids.add(normalizza_testo(ch_name))
             elem.clear()
 
-        # Seconda passata per estrarre i programmi
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
         for event, elem in context:
             if elem.tag == 'programme':
                 ch = elem.get('channel')
-                
-                # Risolviamo l'ID se è numerico tramite il nome del canale trovato nel file
                 ch_lookup = channel_id_to_name.get(ch, ch)
+                
+                ch_lower = ch_lookup.lower()
+                if any(b in ch_lower for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24"]):
+                    elem.clear()
+                    continue
                 
                 if (ch in valid_channel_ids or 
                     ch_lookup in valid_channel_ids or 
                     normalizza_testo(ch_lookup) in valid_channel_ids or 
-                    ch.isdigit()): # Accetta ID puramente numerici (es. epg.pw) per elaborarli
+                    ch.isdigit()):
                     
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
@@ -291,7 +300,6 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     
                     start_str = elem.get('start')
                     if title_text and start_str and not is_scartato:
-                        # Salviamo sia l'ID originale che il nome del canale risolto
                         programmi_locali.append({
                             'channel': ch,
                             'channel_name': ch_lookup,
@@ -405,7 +413,6 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                         match_trovati_nei_log += 1
                         print(f"[TROVATO NELL'EPG] Canale ID: '{ch_id}' (Nome: '{ch_name}') | Titolo: '{title}' | Orario diff: {diff_secondi}s")
 
-                        # Controlliamo corrispondenza con le chiavi salvate o con il nome risolto del canale
                         matches_keys = [ch_id, ch_name, normalizza_testo(ch_id), normalizza_testo(ch_name)]
                         for mk in matches_keys:
                             if mk in id_to_names:
@@ -413,10 +420,11 @@ def cerca_canali_per_partita(date_utc, home_team, away_team):
                                     if nome_canale not in canali_trovati and nome_canale not in BLACKLIST_CANALI:
                                         canali_trovati.append(nome_canale)
                         
-                        # Se il canale ha un nome testuale pulito che corrisponde a un canale speciale/classico o lista
                         for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
+                            if nc in BLACKLIST_CANALI:
+                                continue
                             if normalizza_testo(nc) == normalizza_testo(ch_name) or normalizza_testo(nc) in normalizza_testo(ch_name):
-                                if nc not in canali_trovati and nc not in BLACKLIST_CANALI:
+                                if nc not in canali_trovati:
                                     canali_trovati.append(nc)
 
                 except ValueError:
