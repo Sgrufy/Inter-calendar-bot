@@ -13,6 +13,7 @@ API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
 URL_SECONDA_LISTA = os.getenv("URL_SECONDA_LISTA")
 URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA")
+URLS_SEI_PLAYLIST = os.getenv("URLS_SEI_PLAYLIST") # <-- Le 6 nuove playlist
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
@@ -150,6 +151,7 @@ PROGRAMMI_EPG = []
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
+TUTTI_I_CANALI_BIANCHI = set() # Set per le 6 nuove playlist (pallino bianco ⚪)
 URLS_EPG_DINAMICI = set()
 
 def normalizza_testo(testo):
@@ -214,7 +216,9 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                 target_set.add(c_name)
 
 def carica_canali_esterni():
-    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, URLS_EPG_DINAMICI
+    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, TUTTI_I_CANALI_BIANCHI, URLS_EPG_DINAMICI
+    
+    # 1. Le 3 playlist originali
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
         ("NERA", URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
@@ -235,6 +239,25 @@ def carica_canali_esterni():
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
                                 if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
                                     target_set.add(c_name)
+            except Exception:
+                pass
+
+    # 2. Le 6 nuove playlist (gestite tramite l'unico nuovo secret)
+    if URLS_SEI_PLAYLIST:
+        urls_6 = [u.strip() for u in URLS_SEI_PLAYLIST.split() if u.strip()]
+        for url_item in urls_6:
+            try:
+                response = requests.get(url_item, headers=HEADERS, timeout=20)
+                if response.status_code == 200:
+                    if "#EXTM3U" in response.text or "#EXTINF" in response.text:
+                        analizza_m3u_esteso(response.text, TUTTI_I_CANALI_BIANCHI)
+                    else:
+                        for line in response.text.splitlines():
+                            line = line.strip()
+                            if line and not line.startswith("#") and not line.startswith("http"):
+                                c_name = line.split(",", 1)[0].strip() if "," in line else line
+                                if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
+                                    TUTTI_I_CANALI_BIANCHI.add(c_name)
             except Exception:
                 pass
 
@@ -271,7 +294,7 @@ def carica_canali_esterni():
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
-    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI))
+    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI))
     try:
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
@@ -416,7 +439,6 @@ def scarica_tutti_gli_epg(date_str_list):
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
             
-    # Contatore ripristinato per i log di GitHub Actions
     print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
@@ -481,7 +503,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                                 for nc in id_to_names[mk]:
                                     if nc not in canali_trovati and nc not in BLACKLIST_CANALI: canali_trovati.append(nc)
                         
-                        for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
+                        for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
                             if nc in BLACKLIST_CANALI: continue
                             norm_nc = normalizza_testo(nc)
                             norm_ch = normalizza_testo(ch_name)
@@ -564,6 +586,7 @@ def generate_ics(matches):
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
+        gruppo_bianco = []
         gruppo_arancione = []
         
         for c in p['canali']:
@@ -584,11 +607,14 @@ def generate_ics(matches):
             elif c in TUTTI_I_CANALI_GIALLI:
                 nome_formattato = f"🟡 {c}"
                 if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
+            elif c in TUTTI_I_CANALI_BIANCHI:
+                nome_formattato = f"⚪ {c}"
+                if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
             else:
                 nome_formattato = f"🟠 {c}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
-        righe_ordinate = gruppo_tv + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_arancione
+        righe_ordinate = gruppo_tv + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["In attesa di programmazione ufficiale ⏳"]
             
