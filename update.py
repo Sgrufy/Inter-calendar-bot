@@ -155,11 +155,8 @@ URLS_EPG_DINAMICI = set()
 def normalizza_testo(testo):
     if not testo:
         return ""
-    # Pulisce tag superflui e parentesi, preservando caratteri internazionali (cirillico, greco, ecc.)
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
-    
-    # Rimuove solo i caratteri di punteggiatura/simboli di controllo corrotti, lasciando intatte le lettere di qualsiasi alfabeto
     testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
     
     traduzioni_estere = {
@@ -224,7 +221,6 @@ def carica_canali_esterni():
         ("GIALLA", URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI)
     ]
     
-    print("\n--- DIAGNOSTICA CARICAMENTO LISTE IPTV ---")
     for nome_lista, url, target_set in playlist:
         if url:
             try:
@@ -241,9 +237,6 @@ def carica_canali_esterni():
                                     target_set.add(c_name)
             except Exception:
                 pass
-
-    print(f"Canali Blu caricati: {len(TUTTI_I_CANALI_BLU)}")
-    print(f"Primi 10 canali Blu: {list(TUTTI_I_CANALI_BLU)[:10]}")
 
     for cid, cname in EPG_PW_TV_IDS.items():
         TUTTI_I_CANALI_BLU.add(cname)
@@ -383,7 +376,6 @@ def scarica_singolo_id_pw(args):
     return []
 
 def scarica_epg_mirato_per_data(data_partita_str):
-    print(f"\n--- DOWNLOAD MIRATO EPG.PW IN PARALLELO PER DATA: {data_partita_str} ---")
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in tutti_i_target_pw.items()]
     programmi_mirati = []
@@ -409,7 +401,6 @@ def scarica_tutti_gli_epg(date_str_list):
             valid_channel_ids.add(normalizza_testo(nome))
             valid_channel_ids.add(nome)
     
-    print(f"\n--- DOWNLOAD E PARSING EPG GLOBALE E MIRATO ---")
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
         for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
@@ -424,8 +415,6 @@ def scarica_tutti_gli_epg(date_str_list):
         progs_mirati = scarica_epg_mirato_per_data(data_str)
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
-                
-    print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -489,11 +478,12 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                                 for nc in id_to_names[mk]:
                                     if nc not in canali_trovati and nc not in BLACKLIST_CANALI: canali_trovati.append(nc)
                         
+                        # CORREZIONE: Controllo rigoroso basato sul nome esatto o ID, senza matching parziale di singole parole generiche
                         for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
                             if nc in BLACKLIST_CANALI: continue
                             norm_nc = normalizza_testo(nc)
                             norm_ch = normalizza_testo(ch_name)
-                            if norm_nc in norm_ch or norm_ch in norm_nc or any(w in norm_ch for w in norm_nc.split() if len(w) > 4):
+                            if norm_nc and (norm_nc == norm_ch or norm_nc in norm_ch or norm_ch in norm_nc):
                                 if nc not in canali_trovati: canali_trovati.append(nc)
                 except ValueError:
                     continue
