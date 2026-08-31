@@ -414,7 +414,6 @@ def scarica_tutti_gli_epg(date_str_list):
             if risultati:
                 PROGRAMMI_EPG.extend(risultati)
                 
-    # Scarica i dati mirati per tutte le date necessarie (es. oggi + prossima partita)
     for data_str in date_str_list:
         progs_mirati = scarica_epg_mirato_per_data(data_str)
         if progs_mirati:
@@ -433,7 +432,11 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     if not PROGRAMMI_EPG:
         return canali_trovati
         
-    keywords = [normalizza_testo("inter"), normalizza_testo(home_team), normalizza_testo(away_team)]
+    # Pulizia e preparazione flessibile delle keyword (Punti 1 & 2)
+    h_norm = normalizza_testo(home_team)
+    a_norm = normalizza_testo(away_team)
+    inter_keywords = ["inter", "internazionale"]
+    
     canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
 
     id_to_names = {}
@@ -452,7 +455,20 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         ch_name = prog.get('channel_name', ch_id)
         title = prog['title']
         
-        if any(key in title for key in keywords):
+        # LOGICA DI MATCHING POTENZIATA (Campionato e Champions League):
+        match_trovato = False
+        
+        contiene_inter = any(k in title for k in inter_keywords)
+        contiene_avversario = (h_norm in title and "inter" not in h_norm) or (a_norm in title and "inter" not in a_norm)
+        
+        # Criterio 1: Il titolo contiene l'Inter E l'altra squadra (ottimale per campionato e coppe)
+        if contiene_inter and contiene_avversario:
+            match_trovato = True
+        # Criterio 2: Il titolo contiene l'Inter E il contesto di competizione (es. Champions League o Serie A)
+        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"]):
+            match_trovato = True
+
+        if match_trovato:
             start_str = prog['start']
             if start_str:
                 try:
@@ -517,7 +533,6 @@ def fetch_next_matches():
         partite_da_analizzare = partite_da_analizzare[:4]
         
         if partite_da_analizzare:
-            # Raccogliamo la data odierna + la data della prima partita in programma per l'EPG mirato
             date_da_scaricare = {datetime.now(timezone.utc).strftime('%Y%m%d'), partite_da_analizzare[0]['ora_utc'].strftime('%Y%m%d')}
             scarica_tutti_gli_epg(list(date_da_scaricare))
             
@@ -540,7 +555,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V85 EPG Grouped//IT')
+    cal.add('prodid', '-//Calendario Inter V86 EPG Grouped//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
