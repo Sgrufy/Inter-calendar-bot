@@ -239,6 +239,10 @@ def carica_canali_esterni():
             except Exception:
                 pass
 
+    # DIAGNOSTICA AGGIUNTIVA PER LA LISTA BLU (Richiesta utente)
+    print(f"Canali Blu caricati: {len(TUTTI_I_CANALI_BLU)}")
+    print(f"Primi 10 canali Blu: {list(TUTTI_I_CANALI_BLU)[:10]}")
+
     for cid, cname in EPG_PW_TV_IDS.items():
         TUTTI_I_CANALI_BLU.add(cname)
         INFO_CANALI[cname] = {"id": cid}
@@ -432,7 +436,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     if not PROGRAMMI_EPG:
         return canali_trovati
         
-    # Pulizia e preparazione flessibile delle keyword (Punti 1 & 2)
     h_norm = normalizza_testo(home_team)
     a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
@@ -455,16 +458,12 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         ch_name = prog.get('channel_name', ch_id)
         title = prog['title']
         
-        # LOGICA DI MATCHING POTENZIATA (Campionato e Champions League):
         match_trovato = False
-        
         contiene_inter = any(k in title for k in inter_keywords)
         contiene_avversario = (h_norm in title and "inter" not in h_norm) or (a_norm in title and "inter" not in a_norm)
         
-        # Criterio 1: Il titolo contiene l'Inter E l'altra squadra (ottimale per campionato e coppe)
         if contiene_inter and contiene_avversario:
             match_trovato = True
-        # Criterio 2: Il titolo contiene l'Inter E il contesto di competizione (es. Champions League o Serie A)
         elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"]):
             match_trovato = True
 
