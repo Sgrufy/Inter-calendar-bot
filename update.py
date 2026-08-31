@@ -415,6 +415,9 @@ def scarica_tutti_gli_epg(date_str_list):
         progs_mirati = scarica_epg_mirato_per_data(data_str)
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
+            
+    # Contatore ripristinato per i log di GitHub Actions
+    print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -478,7 +481,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                                 for nc in id_to_names[mk]:
                                     if nc not in canali_trovati and nc not in BLACKLIST_CANALI: canali_trovati.append(nc)
                         
-                        # CORREZIONE: Controllo rigoroso basato sul nome esatto o ID, senza matching parziale di singole parole generiche
                         for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
                             if nc in BLACKLIST_CANALI: continue
                             norm_nc = normalizza_testo(nc)
