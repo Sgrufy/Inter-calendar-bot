@@ -155,8 +155,12 @@ URLS_EPG_DINAMICI = set()
 def normalizza_testo(testo):
     if not testo:
         return ""
+    # Pulisce tag superflui e parentesi, preservando caratteri internazionali (cirillico, greco, ecc.)
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
+    
+    # Rimuove solo i caratteri di punteggiatura/simboli di controllo corrotti, lasciando intatte le lettere di qualsiasi alfabeto
+    testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
     
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',     
@@ -171,7 +175,6 @@ def normalizza_testo(testo):
         if estero in testo_lower:
             testo_lower = testo_lower.replace(estero, lat)
 
-    testo_lower = testo_lower.replace('_', ' ').replace('.', ' ')
     nfkd_form = unicodedata.normalize('NFKD', testo_lower)
     risultato = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     return " ".join(risultato.split()).strip()
@@ -239,7 +242,6 @@ def carica_canali_esterni():
             except Exception:
                 pass
 
-    # DIAGNOSTICA AGGIUNTIVA PER LA LISTA BLU (Richiesta utente)
     print(f"Canali Blu caricati: {len(TUTTI_I_CANALI_BLU)}")
     print(f"Primi 10 canali Blu: {list(TUTTI_I_CANALI_BLU)[:10]}")
 
@@ -489,7 +491,9 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         
                         for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
                             if nc in BLACKLIST_CANALI: continue
-                            if normalizza_testo(nc) == normalizza_testo(ch_name) or normalizza_testo(nc) in normalizza_testo(ch_name):
+                            norm_nc = normalizza_testo(nc)
+                            norm_ch = normalizza_testo(ch_name)
+                            if norm_nc in norm_ch or norm_ch in norm_nc or any(w in norm_ch for w in norm_nc.split() if len(w) > 4):
                                 if nc not in canali_trovati: canali_trovati.append(nc)
                 except ValueError:
                     continue
