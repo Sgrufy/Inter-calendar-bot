@@ -27,6 +27,7 @@ jobs:
           URL_CANALI_BLU: ${{ secrets.URL_CANALI_BLU }}
           URL_SECONDA_LISTA: ${{ secrets.URL_SECONDA_LISTA }}
           URL_TERZA_LISTA: ${{ secrets.URL_TERZA_LISTA }}
+          URLS_SEI_PLAYLIST: ${{ secrets.URLS_SEI_PLAYLIST }}
         run: |
           python update.py
 
