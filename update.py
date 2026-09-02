@@ -29,6 +29,7 @@ TEAM_ID = 108
 BLACKLIST_CANALI = {
     "Focus",
     "HRT 4",
+    "ORTS (480p) [Not 24/7]",
     "Das Erste",
     "CNews",
     "Court TV",
