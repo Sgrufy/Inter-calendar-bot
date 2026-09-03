@@ -157,7 +157,7 @@ PROGRAMMI_EPG = []
 TUTTI_I_CANALI_BLU = set()
 TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
-TUTTI_I_CANALI_BIANCHI = set() # Set per le 6 nuove playlist (pallino bianco ⚪)
+TUTTI_I_CANALI_BIANCHI = set()
 URLS_EPG_DINAMICI = set()
 
 def normalizza_testo(testo):
@@ -224,7 +224,6 @@ def analizza_m3u_esteso(testo_m3u, target_set):
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, TUTTI_I_CANALI_BIANCHI, URLS_EPG_DINAMICI
     
-    # 1. Le 3 playlist originali
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
         ("NERA", URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
@@ -248,7 +247,6 @@ def carica_canali_esterni():
             except Exception:
                 pass
 
-    # 2. Le 6 nuove playlist (gestite tramite l'unico nuovo secret)
     if URLS_SEI_PLAYLIST:
         urls_6 = [u.strip() for u in URLS_SEI_PLAYLIST.split() if u.strip()]
         for url_item in urls_6:
@@ -482,7 +480,12 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         
         match_trovato = False
         contiene_inter = any(k in title for k in inter_keywords)
-        contiene_avversario = (h_norm in title and "inter" not in h_norm) or (a_norm in title and "inter" not in a_norm)
+        
+        contiene_avversario = False
+        if h_norm and h_norm != "inter" and h_norm in title:
+            contiene_avversario = True
+        if a_norm and a_norm != "inter" and a_norm in title:
+            contiene_avversario = True
         
         if contiene_inter and contiene_avversario:
             match_trovato = True
@@ -494,7 +497,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             if start_str:
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
+                    
+                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
                         
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
