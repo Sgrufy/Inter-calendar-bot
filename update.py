@@ -460,6 +460,15 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
     
+    # Lista universale di prefissi e sigle calcistiche da ignorare per qualsiasi squadra
+    parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf"}
+    
+    h_parole = [p for p in h_norm.split() if p not in parole_da_ignorare]
+    h_chiave = h_parole[-1] if h_parole else h_norm
+    
+    a_parole = [p for p in a_norm.split() if p not in parole_da_ignorare]
+    a_chiave = a_parole[-1] if a_parole else a_norm
+    
     canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
 
     id_to_names = {}
@@ -482,9 +491,9 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         contiene_inter = any(k in title for k in inter_keywords)
         
         contiene_avversario = False
-        if h_norm and h_norm != "inter" and h_norm in title:
+        if h_chiave and h_chiave != "inter" and h_chiave in title:
             contiene_avversario = True
-        if a_norm and a_norm != "inter" and a_norm in title:
+        if a_chiave and a_chiave != "inter" and a_chiave in title:
             contiene_avversario = True
         
         if contiene_inter and contiene_avversario:
