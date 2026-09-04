@@ -80,7 +80,7 @@ EPG_PW_TV_IDS = {
 }
 
 # ==========================================
-# ID ESCLUSIVI EPG.PW - CANALI ARANCIONI (🟠) aggiornati con Setanta Eurasia 1 e 2
+# ID ESCLUSIVI EPG.PW - CANALI ARANCIONI (🟠)
 # ==========================================
 EPG_PW_TARGET_IDS = {
     "397418": "Sport TV 1",
@@ -516,7 +516,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
-                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
+                    # Finestra temporale estesa a 12 ore (43200 secondi) per coprire sfasamenti e feed esteri/Eurasia
+                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 43200:
                         match_count += 1
                         print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
