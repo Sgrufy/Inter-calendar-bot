@@ -516,8 +516,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
-                    # Finestra temporale estesa a 12 ore (43200 secondi) per coprire sfasamenti e feed esteri/Eurasia
-                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 43200:
+                    # Finestra temporale ridotta a 6 ore (21600 secondi) per coprire i feed esteri/Eurasia/Uzbekistan evitando le repliche distanti
+                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
                         match_count += 1
                         print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
