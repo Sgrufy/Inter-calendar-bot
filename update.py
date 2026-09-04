@@ -80,7 +80,7 @@ EPG_PW_TV_IDS = {
 }
 
 # ==========================================
-# ID ESCLUSIVI EPG.PW - CANALI ARANCIONI (🟠)
+# ID ESCLUSIVI EPG.PW - CANALI ARANCIONI (🟠) aggiornati con Setanta Eurasia 1 e 2
 # ==========================================
 EPG_PW_TARGET_IDS = {
     "397418": "Sport TV 1",
@@ -92,17 +92,22 @@ EPG_PW_TARGET_IDS = {
     "405669": "Sport TV 7",
     "405715": "Sport TV +",
     "417364": "Setanta Sports 1",
-    "325010": "Setanta Sports 1 Eurasia",
-    "325011": "Setanta Sports+ Eurasia",
-    "62227": "Setanta Sports 1",
-    "247795": "Setanta Sports 1",
-    "534194": "Setanta Sports 1",
-    "325011": "Setanta Sports 2",
-    "417351": "Setanta Sports 2",
-    "62234": "Setanta Sports 2",
-    "534193": "Setanta Sports 2",
-    "553861": "Setanta Sports 2",
-    "534228": "Setanta Sports 3",
+    "247795": "Setanta Sports 1 Eurasia",
+    "62234": "Setanta Sports 2 Eurasia",
+    "325011": "Setanta Sports+",
+    "534194": "Setanta Sports 1 Georgia",
+    "534193": "Setanta Sports 2 Georgia",
+    "553867": "Setanta 1 [UZ]",
+    "553861": "Setanta 2 [UZ]",
+    "417351": "Setanta Sports 2 Lietuva",
+    "473658": "Setanta Sport+ [KZ]",
+    "62227": "Setanta Sports 1 KZ",
+    "359087": "Setanta Kyrgyzstan",
+    "534228": "Setanta Sports 3 Georgia",
+    "408458": "Setanta Sports Premium [UA]",
+    "6159": "Setanta Казахстан",
+    "392163": "Setanta Украина",
+    "392142": "Setanta+ Украина",
     "400477": "TNT Sports 1",
     "400480": "TNT Sports 2",
     "400479": "TNT Sports 3",
@@ -619,7 +624,6 @@ def generate_ics(matches):
             if any(black.lower() in c.lower() for black in BLACKLIST_CANALI):
                 continue
                 
-            # Pulizia extra per evitare caratteri di controllo anomali nella descrizione ICS
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
                 
             if "In attesa" in c_pulito:
