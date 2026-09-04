@@ -13,7 +13,7 @@ API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
 URL_SECONDA_LISTA = os.getenv("URL_SECONDA_LISTA")
 URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA")
-URLS_SEI_PLAYLIST = os.getenv("URLS_SEI_PLAYLIST") # <-- Le 6 nuove playlist
+URLS_SEI_PLAYLIST = os.getenv("URLS_SEI_PLAYLIST")
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
@@ -172,7 +172,8 @@ def normalizza_testo(testo):
         'inter de milao': 'inter', 'inter milao': 'inter',    
         'milan': 'milan', 'ювентус': 'juventus', 'футбол': 'football',
         'матч': 'match', 'mecz': 'match', 'pilka nozna': 'football',
-        'mac': 'match', 'futbol': 'football', 'agonas': 'match', 'podosfairo': 'football'
+        'mac': 'match', 'futbol': 'football', 'agonas': 'match', 'podosfairo': 'football',
+        'наполи': 'napoli', 'roma': 'roma'
     }
     
     testo_lower = testo_pulito.lower()
@@ -460,7 +461,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
     
-    # Lista universale di prefissi e sigle calcistiche da ignorare per qualsiasi squadra
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf"}
     
     h_parole = [p for p in h_norm.split() if p not in parole_da_ignorare]
@@ -482,6 +482,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 if k not in id_to_names: id_to_names[k] = []
                 if nome_canale not in id_to_names[k]: id_to_names[k].append(nome_canale)
 
+    print(f"\n[DEBUG] Ricerca match: {home_team} vs {away_team} (Data UTC: {date_utc})")
+    print(f"[DEBUG] Chiavi estratte -> Casa: '{h_chiave}' | Ospite: '{a_chiave}'")
+
+    match_count = 0
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
@@ -508,6 +512,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
                     if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
+                        match_count += 1
+                        print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
@@ -531,6 +537,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 except ValueError:
                     continue
                     
+    print(f"[DEBUG] Totale corrispondenze valide trovate per {home_team} vs {away_team}: {len(canali_trovati)}")
     return canali_trovati
 
 def fetch_next_matches():
@@ -612,25 +619,28 @@ def generate_ics(matches):
             if any(black.lower() in c.lower() for black in BLACKLIST_CANALI):
                 continue
                 
-            if "In attesa" in c:
-                gruppo_arancione.append(c)
-            elif c in CANALI_TV_CLASSICI or c in EPG_PW_TV_IDS.values() or "prime" in c.lower():
-                nome_formattato = "🎬 Prime Video" if "prime" in c.lower() else f"📺 {c}"
+            # Pulizia extra per evitare caratteri di controllo anomali nella descrizione ICS
+            c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
+                
+            if "In attesa" in c_pulito:
+                gruppo_arancione.append(c_pulito)
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or "prime" in c_pulito.lower():
+                nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c in TUTTI_I_CANALI_BLU:
-                nome_formattato = f"🔵 {c}"
+            elif c_pulito in TUTTI_I_CANALI_BLU:
+                nome_formattato = f"🔵 {c_pulito}"
                 if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
-            elif c in TUTTI_I_CANALI_NERI:
-                nome_formattato = f"⚫ {c}"
+            elif c_pulito in TUTTI_I_CANALI_NERI:
+                nome_formattato = f"⚫ {c_pulito}"
                 if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
-            elif c in TUTTI_I_CANALI_GIALLI:
-                nome_formattato = f"🟡 {c}"
+            elif c_pulito in TUTTI_I_CANALI_GIALLI:
+                nome_formattato = f"🟡 {c_pulito}"
                 if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
-            elif c in TUTTI_I_CANALI_BIANCHI:
-                nome_formattato = f"⚪ {c}"
+            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+                nome_formattato = f"⚪ {c_pulito}"
                 if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
             else:
-                nome_formattato = f"🟠 {c}"
+                nome_formattato = f"🟠 {c_pulito}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
         righe_ordinate = gruppo_tv + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
