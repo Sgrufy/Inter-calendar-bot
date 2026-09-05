@@ -307,7 +307,6 @@ def carica_canali_esterni():
         nome_open = open_epg_mappatura.get(p, p)
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
-    # EPG globali e i tuoi 3 nuovi EPG sportivi dedicati
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
@@ -479,18 +478,14 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
     
-    # Parole da ignorare (comprese le date/anni storici o sigle club)
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
     
-    # Identifichiamo l'avversario corretto in base a chi gioca in casa/trasferta
     if "inter" in h_norm:
         avversario_full = away_team
     else:
         avversario_full = home_team
         
     av_norm = normalizza_testo(avversario_full)
-    
-    # Filtriamo le parole dell'avversario togliendo stop-words, numeri (es. 1913) e "inter"
     av_parole = [p for p in av_norm.split() if p not in parole_da_ignorare and not p.isdigit() and p not in inter_keywords]
     
     canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
@@ -517,8 +512,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         
         match_trovato = False
         contiene_inter = any(k in title for k in inter_keywords)
-        
-        # Verifica se almeno una delle parole chiave pulite dell'avversario è nel titolo EPG
         contiene_avversario = any(ap in title for ap in av_parole) if av_parole else False
         
         if contiene_inter and contiene_avversario:
@@ -563,7 +556,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
 def fetch_next_matches():
     all_matches = []
-    url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED"
+    # Usiamo status=TIMED per includere le partite di oggi anche se sono già iniziate o in corso
+    url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED,TIMED"
     
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
@@ -579,7 +573,10 @@ def fetch_next_matches():
             if not date_str: continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            if date_utc < adesso: continue
+            
+            # FILTRO MEZZANOTTE: Scartiamo la partita solo se la sua data è precedente a oggi (cioè da domani in poi)
+            if date_utc.date() < adesso.date():
+                continue
 
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
