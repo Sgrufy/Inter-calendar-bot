@@ -293,6 +293,7 @@ def carica_canali_esterni():
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
 
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
@@ -622,7 +623,7 @@ def generate_ics(matches):
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
         gruppo_tv = []
-        gruppo_stelle = [] # Canali stellati specifici
+        gruppo_stelle = [] 
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
@@ -641,7 +642,6 @@ def generate_ics(matches):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE:
-                # Limitato ai canali specifici con stellina (⭐)
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
