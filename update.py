@@ -482,8 +482,12 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     # Parole da ignorare (comprese le date/anni storici o sigle club)
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
     
-    # Identifichiamo l'avversario escludendo l'Inter
-    avversario_full = away_team if "inter" not in h_norm.lower() else home_team
+    # Identifichiamo l'avversario corretto in base a chi gioca in casa/trasferta
+    if "inter" in h_norm:
+        avversario_full = away_team
+    else:
+        avversario_full = home_team
+        
     av_norm = normalizza_testo(avversario_full)
     
     # Filtriamo le parole dell'avversario togliendo stop-words, numeri (es. 1913) e "inter"
