@@ -475,13 +475,15 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
     
-    parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf"}
+    # Parole da ignorare (comprese le date/anni storici o sigle club)
+    parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
     
-    h_parole = [p for p in h_norm.split() if p not in parole_da_ignorare]
-    h_chiave = h_parole[-1] if h_parole else h_norm
+    # Identifichiamo l'avversario escludendo l'Inter
+    avversario_full = away_team if "inter" not in h_norm.lower() else home_team
+    av_norm = normalizza_testo(avversario_full)
     
-    a_parole = [p for p in a_norm.split() if p not in parole_da_ignorare]
-    a_chiave = a_parole[-1] if a_parole else a_norm
+    # Filtriamo le parole dell'avversario togliendo stop-words, numeri (es. 1913) e "inter"
+    av_parole = [p for p in av_norm.split() if p not in parole_da_ignorare and not p.isdigit() and p not in inter_keywords]
     
     canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
 
@@ -497,7 +499,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 if nome_canale not in id_to_names[k]: id_to_names[k].append(nome_canale)
 
     print(f"\n[DEBUG] Ricerca match: {home_team} vs {away_team} (Data UTC: {date_utc})")
-    print(f"[DEBUG] Chiavi estratte -> Casa: '{h_chiave}' | Ospite: '{a_chiave}'")
+    print(f"[DEBUG] Parole chiave avversario estratte: {av_parole}")
 
     match_count = 0
     for prog in PROGRAMMI_EPG:
@@ -508,11 +510,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         match_trovato = False
         contiene_inter = any(k in title for k in inter_keywords)
         
-        contiene_avversario = False
-        if h_chiave and h_chiave != "inter" and h_chiave in title:
-            contiene_avversario = True
-        if a_chiave and a_chiave != "inter" and a_chiave in title:
-            contiene_avversario = True
+        # Verifica se almeno una delle parole chiave pulite dell'avversario è nel titolo EPG
+        contiene_avversario = any(ap in title for ap in av_parole) if av_parole else False
         
         if contiene_inter and contiene_avversario:
             match_trovato = True
