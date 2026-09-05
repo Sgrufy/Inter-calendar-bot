@@ -27,6 +27,7 @@ TEAM_ID = 108
 # BLACKLIST CANALI (Falsi positivi da escludere)
 # ==========================================
 BLACKLIST_CANALI = {
+    "O!",
     "Focus",
     "HRT 4",
     "ORTS (480p) [Not 24/7]",
@@ -80,7 +81,7 @@ EPG_PW_TV_IDS = {
 }
 
 # ==========================================
-# ID ESCLUSIVI EPG.PW - CANALI ARANCIONI (🟠)
+# ID ESCLUSIVI EPG.PW - CANALI TARGET (🟠 / ⭐)
 # ==========================================
 EPG_PW_TARGET_IDS = {
     "397418": "Sport TV 1",
@@ -516,7 +517,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
-                    # Finestra temporale ridotta a 6 ore (21600 secondi) per coprire i feed esteri/Eurasia/Uzbekistan evitando le repliche distanti
                     if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
                         match_count += 1
                         print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
@@ -615,6 +615,7 @@ def generate_ics(matches):
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
         gruppo_tv = []
+        gruppo_stelle = []
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
@@ -622,7 +623,7 @@ def generate_ics(matches):
         gruppo_arancione = []
         
         for c in p['canali']:
-            if any(black.lower() in c.lower() for black in BLACKLIST_CANALI):
+            if any(black.lower() == c.lower() for black in BLACKLIST_CANALI):
                 continue
                 
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
@@ -632,6 +633,9 @@ def generate_ics(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or "prime" in c_pulito.lower():
                 nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
+            elif "setanta" in c_pulito.lower():
+                nome_formattato = f"⭐ {c_pulito}"
+                if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
                 nome_formattato = f"🔵 {c_pulito}"
                 if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
@@ -648,7 +652,7 @@ def generate_ics(matches):
                 nome_formattato = f"🟠 {c_pulito}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
-        righe_ordinate = gruppo_tv + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
+        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["In attesa di programmazione ufficiale ⏳"]
             
