@@ -132,6 +132,13 @@ EPG_PW_TARGET_IDS = {
     "562459": "CBS Sports"
 }
 
+# Canali specifici che devono avere la stellina (⭐)
+CANALI_STELLE = {
+    "Setanta Sports 1 Eurasia",
+    "Setanta Sports 2 Eurasia",
+    "Setanta Sports+"
+}
+
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
@@ -615,7 +622,7 @@ def generate_ics(matches):
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
         
         gruppo_tv = []
-        gruppo_stelle = []
+        gruppo_stelle = [] # Canali stellati specifici
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
@@ -633,7 +640,8 @@ def generate_ics(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or "prime" in c_pulito.lower():
                 nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif "setanta" in c_pulito.lower():
+            elif c_pulito in CANALI_STELLE:
+                # Limitato ai canali specifici con stellina (⭐)
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
