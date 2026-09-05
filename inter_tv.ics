@@ -3,15 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V86 EPG Grouped//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter vs SSC Napoli
-DTSTART:20260905T160000Z
-DTEND:20260905T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 2\n📺 Max Sport 3\n🔵 Setanta 1 [UZ]\n🔵 Setanta\n⚫ Sport\n⚫
-  Max Sport 3 (720p)\n🟡 RTS Ⓖ\n🟡 Šport\n⚪ O! (576p)\n⚪ </a>\n
- 🟠 setanta 1\n🟠 max sport 3
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Real Madrid CF vs Inter
 DTSTART:20260908T190000Z
 DTEND:20260908T210000Z
@@ -29,6 +20,13 @@ BEGIN:VEVENT
 SUMMARY:⚽ AS Roma vs Inter
 DTSTART:20260919T160000Z
 DTEND:20260919T180000Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Inter vs Parma Calcio 1913
+DTSTART:20261010T160000Z
+DTEND:20261010T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
