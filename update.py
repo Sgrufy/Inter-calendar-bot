@@ -307,8 +307,12 @@ def carica_canali_esterni():
         nome_open = open_epg_mappatura.get(p, p)
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
+    # EPG globali e i tuoi 3 nuovi EPG sportivi dedicati
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
+    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
+    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
+    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
 
 def carica_id_da_github():
     global INFO_CANALI
