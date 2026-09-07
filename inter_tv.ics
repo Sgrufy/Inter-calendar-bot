@@ -6,8 +6,11 @@ BEGIN:VEVENT
 SUMMARY:⚽ Real Madrid CF vs Inter
 DTSTART:20260908T190000Z
 DTEND:20260908T210000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
- n attesa di programmazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
+ 📺 Nova Sport 4\n📺 Nova Sport 3\n🔵 A-sport\n⚫ A Spor (1080p)\n
+ ⚫ Sport\n⚫ Sport 4 (576p)\n⚫ :Šport (1080p)\n⚫ Sport 3 (1080p)\n
+ 🟡 Nova Ⓢ\n🟡 Šport\n⚪ Nova (1080p)\n⚪ O! (576p)\n🟠 nova spo
+ rt 4\n🟠 nova sport 3
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
