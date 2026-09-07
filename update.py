@@ -28,6 +28,9 @@ TEAM_ID = 108
 # ==========================================
 BLACKLIST_CANALI = {
     "O!",
+    "E!",
+    "Mezzo",
+    "Mezzo Live",
     "Focus",
     "HRT 4",
     "ORTS (480p) [Not 24/7]",
@@ -513,12 +516,18 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
+        
+        # Salta i canali in blacklist
+        if ch_name in BLACKLIST_CANALI:
+            continue
+            
         title = prog['title']
         
-        match_trovato = False
-        contiene_inter = any(k in title for k in inter_keywords)
-        contiene_avversario = any(ap in title for ap in av_parole) if av_parole else False
+        # Controllo a parole intere per evitare sottostringhe errate (es. international -> inter)
+        contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
+        contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
         
+        match_trovato = False
         if contiene_inter and contiene_avversario:
             match_trovato = True
         elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"]):
