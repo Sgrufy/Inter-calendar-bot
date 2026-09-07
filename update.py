@@ -136,7 +136,10 @@ EPG_PW_TARGET_IDS = {
 CANALI_STELLE = {
     "Setanta Sports 1 Eurasia",
     "Setanta Sports 2 Eurasia",
-    "Setanta Sports+"
+    "Setanta Sports+",
+    "Okko Futbol",
+    "Okko Prajm Sport",
+    "Okko Sport"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -158,7 +161,8 @@ CANALI_PRIORITARI_SPECIALI = set(EPG_PW_TARGET_IDS.values()).union({
     "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", 
     "beIN Sports 4", "beIN Sports 5", "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", 
     "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX", "TNT", "Fox", "Match! Arena", 
-    "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", "LRT Plius", 
+    "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", 
+    "Okko Futbol", "Okko Prajm Sport", "Okko Sport", "LRT Plius", 
     "MNS Sports", "Prime TV", "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", 
     "Tivibu Spor 2", "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", 
     "beIN Sports 3 Turkey", "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", 
@@ -176,7 +180,7 @@ URLS_EPG_DINAMICI = set()
 def normalizza_testo(testo):
     if not testo:
         return ""
-    testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex)\b', '', testo, flags=re.IGNORECASE)
+    testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex|1080p|720p)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
     
@@ -308,9 +312,7 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
-    # --- AGGIUNTA IPTVX.ONE ---
     URLS_EPG_DINAMICI.add("https://iptvx.one/EPG")
-    # --------------------------
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
