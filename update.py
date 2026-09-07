@@ -308,6 +308,9 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
 
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
+    # --- AGGIUNTA IPTVX.ONE ---
+    URLS_EPG_DINAMICI.add("https://iptvx.one/EPG")
+    # --------------------------
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
@@ -556,7 +559,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
 def fetch_next_matches():
     all_matches = []
-    # Usiamo status=TIMED per includere le partite di oggi anche se sono già iniziate o in corso
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED,TIMED"
     
     try:
@@ -574,7 +576,6 @@ def fetch_next_matches():
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
             
-            # FILTRO MEZZANOTTE: Scartiamo la partita solo se la sua data è precedente a oggi (cioè da domani in poi)
             if date_utc.date() < adesso.date():
                 continue
 
