@@ -212,7 +212,6 @@ def normalizza_testo(testo):
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
     
-    # Traduzioni estese incluse quelle in cirillico per Okko e canali russi/esteri
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',     
         'inter de milao': 'inter', 'inter milao': 'inter',    
@@ -222,7 +221,7 @@ def normalizza_testo(testo):
         'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'bologna',
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
-        'agonas': 'match', 'podosfairo': 'football'
+        'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko'
     }
     
     testo_lower = testo_pulito.lower()
@@ -409,7 +408,17 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     elem.clear()
                     continue
                 
-                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit()):
+                # Forzatura riconoscimento stringa Okko nel nome canale
+                ch_lookup_lower = ch_lookup.lower()
+                if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
+                    if "sport" in ch_lookup_lower:
+                        ch_lookup = "Okko Sport"
+                    elif "football" in ch_lookup_lower or "футбол" in ch_lookup_lower:
+                        ch_lookup = "Okko Futbol"
+                    else:
+                        ch_lookup = "Okko Sport"
+                
+                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup.lower()):
                     if ch in tutti_i_target_pw:
                         ch_lookup = tutti_i_target_pw[ch]
                     
@@ -679,17 +688,16 @@ def generate_ics(matches):
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
             
             c_lower = c_pulito.lower()
-            if c_lower == "okko-football":
-                c_pulito = "Okko Football"
-            elif c_lower == "okko-sport":
-                c_pulito = "Okko Sport"
-            elif c_lower == "okko-sport-2":
-                c_pulito = "Okko Sport 2"
+            if "okko" in c_lower:
+                if "football" in c_lower or "футбол" in c_lower:
+                    c_pulito = "Okko Futbol"
+                else:
+                    c_pulito = "Okko Sport"
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or "prime" in c_pulito.lower():
-                nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"]):
+                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower:
                 nome_formattato = f"⭐ {c_pulito}"
