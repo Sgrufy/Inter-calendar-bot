@@ -3,15 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V88 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Real Madrid CF vs Inter
-DTSTART:20260908T190000Z
-DTEND:20260908T210000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
- 📺 Max Sport 3\n📺 Nova Sport 3\n🔵 Arena Sport 2\n🔵 A-sport\n⚫
-  Sport\n⚫ Sport 2\n🟡 Šport\n🟡 Nova Ⓢ\n🟠 Arena Sport 2 Premiu
- m\n🟠 A Spor\n🟠 Sport 3\n🟠 Nova
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Udinese Calcio
 DTSTART:20260914T184500Z
 DTEND:20260914T204500Z
@@ -31,5 +22,12 @@ DTSTART:20261010T160000Z
 DTEND:20261010T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Inter vs Club Brugge KV
+DTSTART:20261013T190000Z
+DTEND:20261013T210000Z
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
+ n attesa di programmazione ufficiale ⏳
 END:VEVENT
 END:VCALENDAR
