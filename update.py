@@ -272,7 +272,6 @@ def analizza_m3u_esteso(testo_m3u, target_set):
                 target_set.add(c_name)
 
 def carica_id_da_github():
-    # Funzione di supporto per evitare errori di definizione mancante
     pass
 
 def carica_canali_esterni():
@@ -356,6 +355,11 @@ def carica_canali_esterni():
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
+    
+    # AGGIUNTA SORGENTI EPG.ONE PER OKKO E CANALI RUSSI
+    URLS_EPG_DINAMICI.add("http://epg.one/ru.xml.gz")
+    URLS_EPG_DINAMICI.add("http://epg.one/ru2.xml.gz")
+    URLS_EPG_DINAMICI.add("http://epg.one/epg.xml.gz")
 
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
@@ -394,7 +398,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                 
                 ch_lookup_lower = ch_lookup.lower()
                 if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
-                    if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower:
+                    if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower or "prajm" in ch_lookup_lower:
                         ch_lookup = "Okko Futbol"
                     else:
                         ch_lookup = "Okko Sport"
@@ -509,7 +513,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         
     h_norm = normalizza_testo(home_team)
     inter_keywords = ["inter", "internazionale"]
-    
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
     
     if "inter" in h_norm:
@@ -551,7 +554,11 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                     
                     if abs((prog_start - date_utc).total_seconds()) <= 10800:
                         c_uff = None
-                        if ch_id in EPG_PW_TARGET_IDS:
+                        ch_name_lower = ch_name.lower()
+                        
+                        if "okko" in ch_name_lower or "окко" in ch_name_lower:
+                            c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower) else "Okko Sport"
+                        elif ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
                         elif ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
@@ -666,10 +673,7 @@ def generate_ics(matches):
             ha_risoluzione = bool(re.search(r'\b(720p|1080p|4k|uhd|sd)\b', c_lower))
             
             if "okko" in c_lower:
-                if "football" in c_lower or "футбол" in c_lower:
-                    c_pulito = "Okko Futbol"
-                else:
-                    c_pulito = "Okko Sport"
+                c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
