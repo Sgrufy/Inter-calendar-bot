@@ -161,11 +161,7 @@ CANALI_STELLE = {
     "Setanta Sports 2 Eurasia",
     "Setanta Sports+",
     "Okko Futbol",
-    "Okko Prajm Sport",
     "Okko Sport",
-    "okko-football",
-    "okko-sport",
-    "okko-sport-2",
     "beIN Sports 1",
     "beIN Sports 2",
     "beIN Sports 3",
@@ -222,7 +218,7 @@ def normalizza_testo(testo):
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
         'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
-        'sport': 'sport'
+        'спорт': 'sport', 'sport': 'sport'
     }
     
     testo_lower = testo_pulito.lower()
@@ -510,10 +506,10 @@ def pulisci_nome(nome):
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
-    # Rimuove risoluzioni e sporcizia tra parentesi o in coda
     pulito = re.sub(r'\b(1080p|720p|4k|uhd|sd|fhd|hevc)\b', '', nome_canale, flags=re.IGNORECASE)
     pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
+    pulito = re.sub(r'^[:\-\s]+', '', pulito)
     return " ".join(pulito.split())
 
 def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
