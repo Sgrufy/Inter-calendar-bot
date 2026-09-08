@@ -140,6 +140,7 @@ CANALI_STELLE = {
     "Okko Futbol",
     "Okko Prajm Sport",
     "Okko Sport",
+    "Okko Sport 2",
     "okko-football",
     "okko-sport",
     "okko-sport-2"
@@ -613,7 +614,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V87 EPG Grouped//IT')
+    cal.add('prodid', '-//Calendario Inter V88 EPG Grouped//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -638,12 +639,17 @@ def generate_ics(matches):
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
             
             c_lower = c_pulito.lower()
-            if c_lower == "okko-football":
-                c_pulito = "Okko Football"
-            elif c_lower == "okko-sport":
-                c_pulito = "Okko Sport"
-            elif c_lower == "okko-sport-2":
-                c_pulito = "Okko Sport 2"
+            # Allargamento maglie Okko per tutte le varianti Kodi / EPG
+            if "okko" in c_lower:
+                if "fut" in c_lower:
+                    c_pulito = "Okko Futbol"
+                elif "prajm" in c_lower or "prime" in c_lower:
+                    c_pulito = "Okko Prajm Sport"
+                elif "2" in c_lower:
+                    c_pulito = "Okko Sport 2"
+                else:
+                    c_pulito = "Okko Sport"
+                c_lower = c_pulito.lower()
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
