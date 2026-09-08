@@ -221,7 +221,8 @@ def normalizza_testo(testo):
         'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'bologna',
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
-        'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko'
+        'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
+        'sport': 'sport'
     }
     
     testo_lower = testo_pulito.lower()
@@ -352,27 +353,6 @@ def carica_canali_esterni():
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
 
-def carica_id_da_github():
-    global INFO_CANALI
-    url_api = "https://iptv-org.github.io/api/channels.json"
-    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI))
-    try:
-        response = requests.get(url_api, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            db_canali = {normalizza_testo(c.get('name')): {"id": c.get('id')} for c in data if c.get('name')}
-            for nome in tutti_i_nomi:
-                if is_blacklisted(nome): continue
-                if nome in EPG_PW_TARGET_IDS.values() or nome in EPG_PW_TV_IDS.values(): continue
-                if nome not in INFO_CANALI:
-                    nome_norm = normalizza_testo(nome)
-                    if nome_norm in db_canali:
-                        INFO_CANALI[nome] = db_canali[nome_norm]
-                    else:
-                        INFO_CANALI[nome] = {"id": nome.replace(" ", "")}
-    except Exception:
-        pass
-
 def analizza_epg_stream(content_bytes, valid_channel_ids):
     programmi_locali = []
     parole_da_scartare = [
@@ -408,17 +388,15 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     elem.clear()
                     continue
                 
-                # Forzatura riconoscimento stringa Okko nel nome canale
+                # Cattura estesa e forzata per qualsiasi canale Okko / Ocskip
                 ch_lookup_lower = ch_lookup.lower()
                 if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
-                    if "sport" in ch_lookup_lower:
-                        ch_lookup = "Okko Sport"
-                    elif "football" in ch_lookup_lower or "футбол" in ch_lookup_lower:
+                    if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower:
                         ch_lookup = "Okko Futbol"
                     else:
                         ch_lookup = "Okko Sport"
                 
-                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup.lower()):
+                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower):
                     if ch in tutti_i_target_pw:
                         ch_lookup = tutti_i_target_pw[ch]
                     
@@ -686,8 +664,11 @@ def generate_ics(matches):
                 continue
                 
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
-            
             c_lower = c_pulito.lower()
+            
+            # Controllo se il nome contiene indicazioni di risoluzione (es. 720p, 1080p, ecc.)
+            ha_risoluzione = bool(re.search(r'\b(720p|1080p|4k|uhd|sd)\b', c_lower))
+            
             if "okko" in c_lower:
                 if "football" in c_lower or "футбол" in c_lower:
                     c_pulito = "Okko Futbol"
@@ -696,7 +677,7 @@ def generate_ics(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"]):
+            elif not ha_risoluzione and (c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"])):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower:
