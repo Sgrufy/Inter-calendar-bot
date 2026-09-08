@@ -24,13 +24,15 @@ COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
 # ==========================================
-# BLACKLIST CANALI RIGOROSA (Falsi positivi)
+# BLACKLIST CANALI RIGOROSA (E!, O!, ecc.)
 # ==========================================
 BLACKLIST_CANALI = {
-    "O!", "E!", "Mezzo", "Mezzo Live",
+    "O!", "o!", "O", "o",
+    "E!", "e!", "E", "e",
+    "Mezzo", "Mezzo Live", "mezzo", "mezzo live",
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
-    "Tagesschau24", "W24", "10 HD", "10"
+    "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo"
 }
 
 def is_blacklisted(nome_canale):
@@ -154,20 +156,6 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Diema Sport", "Diema Sport 2", "Diema Sport 3",
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
-})
-
-CANALI_PRIORITARI_SPECIALI = set(EPG_PW_TARGET_IDS.values()).union({
-    "Setanta Sports Eurasia", "Setanta Sports+ Eurasia", 
-    "Setanta Sports Ukraine", "Setanta Sports+ Ukraine",
-    "beIN Sports 1", "beIN Sports 2", "beIN Sports 3", 
-    "beIN Sports 4", "beIN Sports 5", "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", 
-    "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX", "TNT", "Fox", "Match! Arena", 
-    "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", 
-    "Okko Futbol", "Okko Prajm Sport", "Okko Sport", "okko-football", "okko-sport", "okko-sport-2", "LRT Plius", 
-    "MNS Sports", "Prime TV", "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", 
-    "Tivibu Spor 2", "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", 
-    "beIN Sports 3 Turkey", "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", 
-    "Nova Sport 5", "Nova Sport 6", "Sport 1", "Sport 2"
 })
 
 INFO_CANALI = {}  
@@ -298,6 +286,7 @@ def carica_canali_esterni():
 
     lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     for p in lista_paesi_standard:
+        URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
@@ -324,7 +313,7 @@ def carica_canali_esterni():
 def carica_id_da_github():
     global INFO_CANALI
     url_api = "https://iptv-org.github.io/api/channels.json"
-    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI))
+    tutti_i_nomi = list(TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI))
     try:
         response = requests.get(url_api, timeout=10)
         if response.status_code == 200:
@@ -348,7 +337,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
         "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
         "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
-        "haber", "deltio", "interview"
+        "haber", "deltio", "interview", "youth", "u19"
     ]
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     
@@ -373,7 +362,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
             if elem.tag == 'programme':
                 ch = elem.get('channel')
                 ch_lookup = channel_id_to_name.get(ch, ch)
-                if is_blacklisted(ch_lookup) or any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24"]):
+                if is_blacklisted(ch_lookup) or any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24", "rt"]):
                     elem.clear()
                     continue
                 
@@ -486,7 +475,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         return canali_trovati
         
     h_norm = normalizza_testo(home_team)
-    a_norm = normalizza_testo(away_team)
     inter_keywords = ["inter", "internazionale"]
     
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
@@ -498,24 +486,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         
     av_norm = normalizza_testo(avversario_full)
     av_parole = [p for p in av_norm.split() if p not in parole_da_ignorare and not p.isdigit() and p not in inter_keywords]
-    
-    canali_da_evitare = ["cnews", "court tv", "news", "info", "tg", "bmt", "cnn", "bbc", "w24", "tagesschau"]
-
-    id_to_names = {}
-    for nome_canale, info in INFO_CANALI.items():
-        if is_blacklisted(nome_canale): continue
-        if any(evitare in nome_canale.lower() for evitare in canali_da_evitare): continue
-            
-        ch_id = str(info.get("id"))
-        for k in [ch_id, normalizza_testo(nome_canale), nome_canale]:
-            if k:
-                if k not in id_to_names: id_to_names[k] = []
-                if nome_canale not in id_to_names[k]: id_to_names[k].append(nome_canale)
 
     print(f"\n[DEBUG] Ricerca match: {home_team} vs {away_team} (Data UTC: {date_utc})")
     print(f"[DEBUG] Parole chiave avversario estratte: {av_parole}")
 
-    match_count = 0
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
@@ -524,6 +498,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             continue
             
         title = prog['title']
+        
+        # Filtro extra anti-giovanili nei titoli EPG
+        if "youth" in title or "u19" in title:
+            continue
         
         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
@@ -541,28 +519,29 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
                     if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
-                        match_count += 1
                         print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
+                        # 1. Controllo ID Target ufficiali
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
-                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): canali_trovati.append(c_uff)
+                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
+                                canali_trovati.append(c_uff)
 
+                        # 2. Controllo ID TV classici
                         if ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
-                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): canali_trovati.append(c_uff)
+                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
+                                canali_trovati.append(c_uff)
 
-                        for mk in [ch_id, ch_name, normalizza_testo(ch_id), normalizza_testo(ch_name)]:
-                            if mk in id_to_names:
-                                for nc in id_to_names[mk]:
-                                    if nc not in canali_trovati and not is_blacklisted(nc): canali_trovati.append(nc)
-                        
-                        for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
+                        # 3. Controllo flessibile riallargato con protezione anti-garbage (len > 2)
+                        norm_ch = normalizza_testo(ch_name)
+                        tutti_i_validi = TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI)
+                        for nc in tutti_i_validi:
                             if is_blacklisted(nc): continue
                             norm_nc = normalizza_testo(nc)
-                            norm_ch = normalizza_testo(ch_name)
-                            if norm_nc and (norm_nc == norm_ch or norm_nc in norm_ch or norm_ch in norm_nc):
-                                if nc not in canali_trovati and not is_blacklisted(nc): canali_trovati.append(nc)
+                            if norm_nc and (norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc))):
+                                if nc not in canali_trovati and not is_blacklisted(nc): 
+                                    canali_trovati.append(nc)
                 except ValueError:
                     continue
                     
@@ -583,6 +562,12 @@ def fetch_next_matches():
             if match.get('competition', {}).get('code') not in COMPETITIONS:
                 continue
                 
+            comp_name = match.get('competition', {}).get('name', 'Competizione')
+            
+            # Esclusione Youth League dall'API
+            if "youth" in comp_name.lower() or "u19" in comp_name.lower():
+                continue
+                
             date_str = match.get('utcDate')
             if not date_str: continue
                 
@@ -593,7 +578,6 @@ def fetch_next_matches():
 
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
             away = pulisci_nome(match.get('awayTeam', {}).get('name', 'Ospite'))
-            comp_name = match.get('competition', {}).get('name', 'Competizione')
             
             partite_da_analizzare.append({
                 'ora_utc': date_utc,
@@ -629,7 +613,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V86 EPG Grouped//IT')
+    cal.add('prodid', '-//Calendario Inter V87 EPG Grouped//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -652,13 +636,21 @@ def generate_ics(matches):
                 continue
                 
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
+            
+            c_lower = c_pulito.lower()
+            if c_lower == "okko-football":
+                c_pulito = "Okko Football"
+            elif c_lower == "okko-sport":
+                c_pulito = "Okko Sport"
+            elif c_lower == "okko-sport-2":
+                c_pulito = "Okko Sport 2"
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or "prime" in c_pulito.lower():
                 nome_formattato = "🎬 Prime Video" if "prime" in c_pulito.lower() else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower:
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
