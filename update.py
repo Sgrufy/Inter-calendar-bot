@@ -268,9 +268,6 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
                 target_set.add(c_name)
 
-def carica_id_da_github():
-    pass
-
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, TUTTI_I_CANALI_BIANCHI, URLS_EPG_DINAMICI
     
@@ -456,6 +453,46 @@ def scarica_singolo_id_pw(args):
         pass
     return []
 
+def scarica_da_thesportsdb(data_partita_str):
+    """Integrazione aggiuntiva per i palinsesti TV da TheSportsDB (es. Okko e streaming)"""
+    programmi_tsdb = []
+    try:
+        # Formatta la data da YYYYMMDD a YYYY-MM-DD per l'API di TheSportsDB
+        formatted_date = f"{data_partita_str[:4]}-{data_partita_str[4:6]}-{data_partita_str[6:]}"
+        url = f"https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d={formatted_date}"
+        res = requests.get(url, headers=HEADERS, timeout=15)
+        if res.status_code == 200:
+            data = res.json()
+            events = data.get('events', []) or []
+            for ev in events:
+                # Controlla se l'evento riguarda il calcio / soccer e contiene informazioni valide
+                sport = ev.get('strSport', '')
+                if sport and 'soccer' in sport.lower():
+                    home = ev.get('strHomeTeam', '')
+                    away = ev.get('strAwayTeam', '')
+                    channel = ev.get('strChannel', '')
+                    time_str = ev.get('strTime', '') # es. 19:00:00
+                    date_ev = ev.get('dateEvent', formatted_date)
+                    
+                    if home and away and channel:
+                        titolo_match = f"{home} vs {away}"
+                        # Converte l'orario in formato compatibile UTC (YYYYMMDDHHMMSS)
+                        if time_str:
+                            try:
+                                dt_str = f"{date_ev.replace('-', '')}{time_str.replace(':', '')[:4]}"
+                                if len(dt_str) >= 12:
+                                    programmi_tsdb.append({
+                                        'channel': channel,
+                                        'channel_name': channel,
+                                        'title': normalizza_testo(titolo_match),
+                                        'start': dt_str + "00"
+                                    })
+                            except Exception:
+                                pass
+    except Exception:
+        pass
+    return programmi_tsdb
+
 def scarica_epg_mirato_per_data(data_partita_str):
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in tutti_i_target_pw.items()]
@@ -496,8 +533,13 @@ def scarica_tutti_gli_epg(date_str_list):
         progs_mirati = scarica_epg_mirato_per_data(data_str)
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
+        
+        # Integrazione nativa di TheSportsDB in parallelo per ogni data richiesta
+        progs_tsdb = scarica_da_thesportsdb(data_str)
+        if progs_tsdb:
+            PROGRAMMI_EPG.extend(progs_tsdb)
             
-    print(f"Totale programmi salvati in memoria: {len(PROGRAMMI_EPG)}")
+    print(f"Totale programmi salvati in memoria (inclusi flussi TV aggiuntivi): {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
     return (nome.replace("Football Club Internazionale Milano", "Inter")
@@ -656,7 +698,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V87 EPG Grouped//IT')
+    cal.add('prodid', '-//Calendario Inter V88 EPG + TSDB//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -718,10 +760,9 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File ICS generato con successo e raggruppato per tipo.")
+    print("File ICS generato con successo e raggruppato per tipo con integrazione TV aggiuntiva.")
 
 if __name__ == '__main__':
     carica_canali_esterni()
-    carica_id_da_github()
     matches = fetch_next_matches()
     generate_ics(matches)
