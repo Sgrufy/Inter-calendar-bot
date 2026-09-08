@@ -3,7 +3,7 @@ name: Aggiorna Calendario Inter
 on:
   schedule:
     - cron: '0 */4 * * *'  # Esegue l'aggiornamento ogni 4 ore.
-  workflow_dispatch:        # Permette anche il lancio manuale
+  workflow_dispatch:        # Permettee anche il lancio manuale
 
 jobs:
   update-calendar:
