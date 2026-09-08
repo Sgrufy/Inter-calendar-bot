@@ -271,6 +271,10 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
                 target_set.add(c_name)
 
+def carica_id_da_github():
+    # Funzione di supporto per evitare errori di definizione mancante
+    pass
+
 def carica_canali_esterni():
     global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, TUTTI_I_CANALI_BIANCHI, URLS_EPG_DINAMICI
     
@@ -388,7 +392,6 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     elem.clear()
                     continue
                 
-                # Cattura estesa e forzata per qualsiasi canale Okko / Ocskip
                 ch_lookup_lower = ch_lookup.lower()
                 if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
                     if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower:
@@ -517,9 +520,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     av_norm = normalizza_testo(avversario_full)
     av_parole = [p for p in av_norm.split() if p not in parole_da_ignorare and not p.isdigit() and p not in inter_keywords]
 
-    print(f"\n[DEBUG] Ricerca match: {home_team} vs {away_team} (Data UTC: {date_utc})")
-    print(f"[DEBUG] Parole chiave avversario estratte: {av_parole}")
-
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
@@ -550,8 +550,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
                     if abs((prog_start - date_utc).total_seconds()) <= 10800:
-                        print(f"[TROVATO EPG VALIDO] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
-                        
                         c_uff = None
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
@@ -574,7 +572,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 except ValueError:
                     continue
                     
-    print(f"[DEBUG] Totale corrispondenze valide trovate per {home_team} vs {away_team}: {len(canali_trovati)}")
     return canali_trovati
 
 def fetch_next_matches():
@@ -666,7 +663,6 @@ def generate_ics(matches):
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
             c_lower = c_pulito.lower()
             
-            # Controllo se il nome contiene indicazioni di risoluzione (es. 720p, 1080p, ecc.)
             ha_risoluzione = bool(re.search(r'\b(720p|1080p|4k|uhd|sd)\b', c_lower))
             
             if "okko" in c_lower:
