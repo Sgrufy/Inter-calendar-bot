@@ -507,6 +507,15 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
+def pulisci_etichetta_canale(nome_canale):
+    if not nome_canale:
+        return ""
+    # Rimuove risoluzioni e sporcizia tra parentesi o in coda
+    pulito = re.sub(r'\b(1080p|720p|4k|uhd|sd|fhd|hevc)\b', '', nome_canale, flags=re.IGNORECASE)
+    pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
+    pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
+    return " ".join(pulito.split())
+
 def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     canali_trovati = []
     if not PROGRAMMI_EPG:
@@ -566,8 +575,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         elif ch_name and not ch_name.isdigit():
                             c_uff = ch_name
                             
-                        if c_uff and c_uff not in canali_trovati and not is_blacklisted(c_uff):
-                            canali_trovati.append(c_uff)
+                        if c_uff:
+                            c_pulito = pulisci_etichetta_canale(c_uff)
+                            if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
+                                canali_trovati.append(c_pulito)
 
                         norm_ch = normalizza_testo(ch_name)
                         tutti_i_validi = TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI)
@@ -575,8 +586,9 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                             if is_blacklisted(nc): continue
                             norm_nc = normalizza_testo(nc)
                             if norm_nc and (norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc))):
-                                if nc not in canali_trovati and not is_blacklisted(nc): 
-                                    canali_trovati.append(nc)
+                                nc_pulito = pulisci_etichetta_canale(nc)
+                                if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito): 
+                                    canali_trovati.append(nc_pulito)
                 except ValueError:
                     continue
                     
@@ -665,20 +677,18 @@ def generate_ics(matches):
         gruppo_arancione = []
         
         for c in p['canali']:
-            if is_blacklisted(c):
+            c_pulito = pulisci_etichetta_canale(c)
+            if not c_pulito or is_blacklisted(c_pulito):
                 continue
                 
-            c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
             c_lower = c_pulito.lower()
-            
-            ha_risoluzione = bool(re.search(r'\b(720p|1080p|4k|uhd|sd)\b', c_lower))
             
             if "okko" in c_lower or "окко" in c_lower:
                 c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif not ha_risoluzione and (c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"])):
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower:
