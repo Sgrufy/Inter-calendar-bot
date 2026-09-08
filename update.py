@@ -212,13 +212,17 @@ def normalizza_testo(testo):
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
     
+    # Traduzioni estese incluse quelle in cirillico per Okko e canali russi/esteri
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',     
         'inter de milao': 'inter', 'inter milao': 'inter',    
-        'milan': 'milan', 'ювентус': 'juventus', 'футбол': 'football',
-        'матч': 'match', 'mecz': 'match', 'pilka nozna': 'football',
-        'mac': 'match', 'futbol': 'football', 'agonas': 'match', 'podosfairo': 'football',
-        'наполи': 'napoli', 'roma': 'roma'
+        'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
+        'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
+        'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma',
+        'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'bologna',
+        'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
+        'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
+        'agonas': 'match', 'podosfairo': 'football'
     }
     
     testo_lower = testo_pulito.lower()
@@ -538,7 +542,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             
         title = prog['title']
         
-        # Filtro anti-giovanili / highlights espliciti
         if "youth" in title or "u19" in title or "mlodziezowa" in title:
             continue
         if "hl" in title or "highlights" in title or "pregled" in title:
@@ -559,7 +562,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
-                    # Finestra temporale di 3 ore attorno all'orario della partita
                     if abs((prog_start - date_utc).total_seconds()) <= 10800:
                         print(f"[TROVATO EPG VALIDO] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
@@ -568,8 +570,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
                         elif ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
-                        else:
-                            c_uff = ch_name if not ch_name.isdigit() else f"Canale EPG ID {ch_id}"
+                        elif ch_name and not ch_name.isdigit():
+                            c_uff = ch_name
                             
                         if c_uff and c_uff not in canali_trovati and not is_blacklisted(c_uff):
                             canali_trovati.append(c_uff)
