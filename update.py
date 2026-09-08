@@ -24,27 +24,23 @@ COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
 # ==========================================
-# BLACKLIST CANALI (Falsi positivi da escludere)
+# BLACKLIST CANALI RIGOROSA (Falsi positivi)
 # ==========================================
 BLACKLIST_CANALI = {
-    "O!",
-    "E!",
-    "Mezzo",
-    "Mezzo Live",
-    "Focus",
-    "HRT 4",
-    "ORTS (480p) [Not 24/7]",
-    "Das Erste",
-    "CNews",
-    "Court TV",
-    "CNN",
-    "BBC News",
-    "BMT",
-    "Tagesschau24",
-    "W24",
-    "10 HD",
-    "10",
+    "O!", "E!", "Mezzo", "Mezzo Live",
+    "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
+    "CNews", "Court TV", "CNN", "BBC News", "BMT",
+    "Tagesschau24", "W24", "10 HD", "10"
 }
+
+def is_blacklisted(nome_canale):
+    if not nome_canale:
+        return True
+    nome_pulito = nome_canale.strip()
+    for b in BLACKLIST_CANALI:
+        if nome_pulito.lower() == b.lower():
+            return True
+    return False
 
 # ==========================================
 # ID ESCLUSIVI EPG.PW - CANALI TV (📺)
@@ -135,14 +131,16 @@ EPG_PW_TARGET_IDS = {
     "562459": "CBS Sports"
 }
 
-# Canali specifici che devono avere la stellina (⭐)
 CANALI_STELLE = {
     "Setanta Sports 1 Eurasia",
     "Setanta Sports 2 Eurasia",
     "Setanta Sports+",
     "Okko Futbol",
     "Okko Prajm Sport",
-    "Okko Sport"
+    "Okko Sport",
+    "okko-football",
+    "okko-sport",
+    "okko-sport-2"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -165,7 +163,7 @@ CANALI_PRIORITARI_SPECIALI = set(EPG_PW_TARGET_IDS.values()).union({
     "beIN Sports 4", "beIN Sports 5", "beIN Sports 6", "beIN Sports 7", "beIN Sports 8", 
     "beIN Sports 9", "beIN Sports Xtra", "beIN Sports MAX", "TNT", "Fox", "Match! Arena", 
     "Match! Igra", "Okko Sport Futbol", "Okko Sport Prime", "Okko Sport Sport", 
-    "Okko Futbol", "Okko Prajm Sport", "Okko Sport", "LRT Plius", 
+    "Okko Futbol", "Okko Prajm Sport", "Okko Sport", "okko-football", "okko-sport", "okko-sport-2", "LRT Plius", 
     "MNS Sports", "Prime TV", "S Sport", "S Sport 2", "S Sport+", "Tivibu Spor", "Tivibu Spor 1", 
     "Tivibu Spor 2", "TRT Spor", "TRT 1", "beIN Sports 1 Turkey", "beIN Sports 2 Turkey", 
     "beIN Sports 3 Turkey", "Nova Sport 1", "Nova Sport 2", "Nova Sport 3", "Nova Sport 4", 
@@ -231,7 +229,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         
         if line.startswith("#EXTINF:") and "," in line:
             c_name = line.split(",")[-1].strip()
-            if c_name and c_name not in BLACKLIST_CANALI:
+            if c_name and not is_blacklisted(c_name):
                 target_set.add(c_name)
                 if current_tvg_id:
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
@@ -239,7 +237,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
-            if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
+            if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
                 target_set.add(c_name)
 
 def carica_canali_esterni():
@@ -263,7 +261,7 @@ def carica_canali_esterni():
                             line = line.strip()
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
-                                if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
+                                if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
                                     target_set.add(c_name)
             except Exception:
                 pass
@@ -281,20 +279,22 @@ def carica_canali_esterni():
                             line = line.strip()
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
-                                if c_name and len(c_name) < 50 and c_name not in BLACKLIST_CANALI:
+                                if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
                                     TUTTI_I_CANALI_BIANCHI.add(c_name)
             except Exception:
                 pass
 
     for cid, cname in EPG_PW_TV_IDS.items():
-        TUTTI_I_CANALI_BLU.add(cname)
-        INFO_CANALI[cname] = {"id": cid}
-        INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
+        if not is_blacklisted(cname):
+            TUTTI_I_CANALI_BLU.add(cname)
+            INFO_CANALI[cname] = {"id": cid}
+            INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
     for cid, cname in EPG_PW_TARGET_IDS.items():
-        TUTTI_I_CANALI_BLU.add(cname)
-        INFO_CANALI[cname] = {"id": cid}
-        INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
+        if not is_blacklisted(cname):
+            TUTTI_I_CANALI_BLU.add(cname)
+            INFO_CANALI[cname] = {"id": cid}
+            INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
     lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg']
     for p in lista_paesi_standard:
@@ -331,7 +331,7 @@ def carica_id_da_github():
             data = response.json()
             db_canali = {normalizza_testo(c.get('name')): {"id": c.get('id')} for c in data if c.get('name')}
             for nome in tutti_i_nomi:
-                if nome in BLACKLIST_CANALI: continue
+                if is_blacklisted(nome): continue
                 if nome in EPG_PW_TARGET_IDS.values() or nome in EPG_PW_TV_IDS.values(): continue
                 if nome not in INFO_CANALI:
                     nome_norm = normalizza_testo(nome)
@@ -361,10 +361,11 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     display_name_el = elem.find('display-name')
                     if display_name_el is not None and display_name_el.text:
                         ch_name = display_name_el.text.strip()
-                        channel_id_to_name[ch_id] = ch_name
-                        valid_channel_ids.add(ch_id)
-                        valid_channel_ids.add(ch_name)
-                        valid_channel_ids.add(normalizza_testo(ch_name))
+                        if not is_blacklisted(ch_name):
+                            channel_id_to_name[ch_id] = ch_name
+                            valid_channel_ids.add(ch_id)
+                            valid_channel_ids.add(ch_name)
+                            valid_channel_ids.add(normalizza_testo(ch_name))
             elem.clear()
 
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
@@ -372,7 +373,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
             if elem.tag == 'programme':
                 ch = elem.get('channel')
                 ch_lookup = channel_id_to_name.get(ch, ch)
-                if any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24"]):
+                if is_blacklisted(ch_lookup) or any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24"]):
                     elem.clear()
                     continue
                 
@@ -417,6 +418,8 @@ def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
 
 def scarica_singolo_id_pw(args):
     ch_id, ch_name, data_partita_str = args
+    if is_blacklisted(ch_name):
+        return []
     try:
         res = requests.get(f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}", headers=HEADERS, timeout=10)
         if res.status_code == 200 and len(res.content) > 200:
@@ -449,7 +452,7 @@ def scarica_tutti_gli_epg(date_str_list):
     valid_channel_ids = set(tutti_i_target_pw.keys())
     
     for nome, info in INFO_CANALI.items():
-        if nome not in BLACKLIST_CANALI:
+        if not is_blacklisted(nome):
             if info.get("id"): valid_channel_ids.add(str(info.get("id")))
             valid_channel_ids.add(normalizza_testo(nome))
             valid_channel_ids.add(nome)
@@ -500,7 +503,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
     id_to_names = {}
     for nome_canale, info in INFO_CANALI.items():
-        if nome_canale in BLACKLIST_CANALI: continue
+        if is_blacklisted(nome_canale): continue
         if any(evitare in nome_canale.lower() for evitare in canali_da_evitare): continue
             
         ch_id = str(info.get("id"))
@@ -517,13 +520,11 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         ch_id = str(prog['channel'])
         ch_name = prog.get('channel_name', ch_id)
         
-        # Salta i canali in blacklist
-        if ch_name in BLACKLIST_CANALI:
+        if is_blacklisted(ch_name):
             continue
             
         title = prog['title']
         
-        # Controllo a parole intere per evitare sottostringhe errate (es. international -> inter)
         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
         
@@ -545,23 +546,23 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
-                            if c_uff not in canali_trovati and c_uff not in BLACKLIST_CANALI: canali_trovati.append(c_uff)
+                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): canali_trovati.append(c_uff)
 
                         if ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
-                            if c_uff not in canali_trovati and c_uff not in BLACKLIST_CANALI: canali_trovati.append(c_uff)
+                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): canali_trovati.append(c_uff)
 
                         for mk in [ch_id, ch_name, normalizza_testo(ch_id), normalizza_testo(ch_name)]:
                             if mk in id_to_names:
                                 for nc in id_to_names[mk]:
-                                    if nc not in canali_trovati and nc not in BLACKLIST_CANALI: canali_trovati.append(nc)
+                                    if nc not in canali_trovati and not is_blacklisted(nc): canali_trovati.append(nc)
                         
                         for nc in TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI).union(CANALI_PRIORITARI_SPECIALI):
-                            if nc in BLACKLIST_CANALI: continue
+                            if is_blacklisted(nc): continue
                             norm_nc = normalizza_testo(nc)
                             norm_ch = normalizza_testo(ch_name)
                             if norm_nc and (norm_nc == norm_ch or norm_nc in norm_ch or norm_ch in norm_nc):
-                                if nc not in canali_trovati: canali_trovati.append(nc)
+                                if nc not in canali_trovati and not is_blacklisted(nc): canali_trovati.append(nc)
                 except ValueError:
                     continue
                     
@@ -647,7 +648,7 @@ def generate_ics(matches):
         gruppo_arancione = []
         
         for c in p['canali']:
-            if any(black.lower() == c.lower() for black in BLACKLIST_CANALI):
+            if is_blacklisted(c):
                 continue
                 
             c_pulito = c.replace('\n', ' ').replace('\r', ' ').strip()
