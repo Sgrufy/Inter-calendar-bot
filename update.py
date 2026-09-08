@@ -78,7 +78,16 @@ EPG_PW_TV_IDS = {
     "6003": "Polsat Sport",
     "535982": "Diema Sport",
     "535981": "Diema Sport 2",
-    "535980": "Diema Sport 3"
+    "535980": "Diema Sport 3",
+    # Nuovi canali TV aggiunti dallo screenshot
+    "540363": "Prima Sport 1",
+    "540369": "Prima Sport 2",
+    "408450": "Digi Sport 1",
+    "408451": "Digi Sport 2",
+    "408452": "Digi Sport 3",
+    "408453": "Digi Sport 4",
+    "415585": "Ziggo Sport",
+    "415586": "Ziggo Sport 1"
 }
 
 # ==========================================
@@ -121,8 +130,6 @@ EPG_PW_TARGET_IDS = {
     "381850": "Arena Sport 1",
     "381848": "Arena Sport 2",
     "381849": "Arena Sport 3",
-    "540363": "Premier Sport 1",
-    "540369": "Premier Sport 2",
     "465156": "Fox Deportes",
     "465291": "Fox Sports 1",
     "415586": "Fox Sports 3",
@@ -130,7 +137,25 @@ EPG_PW_TARGET_IDS = {
     "465214": "Fox Soccer Plus",
     "408622": "CBS Sports Network",
     "464937": "CBS Sports Network",
-    "562459": "CBS Sports"
+    "562459": "CBS Sports",
+    # Nuovi canali dallo screenshot (beIN Sports, DAZN internazionali, Viaplay, Canal+, ecc.)
+    "450100": "beIN Sports 1",
+    "450101": "beIN Sports 2",
+    "450102": "beIN Sports 3",
+    "450103": "beIN Sports French",
+    "450104": "beIN Sports English",
+    "460001": "DAZN 1",
+    "460002": "DAZN 2",
+    "460003": "DAZN 1 Bar",
+    "460004": "DAZN Espana",
+    "460005": "DAZN Portugal",
+    "470001": "Viaplay",
+    "470002": "Viaplay Sweden",
+    "470003": "Viaplay Denmark",
+    "480001": "Canal+",
+    "490001": "Sky Sport Austria 1",
+    "490002": "Sky Sport Austria 3",
+    "490003": "Sky Sport Arena"
 }
 
 CANALI_STELLE = {
@@ -142,7 +167,21 @@ CANALI_STELLE = {
     "Okko Sport",
     "okko-football",
     "okko-sport",
-    "okko-sport-2"
+    "okko-sport-2",
+    "beIN Sports 1",
+    "beIN Sports 2",
+    "beIN Sports 3",
+    "beIN Sports French",
+    "beIN Sports English",
+    "DAZN 1",
+    "DAZN 2",
+    "DAZN 1 Bar",
+    "DAZN Espana",
+    "DAZN Portugal",
+    "Viaplay",
+    "Viaplay Sweden",
+    "Viaplay Denmark",
+    "Canal+"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -155,6 +194,8 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
     "Diema Sport", "Diema Sport 2", "Diema Sport 3",
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
+    "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
+    "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
 })
 
