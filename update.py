@@ -453,24 +453,6 @@ def scarica_singolo_id_pw(args):
         pass
     return []
 
-def scarica_da_thesportsdb_v2(event_id):
-    """Test dell'endpoint v2 di TheSportsDB per i canali TV di un evento specifico"""
-    try:
-        url = f"https://www.thesportsdb.com/api/v2/json/lookup/event_tv/{event_id}"
-        headers = {
-            'X-API-KEY': '123',
-            'User-Agent': 'Mozilla/5.0'
-        }
-        res = requests.get(url, headers=headers, timeout=15)
-        print(f"[DEBUG TSDB v2] Status code per evento {event_id}: {res.status_code}")
-        if res.status_code == 200:
-            data = res.json()
-            print(f"[DEBUG TSDB v2] Risposta: {data}")
-            return data
-    except Exception as e:
-        print(f"[DEBUG TSDB v2] Errore: {e}")
-    return None
-
 def scarica_epg_mirato_per_data(data_partita_str):
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in tutti_i_target_pw.items()]
@@ -512,10 +494,6 @@ def scarica_tutti_gli_epg(date_str_list):
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
             
-    # Eseguiamo un test di chiamata v2 con un ID di esempio (es. Real Madrid o Inter se noto, oppure un ID fittizio/noto)
-    # Solo a scopo diagnostico nei log di GitHub
-    scarica_da_thesportsdb_v2("602281") 
-        
     print(f"Totale programmi salvati in memoria (inclusi flussi TV aggiuntivi): {len(PROGRAMMI_EPG)}")
 
 def pulisci_nome(nome):
@@ -675,7 +653,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V88 EPG + TSDB//IT')
+    cal.add('prodid', '-//Calendario Inter V88 EPG//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
@@ -737,7 +715,7 @@ def generate_ics(matches):
 
     with open("inter_tv.ics", 'wb') as f:
         f.write(cal.to_ical())
-    print("File ICS generato con successo e raggruppato per tipo con integrazione TV aggiuntiva.")
+    print("File ICS generato con successo e raggruppato per tipo.")
 
 if __name__ == '__main__':
     carica_canali_esterni()
