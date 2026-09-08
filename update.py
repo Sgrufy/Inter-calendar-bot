@@ -454,42 +454,47 @@ def scarica_singolo_id_pw(args):
     return []
 
 def scarica_da_thesportsdb(data_partita_str):
-    """Integrazione aggiuntiva per i palinsesti TV da TheSportsDB (es. Okko e streaming)"""
+    """Integrazione aggiuntiva con DEBUG stampato a log per TheSportsDB"""
     programmi_tsdb = []
     try:
-        # Formatta la data da YYYYMMDD a YYYY-MM-DD per l'API di TheSportsDB
         formatted_date = f"{data_partita_str[:4]}-{data_partita_str[4:6]}-{data_partita_str[6:]}"
         url = f"https://www.thesportsdb.com/api/v1/json/123/eventstv.php?d={formatted_date}"
         res = requests.get(url, headers=HEADERS, timeout=15)
+        
+        # DEBUG DI CONTROLLO
+        print(f"[DEBUG TSDB] Status code per {formatted_date}: {res.status_code}")
         if res.status_code == 200:
             data = res.json()
             events = data.get('events', []) or []
+            print(f"[DEBUG TSDB] Trovati {len(events)} eventi totali nell'API.")
             for ev in events:
-                # Controlla se l'evento riguarda il calcio / soccer e contiene informazioni valide
                 sport = ev.get('strSport', '')
+                home = ev.get('strHomeTeam', '')
+                away = ev.get('strAwayTeam', '')
+                channel = ev.get('strChannel', '')
+                time_str = ev.get('strTime', '')
+                date_ev = ev.get('dateEvent', formatted_date)
+                
+                # Stampiamo a log gli eventi di calcio per vedere cosa restituisce la chiave pubblica
                 if sport and 'soccer' in sport.lower():
-                    home = ev.get('strHomeTeam', '')
-                    away = ev.get('strAwayTeam', '')
-                    channel = ev.get('strChannel', '')
-                    time_str = ev.get('strTime', '') # es. 19:00:00
-                    date_ev = ev.get('dateEvent', formatted_date)
-                    
-                    if home and away and channel:
-                        titolo_match = f"{home} vs {away}"
-                        # Converte l'orario in formato compatibile UTC (YYYYMMDDHHMMSS)
-                        if time_str:
-                            try:
-                                dt_str = f"{date_ev.replace('-', '')}{time_str.replace(':', '')[:4]}"
-                                if len(dt_str) >= 12:
-                                    programmi_tsdb.append({
-                                        'channel': channel,
-                                        'channel_name': channel,
-                                        'title': normalizza_testo(titolo_match),
-                                        'start': dt_str + "00"
-                                    })
-                            except Exception:
-                                pass
-    except Exception:
+                    print(f"[DEBUG SOCCER TSDB] Canale: {channel} | Partita: {home} vs {away} | Ora: {time_str}")
+                
+                if sport and 'soccer' in sport.lower() and home and away and channel:
+                    titolo_match = f"{home} vs {away}"
+                    if time_str:
+                        try:
+                            dt_str = f"{date_ev.replace('-', '')}{time_str.replace(':', '')[:4]}"
+                            if len(dt_str) >= 12:
+                                programmi_tsdb.append({
+                                    'channel': channel,
+                                    'channel_name': channel,
+                                    'title': normalizza_testo(titolo_match),
+                                    'start': dt_str + "00"
+                                })
+                        except Exception:
+                            pass
+    except Exception as e:
+        print(f"[DEBUG TSDB] Errore: {e}")
         pass
     return programmi_tsdb
 
@@ -534,7 +539,6 @@ def scarica_tutti_gli_epg(date_str_list):
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
         
-        # Integrazione nativa di TheSportsDB in parallelo per ogni data richiesta
         progs_tsdb = scarica_da_thesportsdb(data_str)
         if progs_tsdb:
             PROGRAMMI_EPG.extend(progs_tsdb)
