@@ -157,6 +157,7 @@ EPG_PW_TARGET_IDS = {
 }
 
 CANALI_STELLE = {
+    "5Sport",
     "Setanta Sports 1 Eurasia",
     "Setanta Sports 2 Eurasia",
     "Setanta Sports+",
@@ -207,7 +208,7 @@ def normalizza_testo(testo):
         return ""
     testo_pulito = re.sub(r'\b(hd|fhd|4k|uhd|sd|hevc|iptv|live|ex|1080p|720p)\b', '', testo, flags=re.IGNORECASE)
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
-    testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF]', ' ', testo_pulito)
+    testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF]', ' ', testo_pulito)
     
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',     
@@ -219,7 +220,7 @@ def normalizza_testo(testo):
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
         'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
-        'спорт': 'sport', 'sport': 'sport'
+        'спорт': 'sport', 'sport': 'sport', 'ספורט 5': '5sport'
     }
     
     testo_lower = testo_pulito.lower()
@@ -258,6 +259,8 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         if line.startswith("#EXTINF:") and "," in line:
             c_name = line.split(",")[-1].strip()
             if c_name and not is_blacklisted(c_name):
+                if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
+                    c_name = "5Sport"
                 target_set.add(c_name)
                 if current_tvg_id:
                     INFO_CANALI[c_name] = {"id": current_tvg_id}
@@ -266,6 +269,8 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
             if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
+                    c_name = "5Sport"
                 target_set.add(c_name)
 
 def carica_canali_esterni():
@@ -290,6 +295,8 @@ def carica_canali_esterni():
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
                                 if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                                    if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
+                                        c_name = "5Sport"
                                     target_set.add(c_name)
             except Exception:
                 pass
@@ -308,6 +315,8 @@ def carica_canali_esterni():
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
                                 if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                                    if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
+                                        c_name = "5Sport"
                                     TUTTI_I_CANALI_BIANCHI.add(c_name)
             except Exception:
                 pass
@@ -324,7 +333,13 @@ def carica_canali_esterni():
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
-    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb']
+    # Aggiunta specifica per 5Sport (Israele)
+    TUTTI_I_CANALI_BLU.add("5Sport")
+    INFO_CANALI["5Sport"] = {"id": "5Sport.il"}
+    INFO_CANALI[normalizza_testo("5Sport")] = {"id": "5Sport.il"}
+
+    # Inclusione della regione Israele ('il') nei flussi EPG regionali
+    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
@@ -338,7 +353,7 @@ def carica_canali_esterni():
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
-        'uk': 'uk', 'gb': 'uk'
+        'uk': 'uk', 'gb': 'uk', 'il': 'israel'
     }
     for p in lista_paesi_standard:
         nome_open = open_epg_mappatura.get(p, p)
@@ -377,6 +392,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     if display_name_el is not None and display_name_el.text:
                         ch_name = display_name_el.text.strip()
                         if not is_blacklisted(ch_name):
+                            if "5sport" in ch_name.lower() or "sport 5" in ch_name.lower() or "ספורט 5" in ch_name:
+                                ch_name = "5Sport"
                             channel_id_to_name[ch_id] = ch_name
                             valid_channel_ids.add(ch_id)
                             valid_channel_ids.add(ch_name)
@@ -393,15 +410,19 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     continue
                 
                 ch_lookup_lower = ch_lookup.lower()
-                if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
+                if "5sport" in ch_lookup_lower or "sport 5" in ch_lookup_lower or "ספורט 5" in ch_lookup:
+                    ch_lookup = "5Sport"
+                elif "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
                     if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower or "prajm" in ch_lookup_lower:
                         ch_lookup = "Okko Futbol"
                     else:
                         ch_lookup = "Okko Sport"
                 
-                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower or "окко" in ch_lookup_lower):
+                if (ch in tutti_i_target_pw or ch == "5Sport.il" or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower or "окко" in ch_lookup_lower):
                     if ch in tutti_i_target_pw:
                         ch_lookup = tutti_i_target_pw[ch]
+                    elif ch == "5Sport.il":
+                        ch_lookup = "5Sport"
                     
                     title_el = elem.find('title')
                     title_text = title_el.text if (title_el is not None and title_el.text) else ""
@@ -468,10 +489,11 @@ def scarica_epg_mirato_per_data(data_partita_str):
 
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
     
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     valid_channel_ids = set(tutti_i_target_pw.keys())
+    valid_channel_ids.add("5Sport.il")
     
     for nome, info in INFO_CANALI.items():
         if not is_blacklisted(nome):
@@ -505,6 +527,8 @@ def pulisci_nome(nome):
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
+    if "5sport" in nome_canale.lower() or "sport 5" in nome_canale.lower() or "ספורט 5" in nome_canale:
+        return "5Sport"
     pulito = re.sub(r'\b(1080p|720p|4k|uhd|sd|fhd|hevc)\b', '', nome_canale, flags=re.IGNORECASE)
     pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
@@ -561,7 +585,9 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         c_uff = None
                         ch_name_lower = ch_name.lower()
                         
-                        if "okko" in ch_name_lower or "окко" in ch_name_lower:
+                        if "5sport" in ch_name_lower or "sport 5" in ch_name_lower or "ספורט 5" in ch_name or ch_id == "5Sport.il":
+                            c_uff = "5Sport"
+                        elif "okko" in ch_name_lower or "окко" in ch_name_lower:
                             c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
                         elif ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
@@ -678,7 +704,9 @@ def generate_ics(matches):
                 
             c_lower = c_pulito.lower()
             
-            if "okko" in c_lower or "окко" in c_lower:
+            if "5sport" in c_lower or "sport 5" in c_lower:
+                c_pulito = "5Sport"
+            elif "okko" in c_lower or "окко" in c_lower:
                 c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
                 
             if "In attesa" in c_pulito:
@@ -686,7 +714,7 @@ def generate_ics(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito == "5Sport":
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
