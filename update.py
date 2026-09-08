@@ -356,7 +356,6 @@ def carica_canali_esterni():
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
     
-    # AGGIUNTE EXTRA (Epg.one, TvProfil e Bielorussia)
     URLS_EPG_DINAMICI.add("http://epg.one/ru.xml.gz")
     URLS_EPG_DINAMICI.add("http://epg.one/ru2.xml.gz")
     URLS_EPG_DINAMICI.add("http://epg.one/epg.xml.gz")
@@ -405,7 +404,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     else:
                         ch_lookup = "Okko Sport"
                 
-                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower):
+                if (ch in tutti_i_target_pw or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower or "окко" in ch_lookup_lower):
                     if ch in tutti_i_target_pw:
                         ch_lookup = tutti_i_target_pw[ch]
                     
@@ -514,10 +513,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         return canali_trovati
         
     h_norm = normalizza_testo(home_team)
-    inter_keywords = ["inter", "internazionale"]
+    inter_keywords = ["inter", "internazionale", "интер"]
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
     
-    if "inter" in h_norm:
+    if "inter" in h_norm or "интер" in h_norm:
         avversario_full = away_team
     else:
         avversario_full = home_team
@@ -545,7 +544,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         match_trovato = False
         if contiene_inter and contiene_avversario:
             match_trovato = True
-        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"]):
+        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "liga"]):
             match_trovato = True
 
         if match_trovato:
@@ -559,7 +558,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         ch_name_lower = ch_name.lower()
                         
                         if "okko" in ch_name_lower or "окко" in ch_name_lower:
-                            c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower) else "Okko Sport"
+                            c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
                         elif ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
                         elif ch_id in EPG_PW_TV_IDS:
@@ -590,7 +589,6 @@ def fetch_next_matches():
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         data = response.json()
-        adesso = datetime.now(timezone.utc)
         
         partite_da_analizzare = []
         for match in data.get('matches', []):
@@ -606,6 +604,7 @@ def fetch_next_matches():
             if not date_str: continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+            adesso = datetime.now(timezone.utc)
             
             if date_utc.date() < adesso.date():
                 continue
@@ -674,7 +673,7 @@ def generate_ics(matches):
             
             ha_risoluzione = bool(re.search(r'\b(720p|1080p|4k|uhd|sd)\b', c_lower))
             
-            if "okko" in c_lower:
+            if "okko" in c_lower or "окко" in c_lower:
                 c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
                 
             if "In attesa" in c_pulito:
