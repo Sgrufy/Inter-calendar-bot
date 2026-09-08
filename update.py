@@ -24,7 +24,7 @@ COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 
 # ==========================================
-# BLACKLIST CANALI RIGOROSA (E!, O!, ecc.)
+# BLACKLIST CANALI RIGOROSA
 # ==========================================
 BLACKLIST_CANALI = {
     "O!", "o!", "O", "o",
@@ -79,7 +79,6 @@ EPG_PW_TV_IDS = {
     "535982": "Diema Sport",
     "535981": "Diema Sport 2",
     "535980": "Diema Sport 3",
-    # Nuovi canali TV aggiunti dallo screenshot
     "540363": "Prima Sport 1",
     "540369": "Prima Sport 2",
     "408450": "Digi Sport 1",
@@ -138,7 +137,6 @@ EPG_PW_TARGET_IDS = {
     "408622": "CBS Sports Network",
     "464937": "CBS Sports Network",
     "562459": "CBS Sports",
-    # Nuovi canali dallo screenshot (beIN Sports, DAZN internazionali, Viaplay, Canal+, ecc.)
     "450100": "beIN Sports 1",
     "450101": "beIN Sports 2",
     "450102": "beIN Sports 3",
@@ -378,7 +376,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
         "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
         "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
-        "haber", "deltio", "interview", "youth", "u19"
+        "haber", "deltio", "interview"
     ]
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     
@@ -540,8 +538,10 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             
         title = prog['title']
         
-        # Filtro extra anti-giovanili nei titoli EPG
-        if "youth" in title or "u19" in title:
+        # Filtro anti-giovanili / highlights espliciti
+        if "youth" in title or "u19" in title or "mlodziezowa" in title:
+            continue
+        if "hl" in title or "highlights" in title or "pregled" in title:
             continue
         
         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
@@ -559,22 +559,20 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                 try:
                     prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                     
-                    if prog_start.date() == date_utc.date() or abs((prog_start - date_utc).total_seconds()) <= 21600:
-                        print(f"[TROVATO EPG] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
+                    # Finestra temporale di 3 ore attorno all'orario della partita
+                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
+                        print(f"[TROVATO EPG VALIDO] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
-                        # 1. Controllo ID Target ufficiali
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
                             if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
                                 canali_trovati.append(c_uff)
 
-                        # 2. Controllo ID TV classici
                         if ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
                             if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
                                 canali_trovati.append(c_uff)
 
-                        # 3. Controllo flessibile riallargato con protezione anti-garbage (len > 2)
                         norm_ch = normalizza_testo(ch_name)
                         tutti_i_validi = TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI)
                         for nc in tutti_i_validi:
@@ -605,7 +603,6 @@ def fetch_next_matches():
                 
             comp_name = match.get('competition', {}).get('name', 'Competizione')
             
-            # Esclusione Youth League dall'API
             if "youth" in comp_name.lower() or "u19" in comp_name.lower():
                 continue
                 
