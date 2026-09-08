@@ -563,15 +563,16 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                     if abs((prog_start - date_utc).total_seconds()) <= 10800:
                         print(f"[TROVATO EPG VALIDO] Canale: '{ch_name}' (ID: {ch_id}) | Titolo: '{title}' | Orario: {prog_start}")
                         
+                        c_uff = None
                         if ch_id in EPG_PW_TARGET_IDS:
                             c_uff = EPG_PW_TARGET_IDS[ch_id]
-                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
-                                canali_trovati.append(c_uff)
-
-                        if ch_id in EPG_PW_TV_IDS:
+                        elif ch_id in EPG_PW_TV_IDS:
                             c_uff = EPG_PW_TV_IDS[ch_id]
-                            if c_uff not in canali_trovati and not is_blacklisted(c_uff): 
-                                canali_trovati.append(c_uff)
+                        else:
+                            c_uff = ch_name if not ch_name.isdigit() else f"Canale EPG ID {ch_id}"
+                            
+                        if c_uff and c_uff not in canali_trovati and not is_blacklisted(c_uff):
+                            canali_trovati.append(c_uff)
 
                         norm_ch = normalizza_testo(ch_name)
                         tutti_i_validi = TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI)
