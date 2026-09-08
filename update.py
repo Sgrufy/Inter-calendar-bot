@@ -190,7 +190,8 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
-    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video"
+    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
+    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4"
 })
 
 INFO_CANALI = {}  
@@ -214,7 +215,7 @@ def normalizza_testo(testo):
         'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
         'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
         'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma',
-        'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'bologna',
+        'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'болонья',
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
         'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
@@ -326,7 +327,7 @@ def carica_canali_esterni():
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
-    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by']
+    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb']
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
@@ -339,7 +340,8 @@ def carica_canali_esterni():
         'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia', 
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
-        'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus'
+        'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
+        'uk': 'uk', 'gb': 'uk'
     }
     for p in lista_paesi_standard:
         nome_open = open_epg_mappatura.get(p, p)
@@ -469,7 +471,7 @@ def scarica_epg_mirato_per_data(data_partita_str):
 
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb']
     
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     valid_channel_ids = set(tutti_i_target_pw.keys())
@@ -684,7 +686,7 @@ def generate_ics(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video"]):
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower:
