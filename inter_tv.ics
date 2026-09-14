@@ -3,18 +3,11 @@ VERSION:2.0
 PRODID:-//Calendario Inter V87 EPG Grouped//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter vs Udinese Calcio
-DTSTART:20260914T184500Z
-DTEND:20260914T204500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ AS Roma vs Inter
 DTSTART:20260919T160000Z
 DTEND:20260919T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Max Sport 
+ 3\n⚫ Sport\n🟡 Šport\n🟠 :Šport\n🟠 Sport 3
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Parma Calcio 1913
@@ -29,5 +22,12 @@ DTSTART:20261013T190000Z
 DTEND:20261013T210000Z
 DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
  n attesa di programmazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Bologna FC 1909 vs Inter
+DTSTART:20261017T160000Z
+DTEND:20261017T180000Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
 END:VEVENT
 END:VCALENDAR
