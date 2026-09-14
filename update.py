@@ -343,7 +343,6 @@ def carica_canali_esterni():
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
-    # Aggiunta specifica per 5Sport e QazSport
     TUTTI_I_CANALI_BLU.add("5Sport")
     INFO_CANALI["5Sport"] = {"id": "5Sport.il"}
     INFO_CANALI[normalizza_testo("5Sport")] = {"id": "5Sport.il"}
@@ -352,7 +351,6 @@ def carica_canali_esterni():
     INFO_CANALI["QazSport"] = {"id": "QazSport.kz"}
     INFO_CANALI[normalizza_testo("QazSport")] = {"id": "QazSport.kz"}
 
-    # Inclusione della regione Kazakistan ('kz') e Israele ('il') nei flussi EPG regionali
     lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
@@ -682,7 +680,10 @@ def fetch_next_matches():
         partite_da_analizzare = partite_da_analizzare[:4]
         
         if partite_da_analizzare:
-            date_da_scaricare = {datetime.now(timezone.utc).strftime('%Y%m%d'), partite_da_analizzare[0]['ora_utc'].strftime('%Y%m%d')}
+            date_da_scaricare = {datetime.now(timezone.utc).strftime('%Y%m%d')}
+            for p in partite_da_analizzare:
+                date_da_scaricare.add(p['ora_utc'].strftime('%Y%m%d'))
+                
             scarica_tutti_gli_epg(list(date_da_scaricare))
             
             for p in partite_da_analizzare:
