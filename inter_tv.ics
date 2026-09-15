@@ -1,13 +1,13 @@
 BEGIN:VCALENDAR
 VERSION:2.0
-PRODID:-//Calendario Inter V87 EPG Grouped//IT
+PRODID:-//Calendario Inter V88 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
 SUMMARY:⚽ AS Roma vs Inter
 DTSTART:20260919T160000Z
 DTEND:20260919T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Max Sport 
- 3\n⚫ Sport\n🟡 Šport\n🟠 Sport 3\n🟠 :Šport
+ 3\n⚫ Sport\n🟡 Šport\n🟠 Sport 3
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Parma Calcio 1913
