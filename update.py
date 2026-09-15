@@ -815,7 +815,9 @@ def generate_html_palinsesto(matches):
 """
     
     for p in matches:
-        ora_locale = p['ora_utc'].strftime('%d/%m/%Y alle %H:%M')
+        # Conversione corretta dell'orario UTC in ora legale italiana (CEST)
+        ora_italiana = p['ora_utc'] + timedelta(hours=2)
+        ora_locale = ora_italiana.strftime('%d/%m/%Y alle %H:%M')
         
         gruppo_tv = []
         gruppo_stelle = [] 
@@ -841,7 +843,7 @@ def generate_html_palinsesto(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(f"⏳ {c_pulito}")
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "TNT Sports"]):
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport"]:
