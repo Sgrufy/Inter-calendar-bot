@@ -796,7 +796,7 @@ def generate_html_palinsesto(matches):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Palinsesto Inter - Prossime Partite</title>
+    <title>Palinsesto INTER</title>
     <!-- Favicon con il pallone da calcio -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
     <style>
@@ -811,30 +811,63 @@ def generate_html_palinsesto(matches):
 </head>
 <body>
     <div class="container">
-        <h1>📺 Palinsesto Inter & Canali</h1>
+        <h1>📺 Palinsesto INTER</h1>
 """
     
     for p in matches:
         ora_locale = p['ora_utc'].strftime('%d/%m/%Y alle %H:%M')
         
-        canali_filtrati = []
+        gruppo_tv = []
+        gruppo_stelle = [] 
+        gruppo_blu = []
+        gruppo_nero = []
+        gruppo_giallo = []
+        gruppo_bianco = []
+        gruppo_arancione = []
+        
         for c in p['canali']:
             c_pulito = pulisci_etichetta_canale(c)
             if not c_pulito or is_blacklisted(c_pulito):
                 continue
+                
             c_lower = c_pulito.lower()
             
-            # Logica icone HTML: Ciak 🎬 solo per Prime, Televisore 📺 per tutti gli altri canali validi
-            if 'prime' in c_lower:
-                canali_filtrati.append(f"🎬 {c_pulito}")
+            if "5sport" in c_lower or "sport 5" in c_lower:
+                c_pulito = "5Sport"
+            elif "qazsport" in c_lower:
+                c_pulito = "QazSport"
+            elif "okko" in c_lower or "окко" in c_lower:
+                c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
+                
+            if "In attesa" in c_pulito:
+                gruppo_arancione.append(f"⏳ {c_pulito}")
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "TNT Sports"]):
-                canali_filtrati.append(f"📺 {c_pulito}")
-            elif "In attesa" in c_pulito:
-                canali_filtrati.append(f"⏳ {c_pulito}")
+                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
+                if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport"]:
+                nome_formattato = f"⭐ {c_pulito}"
+                if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
+            elif c_pulito in TUTTI_I_CANALI_BLU:
+                nome_formattato = f"🔵 {c_pulito}"
+                if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
+            elif c_pulito in TUTTI_I_CANALI_NERI:
+                nome_formattato = f"⚫ {c_pulito}"
+                if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
+            elif c_pulito in TUTTI_I_CANALI_GIALLI:
+                nome_formattato = f"🟡 {c_pulito}"
+                if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
+            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+                nome_formattato = f"⚪ {c_pulito}"
+                if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
             else:
-                canali_filtrati.append(f"📺 {c_pulito}")
+                nome_formattato = f"🟠 {c_pulito}"
+                if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
+                
+        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
+        if not righe_ordinate:
+            righe_ordinate = ["⏳ In attesa di programmazione ufficiale"]
 
-        canali_str = "\n".join(canali_filtrati) if canali_filtrati else "Nessun canale TV trovato"
+        canali_str = "\n".join(righe_ordinate)
         
         html_content += f"""
         <div class="match-card">
