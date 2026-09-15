@@ -360,6 +360,9 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
 
+    # AGGIUNTA DEL MEGABACKUP GLOBALE DI EPGSHARE01
+    URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
+
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
         'us': 'usa', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae', 'sa': 'saudiarabia', 
@@ -815,7 +818,6 @@ def generate_html_palinsesto(matches):
 """
     
     for p in matches:
-        # Conversione corretta dell'orario UTC in ora legale italiana (CEST)
         ora_italiana = p['ora_utc'] + timedelta(hours=2)
         ora_locale = ora_italiana.strftime('%d/%m/%Y alle %H:%M')
         
