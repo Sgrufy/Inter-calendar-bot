@@ -358,8 +358,6 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
-        
-        # Integrazione delle playlist paese di iptv-org (il codice M3U spesso include o punta agli x-tvg-url correlati)
         URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
 
     open_epg_mappatura = {
@@ -388,16 +386,13 @@ def carica_canali_esterni():
         for i in range(1, 7):
             URLS_EPG_DINAMICI.add(f"https://raw.githubusercontent.com/globetvapp/epg/main/{cartella_name}/{cartella_name.lower()}{i}.xml")
 
-    # Playlist globali extra di iptv-org
     URLS_EPG_DINAMICI.add("https://iptv-org.github.io/iptv/index.country.m3u")
-    
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
     URLS_EPG_DINAMICI.add("https://iptvx.one/EPG")
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
     URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
-    
     URLS_EPG_DINAMICI.add("http://epg.one/ru.xml.gz")
     URLS_EPG_DINAMICI.add("http://epg.one/ru2.xml.gz")
     URLS_EPG_DINAMICI.add("http://epg.one/epg.xml.gz")
@@ -490,11 +485,9 @@ def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
     try:
         res = requests.get(url_dinamico, headers=HEADERS, timeout=25)
         if res.status_code == 200:
-            # Se è una playlist M3U di iptv-org, analizza la playlist per estrarre eventuali x-tvg-url nascosti
             if ".m3u" in url_dinamico:
                 analizza_m3u_esteso(res.text, valid_channel_ids)
                 return []
-            
             xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
             return analizza_epg_stream(xml_content, valid_channel_ids)
     except Exception:
@@ -797,7 +790,66 @@ def generate_ics(matches):
         f.write(cal.to_ical())
     print("File ICS generato con successo e raggruppato per tipo.")
 
+def generate_html_palinsesto(matches):
+    html_content = """<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palinsesto Inter - Prossime Partite</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 20px; color: #38bdf8; }
+        .match-card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .match-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }
+        .match-date { font-size: 0.9rem; color: #94a3b8; margin-bottom: 10px; }
+        .channels { font-size: 0.95rem; line-height: 1.5; white-space: pre-line; background: #0f172a; padding: 10px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📺 Palinsesto Inter & Canali</h1>
+"""
+    
+    for p in matches:
+        ora_locale = p['ora_utc'].strftime('%d/%m/%Y alle %H:%M')
+        
+        canali_filtrati = []
+        for c in p['canali']:
+            c_pulito = pulisci_etichetta_canale(c)
+            if not c_pulito or is_blacklisted(c_pulito):
+                continue
+            c_lower = c_pulito.lower()
+            if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
+                canali_filtrati.append(f"📺 {c_pulito}")
+            elif "In attesa" in c_pulito:
+                canali_filtrati.append(f"⏳ {c_pulito}")
+            else:
+                canali_filtrati.append(f"📡 {c_pulito}")
+
+        canali_str = "\n".join(canali_filtrati) if canali_filtrati else "Nessun canale TV trovato"
+        
+        html_content += f"""
+        <div class="match-card">
+            <div class="match-title">⚽ {p['name']}</div>
+            <div class="match-date">📅 {ora_locale} | 🏆 {p['competizione']}</div>
+            <div class="channels">{canali_str}</div>
+        </div>
+        """
+
+    html_content += """
+    </div>
+</body>
+</html>
+"""
+    
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+    print("Pagina HTML generata con successo (index.html).")
+
 if __name__ == '__main__':
     carica_canali_esterni()
     matches = fetch_next_matches()
     generate_ics(matches)
+    generate_html_palinsesto(matches)
