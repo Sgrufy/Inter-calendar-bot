@@ -352,11 +352,15 @@ def carica_canali_esterni():
     INFO_CANALI[normalizza_testo("QazSport")] = {"id": "QazSport.kz"}
 
     lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
+    
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
         URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
+        
+        # Integrazione delle playlist paese di iptv-org (il codice M3U spesso include o punta agli x-tvg-url correlati)
+        URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
 
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
@@ -381,10 +385,12 @@ def carica_canali_esterni():
         'bg': 'Bulgaria', 'by': 'Belarus', 'uk': 'Uk', 'gb': 'Uk', 'il': 'Israel'
     }
     for p_code, cartella_name in globetv_mappatura.items():
-        # Aggiornato fino a 6 come richiesto
         for i in range(1, 7):
             URLS_EPG_DINAMICI.add(f"https://raw.githubusercontent.com/globetvapp/epg/main/{cartella_name}/{cartella_name.lower()}{i}.xml")
 
+    # Playlist globali extra di iptv-org
+    URLS_EPG_DINAMICI.add("https://iptv-org.github.io/iptv/index.country.m3u")
+    
     URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
     URLS_EPG_DINAMICI.add("https://iptvx.one/EPG")
     URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
@@ -480,10 +486,15 @@ def scarica_e_processa_paese(paese, valid_channel_ids):
         pass
     return []
 
-def scarica_e_processa_gz_dinamico(url_gz, valid_channel_ids):
+def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
     try:
-        res = requests.get(url_gz, headers=HEADERS, timeout=25)
+        res = requests.get(url_dinamico, headers=HEADERS, timeout=25)
         if res.status_code == 200:
+            # Se è una playlist M3U di iptv-org, analizza la playlist per estrarre eventuali x-tvg-url nascosti
+            if ".m3u" in url_dinamico:
+                analizza_m3u_esteso(res.text, valid_channel_ids)
+                return []
+            
             xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
             return analizza_epg_stream(xml_content, valid_channel_ids)
     except Exception:
@@ -535,8 +546,8 @@ def scarica_tutti_gli_epg(date_str_list):
     
     with ThreadPoolExecutor(max_workers=8) as executor:
         futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
-        for idx, url_gz in enumerate(URLS_EPG_DINAMICI):
-            futures[executor.submit(scarica_e_processa_gz_dinamico, url_gz, valid_channel_ids)] = f"gz_{idx}"
+        for idx, url_dinamico in enumerate(URLS_EPG_DINAMICI):
+            futures[executor.submit(scarica_e_processa_gz_dinamico, url_dinamico, valid_channel_ids)] = f"dinamico_{idx}"
 
         for future in as_completed(futures):
             risultati = future.result()
@@ -718,7 +729,7 @@ def fetch_next_matches():
 
 def generate_ics(matches):
     cal = Calendar()
-    cal.add('prodid', '-//Calendario Inter V88 EPG//IT')
+    cal.add('prodid', '-//Calendario Inter V89 EPG//IT')
     cal.add('version', '2.0')
     cal.add('x-wr-calname', 'Inter TV Broadcasts')
 
