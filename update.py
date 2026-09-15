@@ -193,7 +193,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
-    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4"
+    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4", "Max Sport", "Eleven Sports"
 })
 
 INFO_CANALI = {}  
@@ -797,6 +797,8 @@ def generate_html_palinsesto(matches):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Palinsesto Inter - Prossime Partite</title>
+    <!-- Favicon con il pallone da calcio -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
         .container { max-width: 600px; margin: 0 auto; }
@@ -821,12 +823,16 @@ def generate_html_palinsesto(matches):
             if not c_pulito or is_blacklisted(c_pulito):
                 continue
             c_lower = c_pulito.lower()
-            if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
+            
+            # Logica icone HTML: Ciak 🎬 solo per Prime, Televisore 📺 per tutti gli altri canali validi
+            if 'prime' in c_lower:
+                canali_filtrati.append(f"🎬 {c_pulito}")
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "TNT Sports"]):
                 canali_filtrati.append(f"📺 {c_pulito}")
             elif "In attesa" in c_pulito:
                 canali_filtrati.append(f"⏳ {c_pulito}")
             else:
-                canali_filtrati.append(f"📡 {c_pulito}")
+                canali_filtrati.append(f"📺 {c_pulito}")
 
         canali_str = "\n".join(canali_filtrati) if canali_filtrati else "Nessun canale TV trovato"
         
