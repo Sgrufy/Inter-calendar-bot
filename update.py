@@ -22,6 +22,7 @@ HEADERS = {
 
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
+THESPORTSDB_TEAM_ID = "133604"
 
 # ==========================================
 # BLACKLIST CANALI RIGOROSA
@@ -360,7 +361,6 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
 
-    # AGGIUNTA DEL MEGABACKUP GLOBALE DI EPGSHARE01
     URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
 
     open_epg_mappatura = {
@@ -576,6 +576,44 @@ def pulisci_etichetta_canale(nome_canale):
     pulito = re.sub(r'^[:\-\s]+', '', pulito)
     return " ".join(pulito.split())
 
+# ==========================================
+# INTEGRAZIONE THESPORTSDB V1 (AGGIUNTA)
+# ==========================================
+def cerca_canali_thesportsdb(home_team, away_team, data_partita):
+    canali_tsdb = []
+    try:
+        data_str = data_partita.strftime('%Y-%m-%d')
+        url_search = f"https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d={data_str}&s=Soccer"
+        
+        response = requests.get(url_search, headers=HEADERS, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            events = data.get('events') or []
+            
+            for ev in events:
+                h_ev = ev.get('strHomeTeam', '')
+                a_ev = ev.get('strAwayTeam', '')
+                
+                if (home_team.lower() in h_ev.lower() or h_ev.lower() in home_team.lower()) and \
+                   (away_team.lower() in a_ev.lower() or a_ev.lower() in away_team.lower()):
+                    
+                    event_id = ev.get('idEvent')
+                    if event_id:
+                        url_tv = f"https://www.thesportsdb.com/api/v1/json/123/lookuptv.php?id={event_id}"
+                        res_tv = requests.get(url_tv, headers=HEADERS, timeout=10)
+                        if res_tv.status_code == 200:
+                            tv_data = res_tv.json()
+                            channels = tv_data.get('tvevents') or []
+                            for ch in channels:
+                                nome_canale = ch.get('strChannel')
+                                if nome_canale and not is_blacklisted(nome_canale):
+                                    if nome_canale not in canali_tsdb:
+                                        canali_tsdb.append(nome_canale)
+    except Exception as e:
+        print(f"Errore integrazione TheSportsDB: {e}")
+        
+    return canali_tsdb
+
 def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     canali_trovati = []
     if not PROGRAMMI_EPG:
@@ -708,6 +746,13 @@ def fetch_next_matches():
             
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
+                
+                # UNIONE DEI CANALI AGGIUNTIVI DA THESPORTSDB
+                canali_tsdb = cerca_canali_thesportsdb(p['home'], p['away'], p['ora_utc'])
+                for c in canali_tsdb:
+                    if c not in canali_reali:
+                        canali_reali.append(c)
+
                 if not canali_reali:
                     canali_reali = ["In attesa di programmazione ufficiale ⏳"]
                 
@@ -800,7 +845,6 @@ def generate_html_palinsesto(matches):
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Palinsesto INTER</title>
-    <!-- Favicon con il pallone da calcio -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
