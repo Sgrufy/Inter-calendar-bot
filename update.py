@@ -241,10 +241,10 @@ def normalizza_testo(testo):
     
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',     
-        'inter de milao': 'inter', 'inter milao': 'inter',    
+        'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',    
         'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
         'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
-        'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma',
+        'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma', 'as roma': 'roma',
         'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'болонья',
         'футбол': 'football', 'матч': 'match', 'mecz': 'match', 
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
