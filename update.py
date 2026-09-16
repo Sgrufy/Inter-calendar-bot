@@ -604,7 +604,7 @@ def pulisci_etichetta_canale(nome_canale):
     return " ".join(pulito.split())
 
 # ==========================================
-# FUNZIONE DI CONTROLLO MIRATO UNIVERSALE (⭐ & 📺)
+# FUNZIONE DI CONTROLLO MIRATO UNIVERSALE CON DEBUG
 # ==========================================
 def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
     canali_trovati_extra = []
@@ -613,6 +613,10 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
     inter_keywords = ["inter", "internazionale", "интер", "ιντερ"]
     av_norm = normalizza_testo(away_team if "inter" in normalizza_testo(home_team) else home_team)
     av_parole = [p for p in av_norm.split() if len(p) > 2 and p not in inter_keywords]
+
+    print(f"\n--- DEBUG: Avvio controllo mirato EPG.PW per {home_team} vs {away_team} ---")
+    print(f"Date da cercare: {date_str_list}")
+    print(f"Parole avversario cercate: {av_parole}")
 
     for data_str in date_str_list:
         for ch_id, ch_name in tutti_i_canali_epg_pw.items():
@@ -624,18 +628,28 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
                 
                 if res.status_code == 200 and len(res.content) > 200:
                     progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
+                    if progs:
+                        print(f"[EPG.PW] Trovati {len(progs)} programmi sul canale {ch_name} (ID: {ch_id}) per la data {data_str}")
+                    
                     for p in progs:
                         title = p['title']
                         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
                         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
                         
+                        if contiene_inter:
+                            print(f"   -> Match Inter trovato in '{title}' su {ch_name}")
+
                         if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
                             c_pulito = pulisci_etichetta_canale(ch_name)
                             if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
+                                print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}')")
                                 canali_trovati_extra.append(c_pulito)
-            except Exception:
+                else:
+                    pass
+            except Exception as e:
                 continue
                 
+    print(f"--- Fine controllo mirato EPG.PW. Canali trovati: {canali_trovati_extra} ---\n")
     return canali_trovati_extra
 
 # ==========================================
