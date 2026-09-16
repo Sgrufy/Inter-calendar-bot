@@ -94,6 +94,13 @@ EPG_PW_TV_IDS = {
 # ID ESCLUSIVI EPG.PW - CANALI TARGET (🟠 / ⭐)
 # ==========================================
 EPG_PW_TARGET_IDS = {
+    "547353": "5Sport Live",
+    "545663": "5Sport Plus",
+    "406253": "Sport 1",
+    "6507": "Sport 1 Baltic",
+    "549677": "Sport 2",
+    "406295": "Sport 2",
+    "6086": "Sport 2 Baltic",
     "397418": "Sport TV 1",
     "397424": "Sport TV 2",
     "397419": "Sport TV 3",
@@ -160,6 +167,12 @@ EPG_PW_TARGET_IDS = {
 CANALI_STELLE = {
     "QazSport",
     "5Sport",
+    "5Sport Live",
+    "5Sport Plus",
+    "Sport 1",
+    "Sport 1 Baltic",
+    "Sport 2",
+    "Sport 2 Baltic",
     "Setanta Sports 1 Eurasia",
     "Setanta Sports 2 Eurasia",
     "Setanta Sports+",
@@ -577,6 +590,45 @@ def pulisci_etichetta_canale(nome_canale):
     return " ".join(pulito.split())
 
 # ==========================================
+# FUNZIONE DI CONTROLLO MIRATO UNIVERSALE (⭐ & 📺)
+# ==========================================
+def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
+    """
+    Esegue un passaggio extra chirurgico su epg.pw interrogando direttamente 
+    tutti gli ID mappati sia nei target (⭐) che nei canali TV (📺).
+    """
+    canali_trovati_extra = []
+    tutti_i_canali_epg_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
+    
+    inter_keywords = ["inter", "internazionale", "интер", "ιντερ"]
+    av_norm = normalizza_testo(away_team if "inter" in normalizza_testo(home_team) else home_team)
+    av_parole = [p for p in av_norm.split() if len(p) > 2 and p not in inter_keywords]
+
+    for data_str in date_str_list:
+        for ch_id, ch_name in tutti_i_canali_epg_pw.items():
+            if is_blacklisted(ch_name):
+                continue
+            try:
+                url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={ch_id}"
+                res = requests.get(url, headers=HEADERS, timeout=8)
+                
+                if res.status_code == 200 and len(res.content) > 200:
+                    progs = analizza_epg_stream(res.content, set())
+                    for p in progs:
+                        title = p['title']
+                        contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
+                        contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
+                        
+                        if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
+                            c_pulito = pulisci_etichetta_canale(ch_name)
+                            if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
+                                canali_trovati_extra.append(c_pulito)
+            except Exception:
+                continue
+                
+    return canali_trovati_extra
+
+# ==========================================
 # INTEGRAZIONE THESPORTSDB V1
 # ==========================================
 def cerca_canali_thesportsdb(home_team, away_team, data_partita):
@@ -747,7 +799,13 @@ def fetch_next_matches():
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
-                # UNIONE DEI CANALI AGGIUNTIVI DA THESPORTSDB
+                # Passaggio mirato aggiuntivo su epg.pw per TUTTI i canali TV e ⭐
+                canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'])
+                for c in canali_extra_epg_pw:
+                    if c not in canali_reali:
+                        canali_reali.append(c)
+                
+                # Integrazione TheSportsDB esistente
                 canali_tsdb = cerca_canali_thesportsdb(p['home'], p['away'], p['ora_utc'])
                 for c in canali_tsdb:
                     if c not in canali_reali:
@@ -807,7 +865,7 @@ def generate_ics(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport"]:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
@@ -892,7 +950,7 @@ def generate_html_palinsesto(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport"]:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
