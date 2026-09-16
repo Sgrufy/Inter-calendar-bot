@@ -50,6 +50,10 @@ def is_blacklisted(nome_canale):
 # ==========================================
 EPG_PW_TV_IDS = {
     "6338": "Eleven Sports 1",
+    "408445": "Eleven Sports 1",
+    "408446": "Eleven Sports 2",
+    "7836": "Eleven Sports 3",
+    "7837": "Eleven Sports 4",
     "5778": "TVP Sport",
     "535763": "Max Sport 4",
     "535764": "Max Sport 3",
@@ -174,9 +178,14 @@ CANALI_STELLE = {
     "Sport 1 Baltic",
     "Sport 2",
     "Sport 2 Baltic",
+    "Setanta Sports 1",
     "Setanta Sports 1 Eurasia",
     "Setanta Sports 2 Eurasia",
     "Setanta Sports+",
+    "Setanta Sports 1 Georgia",
+    "Setanta Sports 2 Georgia",
+    "Setanta Sports 3 Georgia",
+    "Setanta Sports Premium [UA]",
     "Okko Futbol",
     "Okko Sport",
     "beIN Sports 1",
@@ -237,7 +246,7 @@ def normalizza_testo(testo):
         'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football', 
         'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
         'спорт': 'sport', 'sport': 'sport', 'ספורט 5': '5sport',
-        'qazsport': 'qazsport'
+        'qazsport': 'qazsport', 'setanta': 'setanta'
     }
     
     testo_lower = testo_pulito.lower()
@@ -860,7 +869,7 @@ def generate_ics(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
@@ -945,7 +954,7 @@ def generate_html_palinsesto(matches):
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
                 nome_formattato = f"⭐ {c_pulito}"
                 if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
             elif c_pulito in TUTTI_I_CANALI_BLU:
