@@ -577,7 +577,7 @@ def pulisci_etichetta_canale(nome_canale):
     return " ".join(pulito.split())
 
 # ==========================================
-# INTEGRAZIONE THESPORTSDB V1 (AGGIUNTA)
+# INTEGRAZIONE THESPORTSDB V1
 # ==========================================
 def cerca_canali_thesportsdb(home_team, away_team, data_partita):
     canali_tsdb = []
