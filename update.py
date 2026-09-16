@@ -50,6 +50,9 @@ def is_blacklisted(nome_canale):
 # ==========================================
 EPG_PW_TV_IDS = {
     "6338": "Eleven Sports 1",
+    "6340": "Eleven Sports 2",
+    "6339": "Eleven Sports 3",
+    "6336": "Eleven Sports 4",
     "408445": "Eleven Sports 1",
     "408446": "Eleven Sports 2",
     "7836": "Eleven Sports 3",
@@ -206,6 +209,7 @@ CANALI_STELLE = {
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
+    "Eleven Sports", "Eleven Sports 1 Poland", "Eleven Sports 2 Poland", "Eleven Sports 3 Poland", "Eleven Sports 4 Poland",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
     "Polsat Sport", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport Fight", 
     "Nova Sports 1", "Nova Sports 2", "Nova Sports 3", "Nova Sports 4", "Nova Sports Start",
@@ -217,7 +221,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
-    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4", "Eleven Sports"
+    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4"
 })
 
 INFO_CANALI = {}  
