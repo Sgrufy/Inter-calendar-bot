@@ -24,6 +24,12 @@ COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 THESPORTSDB_TEAM_ID = "133604"
 
+# Parole chiave globali per scartare repliche e sintesi
+PAROLE_ESCLUSE_REPLICHE = [
+    "powtórka", "skrót", "archiwum", "classic", "retransmisja", 
+    "replay", "highlights", "pregled", "youth", "u19", "mlodziezowa"
+]
+
 # ==========================================
 # BLACKLIST CANALI RIGOROSA
 # ==========================================
@@ -173,38 +179,15 @@ EPG_PW_TARGET_IDS = {
 }
 
 CANALI_STELLE = {
-    "QazSport",
-    "5Sport",
-    "5Sport Live",
-    "5Sport Plus",
-    "Sport 1",
-    "Sport 1 Baltic",
-    "Sport 2",
-    "Sport 2 Baltic",
-    "Setanta Sports 1",
-    "Setanta Sports 1 Eurasia",
-    "Setanta Sports 2 Eurasia",
-    "Setanta Sports+",
-    "Setanta Sports 1 Georgia",
-    "Setanta Sports 2 Georgia",
-    "Setanta Sports 3 Georgia",
-    "Setanta Sports Premium [UA]",
-    "Okko Futbol",
-    "Okko Sport",
-    "beIN Sports 1",
-    "beIN Sports 2",
-    "beIN Sports 3",
-    "beIN Sports French",
-    "beIN Sports English",
-    "DAZN 1",
-    "DAZN 2",
-    "DAZN 1 Bar",
-    "DAZN Espana",
-    "DAZN Portugal",
-    "Viaplay",
-    "Viaplay Sweden",
-    "Viaplay Denmark",
-    "Canal+"
+    "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
+    "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
+    "Setanta Sports 1", "Setanta Sports 1 Eurasia", "Setanta Sports 2 Eurasia",
+    "Setanta Sports+", "Setanta Sports 1 Georgia", "Setanta Sports 2 Georgia",
+    "Setanta Sports 3 Georgia", "Setanta Sports Premium [UA]",
+    "Okko Futbol", "Okko Sport", "beIN Sports 1", "beIN Sports 2",
+    "beIN Sports 3", "beIN Sports French", "beIN Sports English",
+    "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
+    "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -435,7 +418,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
         "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
         "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
         "haber", "deltio", "interview"
-    ]
+    ] + PAROLE_ESCLUSE_REPLICHE
+    
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     
     try:
@@ -604,9 +588,9 @@ def pulisci_etichetta_canale(nome_canale):
     return " ".join(pulito.split())
 
 # ==========================================
-# FUNZIONE DI CONTROLLO MIRATO UNIVERSALE CON DEBUG
+# CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE
 # ==========================================
-def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
+def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=None):
     canali_trovati_extra = []
     tutti_i_canali_epg_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     
@@ -628,24 +612,35 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
                 
                 if res.status_code == 200 and len(res.content) > 200:
                     progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
-                    if progs:
-                        print(f"[EPG.PW] Trovati {len(progs)} programmi sul canale {ch_name} (ID: {ch_id}) per la data {data_str}")
                     
                     for p in progs:
                         title = p['title']
+                        title_lower = title.lower()
+                        
+                        # 1. Scarta se contiene parole chiave di repliche o highlights
+                        if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
+                            continue
+
+                        # 2. Controllo rigoroso sulla finestra temporale (max 3 ore di distanza dall'inizio reale)
+                        if match_ora_utc and p.get('start'):
+                            try:
+                                prog_start = datetime.strptime(p['start'].split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                                if abs((prog_start - match_ora_utc).total_seconds()) > 10800:
+                                    continue # Scarta l'evento fuori orario (es. repliche mattutine o notturne)
+                            except ValueError:
+                                pass
+
                         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
                         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
                         
                         if contiene_inter:
-                            print(f"   -> Match Inter trovato in '{title}' su {ch_name}")
+                            print(f"   -> Match Inter valido trovato in '{title}' su {ch_name}")
 
                         if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
                             c_pulito = pulisci_etichetta_canale(ch_name)
                             if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
                                 print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}')")
                                 canali_trovati_extra.append(c_pulito)
-                else:
-                    pass
             except Exception as e:
                 continue
                 
@@ -715,10 +710,9 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             continue
             
         title = prog['title']
+        title_lower = title.lower()
         
-        if "youth" in title or "u19" in title or "mlodziezowa" in title:
-            continue
-        if "hl" in title or "highlights" in title or "pregled" in title:
+        if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
             continue
         
         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
@@ -823,7 +817,8 @@ def fetch_next_matches():
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
-                canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'])
+                # Passiamo l'orario effettivo (p['ora_utc']) per evitare repliche fuori orario
+                canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'], p['ora_utc'])
                 for c in canali_extra_epg_pw:
                     if c not in canali_reali:
                         canali_reali.append(c)
