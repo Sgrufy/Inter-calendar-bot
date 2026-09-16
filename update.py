@@ -49,6 +49,7 @@ def is_blacklisted(nome_canale):
 # ID ESCLUSIVI EPG.PW - CANALI TV (📺)
 # ==========================================
 EPG_PW_TV_IDS = {
+    "6338": "Eleven Sports 1",
     "5778": "TVP Sport",
     "535763": "Max Sport 4",
     "535764": "Max Sport 3",
@@ -207,7 +208,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
-    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4", "Max Sport", "Eleven Sports"
+    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4", "Eleven Sports"
 })
 
 INFO_CANALI = {}  
@@ -593,10 +594,6 @@ def pulisci_etichetta_canale(nome_canale):
 # FUNZIONE DI CONTROLLO MIRATO UNIVERSALE (⭐ & 📺)
 # ==========================================
 def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
-    """
-    Esegue un passaggio extra chirurgico su epg.pw interrogando direttamente 
-    tutti gli ID mappati sia nei target (⭐) che nei canali TV (📺).
-    """
     canali_trovati_extra = []
     tutti_i_canali_epg_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     
@@ -799,13 +796,11 @@ def fetch_next_matches():
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
-                # Passaggio mirato aggiuntivo su epg.pw per TUTTI i canali TV e ⭐
                 canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'])
                 for c in canali_extra_epg_pw:
                     if c not in canali_reali:
                         canali_reali.append(c)
                 
-                # Integrazione TheSportsDB esistente
                 canali_tsdb = cerca_canali_thesportsdb(p['home'], p['away'], p['ora_utc'])
                 for c in canali_tsdb:
                     if c not in canali_reali:
@@ -862,7 +857,7 @@ def generate_ics(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
@@ -947,7 +942,7 @@ def generate_html_palinsesto(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(f"⏳ {c_pulito}")
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports"]):
+            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                 nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
