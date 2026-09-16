@@ -531,7 +531,7 @@ def scarica_singolo_id_pw(args):
     try:
         res = requests.get(f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}", headers=HEADERS, timeout=10)
         if res.status_code == 200 and len(res.content) > 200:
-            progs = analizza_epg_stream(res.content, set())
+            progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
             for p in progs:
                 p['channel_name'] = ch_name
             return progs
@@ -623,7 +623,7 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team):
                 res = requests.get(url, headers=HEADERS, timeout=8)
                 
                 if res.status_code == 200 and len(res.content) > 200:
-                    progs = analizza_epg_stream(res.content, set())
+                    progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
                     for p in progs:
                         title = p['title']
                         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
