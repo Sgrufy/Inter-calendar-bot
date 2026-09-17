@@ -52,6 +52,32 @@ def is_blacklisted(nome_canale):
     return False
 
 # ==========================================
+# NORMALIZZAZIONE NOMI CANALI (SETANTA EURASIA & CO.)
+# ==========================================
+def normalizza_nome_canale(ch_name):
+    """
+    Standardizza i nomi dei canali Setanta distinguendo i feed Eurasia (tramite tag regionali o nome) 
+    dai canali Setanta standard/nazionali.
+    """
+    if not ch_name:
+        return ""
+        
+    ch_lower = ch_name.lower()
+    
+    if 'setanta' in ch_lower:
+        is_eurasia = any(tag in ch_lower for tag in ['[uz]', '[ge]', '[ua]', 'eurasia'])
+        
+        if '2' in ch_lower or 'second' in ch_lower:
+            return "Setanta Sport 2 Eurasia" if is_eurasia else "Setanta Sport 2"
+        else:
+            return "Setanta Sport 1 Eurasia" if is_eurasia else "Setanta Sport 1"
+            
+    if 'max sport 3' in ch_lower:
+        return "Max Sport 3"
+        
+    return ch_name.strip()
+
+# ==========================================
 # ID ESCLUSIVI EPG.PW - CANALI TV (📺)
 # ==========================================
 EPG_PW_TV_IDS = {
@@ -181,7 +207,7 @@ EPG_PW_TARGET_IDS = {
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
-    "Setanta Sports 1", "Setanta Sports 1 Eurasia", "Setanta Sports 2 Eurasia",
+    "Setanta Sports 1", "Setanta Sport 1 Eurasia", "Setanta Sport 2 Eurasia",
     "Setanta Sports+", "Setanta Sports 1 Georgia", "Setanta Sports 2 Georgia",
     "Setanta Sports 3 Georgia", "Setanta Sports Premium [UA]",
     "Okko Futbol", "Okko Sport", "beIN Sports 1", "beIN Sports 2",
@@ -272,6 +298,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
         if line.startswith("#EXTINF:") and "," in line:
             c_name = line.split(",")[-1].strip()
             if c_name and not is_blacklisted(c_name):
+                c_name = normalizza_nome_canale(c_name)
                 if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
                     c_name = "5Sport"
                 elif "qazsport" in c_name.lower():
@@ -284,6 +311,7 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             parti = line.split(",", 1)
             c_name = parti[0].strip()
             if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                c_name = normalizza_nome_canale(c_name)
                 if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
                     c_name = "5Sport"
                 elif "qazsport" in c_name.lower():
@@ -312,6 +340,7 @@ def carica_canali_esterni():
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
                                 if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                                    c_name = normalizza_nome_canale(c_name)
                                     if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
                                         c_name = "5Sport"
                                     elif "qazsport" in c_name.lower():
@@ -334,6 +363,7 @@ def carica_canali_esterni():
                             if line and not line.startswith("#") and not line.startswith("http"):
                                 c_name = line.split(",", 1)[0].strip() if "," in line else line
                                 if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                                    c_name = normalizza_nome_canale(c_name)
                                     if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
                                         c_name = "5Sport"
                                     elif "qazsport" in c_name.lower():
@@ -343,12 +373,14 @@ def carica_canali_esterni():
                 pass
 
     for cid, cname in EPG_PW_TV_IDS.items():
+        cname = normalizza_nome_canale(cname)
         if not is_blacklisted(cname):
             TUTTI_I_CANALI_BLU.add(cname)
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
     for cid, cname in EPG_PW_TARGET_IDS.items():
+        cname = normalizza_nome_canale(cname)
         if not is_blacklisted(cname):
             TUTTI_I_CANALI_BLU.add(cname)
             INFO_CANALI[cname] = {"id": cid}
@@ -431,6 +463,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                     display_name_el = elem.find('display-name')
                     if display_name_el is not None and display_name_el.text:
                         ch_name = display_name_el.text.strip()
+                        ch_name = normalizza_nome_canale(ch_name)
                         if not is_blacklisted(ch_name):
                             if "5sport" in ch_name.lower() or "sport 5" in ch_name.lower() or "ספורט 5" in ch_name:
                                 ch_name = "5Sport"
@@ -447,6 +480,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
             if elem.tag == 'programme':
                 ch = elem.get('channel')
                 ch_lookup = channel_id_to_name.get(ch, ch)
+                ch_lookup = normalizza_nome_canale(ch_lookup)
+                
                 if is_blacklisted(ch_lookup) or any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24", "rt"]):
                     elem.clear()
                     continue
@@ -464,7 +499,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                 
                 if (ch in tutti_i_target_pw or ch in ["5Sport.il", "QazSport.kz"] or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower or "окко" in ch_lookup_lower):
                     if ch in tutti_i_target_pw:
-                        ch_lookup = tutti_i_target_pw[ch]
+                        ch_lookup = normalizza_nome_canale(tutti_i_target_pw[ch])
                     elif ch == "5Sport.il":
                         ch_lookup = "5Sport"
                     elif ch == "QazSport.kz":
@@ -517,7 +552,7 @@ def scarica_singolo_id_pw(args):
         if res.status_code == 200 and len(res.content) > 200:
             progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
             for p in progs:
-                p['channel_name'] = ch_name
+                p['channel_name'] = normalizza_nome_canale(ch_name)
             return progs
     except Exception:
         pass
@@ -577,6 +612,7 @@ def pulisci_nome(nome):
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
+    nome_canale = normalizza_nome_canale(nome_canale)
     if "5sport" in nome_canale.lower() or "sport 5" in nome_canale.lower() or "ספורט 5" in nome_canale:
         return "5Sport"
     elif "qazsport" in nome_canale.lower():
@@ -585,7 +621,7 @@ def pulisci_etichetta_canale(nome_canale):
     pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
     pulito = re.sub(r'^[:\-\s]+', '', pulito)
-    return " ".join(pulito.split())
+    return normalizza_nome_canale(" ".join(pulito.split()))
 
 # ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE
@@ -604,6 +640,7 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
 
     for data_str in date_str_list:
         for ch_id, ch_name in tutti_i_canali_epg_pw.items():
+            ch_name = normalizza_nome_canale(ch_name)
             if is_blacklisted(ch_name):
                 continue
             try:
@@ -617,16 +654,14 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
                         title = p['title']
                         title_lower = title.lower()
                         
-                        # 1. Scarta se contiene parole chiave di repliche o highlights
                         if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
                             continue
 
-                        # 2. Controllo rigoroso sulla finestra temporale (max 3 ore di distanza dall'inizio reale)
                         if match_ora_utc and p.get('start'):
                             try:
                                 prog_start = datetime.strptime(p['start'].split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
                                 if abs((prog_start - match_ora_utc).total_seconds()) > 10800:
-                                    continue # Scarta l'evento fuori orario (es. repliche mattutine o notturne)
+                                    continue 
                             except ValueError:
                                 pass
 
@@ -677,6 +712,8 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
                             channels = tv_data.get('tvevents') or []
                             for ch in channels:
                                 nome_canale = ch.get('strChannel')
+                                if nome_canale:
+                                    nome_canale = normalizza_nome_canale(nome_canale)
                                 if nome_canale and not is_blacklisted(nome_canale):
                                     if nome_canale not in canali_tsdb:
                                         canali_tsdb.append(nome_canale)
@@ -704,7 +741,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
-        ch_name = prog.get('channel_name', ch_id)
+        ch_name = normalizza_nome_canale(prog.get('channel_name', ch_id))
         
         if is_blacklisted(ch_name):
             continue
@@ -741,11 +778,11 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         elif "okko" in ch_name_lower or "окко" in ch_name_lower:
                             c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
                         elif ch_id in EPG_PW_TARGET_IDS:
-                            c_uff = EPG_PW_TARGET_IDS[ch_id]
+                            c_uff = normalizza_nome_canale(EPG_PW_TARGET_IDS[ch_id])
                         elif ch_id in EPG_PW_TV_IDS:
-                            c_uff = EPG_PW_TV_IDS[ch_id]
+                            c_uff = normalizza_nome_canale(EPG_PW_TV_IDS[ch_id])
                         elif ch_name and not ch_name.isdigit():
-                            c_uff = ch_name
+                            c_uff = normalizza_nome_canale(ch_name)
                             
                         if c_uff:
                             c_pulito = pulisci_etichetta_canale(c_uff)
@@ -817,7 +854,6 @@ def fetch_next_matches():
             for p in partite_da_analizzare:
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
-                # Passiamo l'orario effettivo (p['ora_utc']) per evitare repliche fuori orario
                 canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'], p['ora_utc'])
                 for c in canali_extra_epg_pw:
                     if c not in canali_reali:
