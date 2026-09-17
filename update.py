@@ -52,12 +52,12 @@ def is_blacklisted(nome_canale):
     return False
 
 # ==========================================
-# NORMALIZZAZIONE NOMI CANALI (SETANTA EURASIA & CO.)
+# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA & CO.)
 # ==========================================
 def normalizza_nome_canale(ch_name):
     """
-    Standardizza i nomi dei canali Setanta distinguendo i feed Eurasia (tramite tag regionali o nome) 
-    dai canali Setanta standard/nazionali.
+    Standardizza i nomi dei canali Setanta e dell'area Eurasia distinguendo i feed regionali 
+    ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
     """
     if not ch_name:
         return ""
@@ -65,7 +65,7 @@ def normalizza_nome_canale(ch_name):
     ch_lower = ch_name.lower()
     
     if 'setanta' in ch_lower:
-        is_eurasia = any(tag in ch_lower for tag in ['[uz]', '[ge]', '[ua]', 'eurasia'])
+        is_eurasia = any(tag in ch_lower for tag in ['[uz]', '[ge]', '[ua]', '[kz]', 'eurasia', 'kazakhstan', 'georgia', 'ukraine', 'uzbekistan'])
         
         if '2' in ch_lower or 'second' in ch_lower:
             return "Setanta Sport 2 Eurasia" if is_eurasia else "Setanta Sport 2"
@@ -394,7 +394,12 @@ def carica_canali_esterni():
     INFO_CANALI["QazSport"] = {"id": "QazSport.kz"}
     INFO_CANALI[normalizza_testo("QazSport")] = {"id": "QazSport.kz"}
 
-    lista_paesi_standard = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
+    # Inclusione completa di tutti i paesi standard ed eurasiatici (UZ, GE, UA, KZ, AZ, MD, KG, TJ, ecc.)
+    lista_paesi_standard = [
+        'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 
+        'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 
+        'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
+    ]
     
     for p in lista_paesi_standard:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
@@ -412,7 +417,7 @@ def carica_canali_esterni():
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
-        'uk': 'uk', 'gb': 'uk', 'il': 'israel'
+        'uk': 'uk', 'gb': 'uk', 'il': 'israel', 'uz': 'uzbekistan', 'tj': 'tajikistan', 'kg': 'kyrgyzstan'
     }
     for p in lista_paesi_standard:
         nome_open = open_epg_mappatura.get(p, p)
@@ -425,7 +430,8 @@ def carica_canali_esterni():
         'rs': 'Serbia', 'hu': 'Hungary', 'sk': 'Slovakia', 'al': 'Albania', 'tr': 'Turkey', 
         'nl': 'Netherlands', 'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'ge': 'Georgia', 
         'md': 'Moldova', 'kz': 'Kazakhstan', 'az': 'Azerbaijan', 'ie': 'Ireland', 'my': 'Malaysia', 
-        'bg': 'Bulgaria', 'by': 'Belarus', 'uk': 'Uk', 'gb': 'Uk', 'il': 'Israel'
+        'bg': 'Bulgaria', 'by': 'Belarus', 'uk': 'Uk', 'gb': 'Uk', 'il': 'Israel',
+        'uz': 'Uzbekistan', 'tj': 'Tajikistan', 'kg': 'Kyrgyzstan'
     }
     for p_code, cartella_name in globetv_mappatura.items():
         for i in range(1, 7):
@@ -573,7 +579,7 @@ def scarica_epg_mirato_per_data(data_partita_str):
 
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
     
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     valid_channel_ids = set(tutti_i_target_pw.keys())
