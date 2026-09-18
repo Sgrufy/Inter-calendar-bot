@@ -31,7 +31,7 @@ PAROLE_ESCLUSE_REPLICHE = [
 ]
 
 # ==========================================
-# BLACKLIST CANALI RIGOROSA (Aggiornata con esclusioni provvisorie)
+# BLACKLIST CANALI RIGOROSA
 # ==========================================
 BLACKLIST_CANALI = {
     "O!", "o!", "O", "o",
@@ -40,11 +40,13 @@ BLACKLIST_CANALI = {
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
     "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo",
-    # Canali aggiunti alla blacklist provvisoria
-    "sport tv", "wc sport tv 4 hd", "a spor", "wc sport tv+ hd", 
+    # Canali inseriti nella blacklist provvisoria
+    "sport tv", "wc sport tv 4 hd", "wc sport tv+ hd", 
     "wc sport tv 2 hd", "aci sport tv", "wc sport tv 1 hd", "wc sport tv 3 hd",
     "sport", "sport tv+", "sport tv5", "sport tv7", "sport tv1", "sport tv2", "sport tv6", "we sport tv",
-    "šport", "rts", "rts 1"
+    "šport", "rts", "rts 1", "rts g",
+    "sport tv 1", "sport tv 2", "sport tv 3", "sport tv 4", "sport tv 5", "sport tv 6", "sport tv 7",
+    "a-sport", "sport 1 hd"
 }
 
 def is_blacklisted(nome_canale):
@@ -205,7 +207,7 @@ EPG_PW_TARGET_IDS = {
     "490003": "Sky Sport Arena"
 }
 
-# Inclusi AS3 Sport TV e N Sports tra le stelle
+# Canali con la stellina ⭐ (Inclusi AS3 Sport TV, N Sports, A Spor e Sport+ Qazaqstan)
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
@@ -216,7 +218,7 @@ CANALI_STELLE = {
     "beIN Sports 3", "beIN Sports French", "beIN Sports English",
     "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
-    "AS3 Sport TV", "N Sports"
+    "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -635,7 +637,7 @@ def pulisci_etichetta_canale(nome_canale):
     return normalizza_nome_canale(" ".join(pulito.split()))
 
 # ==========================================
-# FUNZIONE DI PULIZIA E DEDUPLICAZIONE CANALI (Eleven Sports & Altri)
+# FUNZIONE DI PULIZIA E DEDUPLICAZIONE CANALI
 # ==========================================
 def pulisci_e_deduplica_canali(canali_grezzi):
     canali_puliti = []
@@ -652,7 +654,6 @@ def pulisci_e_deduplica_canali(canali_grezzi):
     for c in canali_puliti:
         c_low = c.lower()
         
-        # Filtro Eleven Sports generico/estero superfluo se esistono quelli numerati dall'1 al 4
         if "eleven sports" in c_low:
             is_generico = (c_low.strip() == "eleven sports")
             is_estero = "poland" in c_low or "pl" in c_low or "be" in c_low
@@ -675,10 +676,6 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
     inter_keywords = ["inter", "internazionale", "интер", "ιντερ"]
     av_norm = normalizza_testo(away_team if "inter" in normalizza_testo(home_team) else home_team)
     av_parole = [p for p in av_norm.split() if len(p) > 2 and p not in inter_keywords]
-
-    print(f"\n--- DEBUG: Avvio controllo mirato EPG.PW per {home_team} vs {away_team} ---")
-    print(f"Date da cercare: {date_str_list}")
-    print(f"Parole avversario cercate: {av_parole}")
 
     for data_str in date_str_list:
         for ch_id, ch_name in tutti_i_canali_epg_pw.items():
@@ -709,19 +706,14 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
 
                         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
                         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
-                        
-                        if contiene_inter:
-                            print(f"   -> Match Inter valido trovato in '{title}' su {ch_name} (Fonte: EPG.PW ID {ch_id})")
 
                         if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
                             c_pulito = pulisci_etichetta_canale(ch_name)
                             if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
-                                print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
                                 canali_trovati_extra.append(c_pulito)
             except Exception as e:
                 continue
                 
-    print(f"--- Fine controllo mirato EPG.PW. Canali trovati: {canali_trovati_extra} ---\n")
     return canali_trovati_extra
 
 # ==========================================
@@ -758,7 +750,6 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
                                     nome_canale = normalizza_nome_canale(nome_canale)
                                 if nome_canale and not is_blacklisted(nome_canale):
                                     if nome_canale not in canali_tsdb:
-                                        print(f"   ✅ CANALE AGGIUNTO da TheSportsDB: {nome_canale}")
                                         canali_tsdb.append(nome_canale)
     except Exception as e:
         print(f"Errore integrazione TheSportsDB: {e}")
@@ -831,7 +822,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         if c_uff:
                             c_pulito = pulisci_etichetta_canale(c_uff)
                             if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
-                                print(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
                                 canali_trovati.append(c_pulito)
 
                         norm_ch = normalizza_testo(ch_name)
@@ -842,7 +832,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                             if norm_nc and (norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc))):
                                 nc_pulito = pulisci_etichetta_canale(nc)
                                 if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito): 
-                                    print(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
                                     canali_trovati.append(nc_pulito)
                 except ValueError:
                     continue
@@ -898,7 +887,6 @@ def fetch_next_matches():
             scarica_tutti_gli_epg(list(date_da_scaricare))
             
             for p in partite_da_analizzare:
-                print(f"\n🔍 Elaborazione match: {p['name']} ({p['ora_utc']})")
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
                 canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'], p['ora_utc'])
