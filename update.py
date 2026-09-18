@@ -207,7 +207,7 @@ EPG_PW_TARGET_IDS = {
     "490003": "Sky Sport Arena"
 }
 
-# Canali con la stellina ⭐ (Inclusi AS3 Sport TV, N Sports, A Spor e Sport+ Qazaqstan)
+# Canali con la stellina ⭐ (Inclusi Max Sport 1-4, AS3 Sport TV, N Sports, A Spor e Sport+ Qazaqstan)
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
@@ -218,7 +218,8 @@ CANALI_STELLE = {
     "beIN Sports 3", "beIN Sports French", "beIN Sports English",
     "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
-    "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan"
+    "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan",
+    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -974,6 +975,15 @@ def generate_ics(matches):
                 nome_formattato = f"🟠 {c_pulito}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
+        # Ordinamento alfabetico dei singoli gruppi
+        gruppo_tv.sort()
+        gruppo_stelle.sort()
+        gruppo_blu.sort()
+        gruppo_nero.sort()
+        gruppo_giallo.sort()
+        gruppo_bianco.sort()
+        gruppo_arancione.sort()
+
         righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["In attesa di programmazione ufficiale ⏳"]
@@ -1061,6 +1071,15 @@ def generate_html_palinsesto(matches):
                 nome_formattato = f"🟠 {c_pulito}"
                 if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
+        # Ordinamento alfabetico dei singoli gruppi
+        gruppo_tv.sort()
+        gruppo_stelle.sort()
+        gruppo_blu.sort()
+        gruppo_nero.sort()
+        gruppo_giallo.sort()
+        gruppo_bianco.sort()
+        gruppo_arancione.sort()
+
         righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["⏳ In attesa di programmazione ufficiale"]
