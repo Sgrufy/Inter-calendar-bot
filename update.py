@@ -52,13 +52,9 @@ def is_blacklisted(nome_canale):
     return False
 
 # ==========================================
-# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA & CO.)
+# NORMALIZZAZIONE NOMI CANALI
 # ==========================================
 def normalizza_nome_canale(ch_name):
-    """
-    Standardizza i nomi dei canali Setanta e dell'area Eurasia distinguendo i feed regionali 
-    ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
-    """
     if not ch_name:
         return ""
         
