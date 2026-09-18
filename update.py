@@ -448,7 +448,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
     programmi_locali = []
     parole_da_scartare = [
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
-        "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie", 
+        "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film",
         "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
         "haber", "deltio", "interview"
     ] + PAROLE_ESCLUSE_REPLICHE
