@@ -394,7 +394,6 @@ def carica_canali_esterni():
     INFO_CANALI["QazSport"] = {"id": "QazSport.kz"}
     INFO_CANALI[normalizza_testo("QazSport")] = {"id": "QazSport.kz"}
 
-    # Inclusione completa di tutti i paesi standard ed eurasiatici (UZ, GE, UA, KZ, AZ, MD, KG, TJ, ecc.)
     lista_paesi_standard = [
         'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 
         'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 
@@ -449,7 +448,7 @@ def carica_canali_esterni():
     URLS_EPG_DINAMICI.add("http://epg.one/epg.xml.gz")
     URLS_EPG_DINAMICI.add("https://tvprofil.net/xmltv/data/epg_tvprofil.net.xml")
 
-def analizza_epg_stream(content_bytes, valid_channel_ids):
+def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente Sconosciuta"):
     programmi_locali = []
     parole_da_scartare = [
         "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin", 
@@ -520,7 +519,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
                             'channel': ch,
                             'channel_name': ch_lookup,
                             'title': title_norm,
-                            'start': elem.get('start')
+                            'start': elem.get('start'),
+                            'source': source_label
                         })
                 elem.clear()
     except Exception:
@@ -528,15 +528,17 @@ def analizza_epg_stream(content_bytes, valid_channel_ids):
     return programmi_locali
 
 def scarica_e_processa_paese(paese, valid_channel_ids):
+    label = f"IPTV-EPG Paese [{paese.upper()}]"
     try:
         res = requests.get(f"https://iptv-epg.org/files/epg-{paese}.xml", headers=HEADERS, timeout=25)
         if res.status_code == 200:
-            return analizza_epg_stream(res.content, valid_channel_ids)
+            return analizza_epg_stream(res.content, valid_channel_ids, source_label=label)
     except Exception:
         pass
     return []
 
 def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
+    label = f"URL Dinamico ({url_dinamico[:40]}...)"
     try:
         res = requests.get(url_dinamico, headers=HEADERS, timeout=25)
         if res.status_code == 200:
@@ -544,7 +546,7 @@ def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
                 analizza_m3u_esteso(res.text, valid_channel_ids)
                 return []
             xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
-            return analizza_epg_stream(xml_content, valid_channel_ids)
+            return analizza_epg_stream(xml_content, valid_channel_ids, source_label=label)
     except Exception:
         pass
     return []
@@ -553,10 +555,11 @@ def scarica_singolo_id_pw(args):
     ch_id, ch_name, data_partita_str = args
     if is_blacklisted(ch_name):
         return []
+    label = f"EPG.PW (ID: {ch_id})"
     try:
         res = requests.get(f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}", headers=HEADERS, timeout=10)
         if res.status_code == 200 and len(res.content) > 200:
-            progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
+            progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)}, source_label=label)
             for p in progs:
                 p['channel_name'] = normalizza_nome_canale(ch_name)
             return progs
@@ -654,7 +657,7 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
                 res = requests.get(url, headers=HEADERS, timeout=8)
                 
                 if res.status_code == 200 and len(res.content) > 200:
-                    progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)})
+                    progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)}, source_label=f"EPG.PW Mirato (ID {ch_id})")
                     
                     for p in progs:
                         title = p['title']
@@ -675,12 +678,12 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
                         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
                         
                         if contiene_inter:
-                            print(f"   -> Match Inter valido trovato in '{title}' su {ch_name}")
+                            print(f"   -> Match Inter valido trovato in '{title}' su {ch_name} (Fonte: EPG.PW ID {ch_id})")
 
                         if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
                             c_pulito = pulisci_etichetta_canale(ch_name)
                             if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
-                                print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}')")
+                                print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
                                 canali_trovati_extra.append(c_pulito)
             except Exception as e:
                 continue
@@ -722,6 +725,7 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
                                     nome_canale = normalizza_nome_canale(nome_canale)
                                 if nome_canale and not is_blacklisted(nome_canale):
                                     if nome_canale not in canali_tsdb:
+                                        print(f"   ✅ CANALE AGGIUNTO da TheSportsDB: {nome_canale}")
                                         canali_tsdb.append(nome_canale)
     except Exception as e:
         print(f"Errore integrazione TheSportsDB: {e}")
@@ -748,6 +752,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = normalizza_nome_canale(prog.get('channel_name', ch_id))
+        source_epg = prog.get('source', 'EPG Generale')
         
         if is_blacklisted(ch_name):
             continue
@@ -793,6 +798,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                         if c_uff:
                             c_pulito = pulisci_etichetta_canale(c_uff)
                             if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
+                                print(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
                                 canali_trovati.append(c_pulito)
 
                         norm_ch = normalizza_testo(ch_name)
@@ -803,6 +809,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                             if norm_nc and (norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc))):
                                 nc_pulito = pulisci_etichetta_canale(nc)
                                 if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito): 
+                                    print(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
                                     canali_trovati.append(nc_pulito)
                 except ValueError:
                     continue
@@ -858,6 +865,7 @@ def fetch_next_matches():
             scarica_tutti_gli_epg(list(date_da_scaricare))
             
             for p in partite_da_analizzare:
+                print(f"\n🔍 Elaborazione match: {p['name']} ({p['ora_utc']})")
                 canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
                 
                 canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'], p['ora_utc'])
