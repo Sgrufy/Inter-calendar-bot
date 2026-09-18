@@ -40,10 +40,11 @@ BLACKLIST_CANALI = {
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
     "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo",
-    # Canali inseriti nella blacklist provvisoria
-    "sport tv", "wc sport tv 4 hd", "wc sport tv+ hd", 
+    # Canali WC Sport, Sport TV+ e altre esclusioni
+    "sport tv+", "sport tv +", "wc sport tv 4 hd", "wc sport tv+ hd", 
     "wc sport tv 2 hd", "aci sport tv", "wc sport tv 1 hd", "wc sport tv 3 hd",
-    "sport", "sport tv+", "sport tv5", "sport tv7", "sport tv1", "sport tv2", "sport tv6", "we sport tv",
+    "wc sport", "wc sport tv", "wc sport 1", "wc sport 2", "wc sport 3", "wc sport 4",
+    "sport tv", "sport", "sport tv5", "sport tv7", "sport tv1", "sport tv2", "sport tv6", "we sport tv",
     "šport", "rts", "rts 1", "rts g",
     "sport tv 1", "sport tv 2", "sport tv 3", "sport tv 4", "sport tv 5", "sport tv 6", "sport tv 7",
     "a-sport", "sport 1 hd"
@@ -151,7 +152,6 @@ EPG_PW_TARGET_IDS = {
     "408040": "Sport TV 5",
     "397417": "Sport TV 6",
     "405669": "Sport TV 7",
-    "405715": "Sport TV +",
     "417364": "Setanta Sports 1",
     "247795": "Setanta Sports 1 Eurasia",
     "62234": "Setanta Sports 2 Eurasia",
@@ -953,27 +953,32 @@ def generate_ics(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
-                if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
-                nome_formattato = f"⭐ {c_pulito}"
-                if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BLU:
-                nome_formattato = f"🔵 {c_pulito}"
-                if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_NERI:
-                nome_formattato = f"⚫ {c_pulito}"
-                if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_GIALLI:
-                nome_formattato = f"🟡 {c_pulito}"
-                if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
-                nome_formattato = f"⚪ {c_pulito}"
-                if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
             else:
-                nome_formattato = f"🟠 {c_pulito}"
-                if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
+                # Controlli indipendenti per consentire la doppia icona (es. 📺 e ⭐)
+                if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
+                    nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
+                    if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
+                
+                if c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+                    nome_formattato = f"⭐ {c_pulito}"
+                    if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
+                
+                if c_pulito not in CANALI_TV_CLASSICI and c_pulito not in CANALI_STELLE:
+                    if c_pulito in TUTTI_I_CANALI_BLU:
+                        nome_formattato = f"🔵 {c_pulito}"
+                        if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_NERI:
+                        nome_formattato = f"⚫ {c_pulito}"
+                        if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_GIALLI:
+                        nome_formattato = f"🟡 {c_pulito}"
+                        if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+                        nome_formattato = f"⚪ {c_pulito}"
+                        if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
+                    else:
+                        nome_formattato = f"🟠 {c_pulito}"
+                        if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
         # Ordinamento alfabetico dei singoli gruppi
         gruppo_tv.sort()
@@ -1049,27 +1054,32 @@ def generate_html_palinsesto(matches):
                 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(f"⏳ {c_pulito}")
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
-                if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
-                nome_formattato = f"⭐ {c_pulito}"
-                if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BLU:
-                nome_formattato = f"🔵 {c_pulito}"
-                if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_NERI:
-                nome_formattato = f"⚫ {c_pulito}"
-                if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_GIALLI:
-                nome_formattato = f"🟡 {c_pulito}"
-                if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
-                nome_formattato = f"⚪ {c_pulito}"
-                if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
             else:
-                nome_formattato = f"🟠 {c_pulito}"
-                if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
+                # Controlli indipendenti per consentire la doppia icona (es. 📺 e ⭐)
+                if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
+                    nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
+                    if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
+                
+                if c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+                    nome_formattato = f"⭐ {c_pulito}"
+                    if nome_formattato not in gruppo_stelle: gruppo_stelle.append(nome_formattato)
+                
+                if c_pulito not in CANALI_TV_CLASSICI and c_pulito not in CANALI_STELLE:
+                    if c_pulito in TUTTI_I_CANALI_BLU:
+                        nome_formattato = f"🔵 {c_pulito}"
+                        if nome_formattato not in gruppo_blu: gruppo_blu.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_NERI:
+                        nome_formattato = f"⚫ {c_pulito}"
+                        if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_GIALLI:
+                        nome_formattato = f"🟡 {c_pulito}"
+                        if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
+                    elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+                        nome_formattato = f"⚪ {c_pulito}"
+                        if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
+                    else:
+                        nome_formattato = f"🟠 {c_pulito}"
+                        if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
         # Ordinamento alfabetico dei singoli gruppi
         gruppo_tv.sort()
