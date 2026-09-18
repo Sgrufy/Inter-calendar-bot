@@ -31,7 +31,7 @@ PAROLE_ESCLUSE_REPLICHE = [
 ]
 
 # ==========================================
-# BLACKLIST CANALI RIGOROSA
+# BLACKLIST CANALI RIGOROSA (Aggiornata con esclusioni provvisorie)
 # ==========================================
 BLACKLIST_CANALI = {
     "O!", "o!", "O", "o",
@@ -39,15 +39,20 @@ BLACKLIST_CANALI = {
     "Mezzo", "Mezzo Live", "mezzo", "mezzo live",
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
-    "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo"
+    "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo",
+    # Canali aggiunti alla blacklist provvisoria
+    "sport tv", "wc sport tv 4 hd", "a spor", "wc sport tv+ hd", 
+    "wc sport tv 2 hd", "aci sport tv", "wc sport tv 1 hd", "wc sport tv 3 hd",
+    "sport", "sport tv+", "sport tv5", "sport tv7", "sport tv1", "sport tv2", "sport tv6", "we sport tv",
+    "šport", "rts", "rts 1"
 }
 
 def is_blacklisted(nome_canale):
     if not nome_canale:
         return True
-    nome_pulito = nome_canale.strip()
+    nome_pulito = nome_canale.strip().lower()
     for b in BLACKLIST_CANALI:
-        if nome_pulito.lower() == b.lower():
+        if nome_pulito == b.lower():
             return True
     return False
 
@@ -200,6 +205,7 @@ EPG_PW_TARGET_IDS = {
     "490003": "Sky Sport Arena"
 }
 
+# Inclusi AS3 Sport TV e N Sports tra le stelle
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
@@ -209,12 +215,12 @@ CANALI_STELLE = {
     "Okko Futbol", "Okko Sport", "beIN Sports 1", "beIN Sports 2",
     "beIN Sports 3", "beIN Sports French", "beIN Sports English",
     "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
-    "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+"
+    "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
+    "AS3 Sport TV", "N Sports"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
-    "Eleven Sports", "Eleven Sports 1 Poland", "Eleven Sports 2 Poland", "Eleven Sports 3 Poland", "Eleven Sports 4 Poland",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
     "Polsat Sport", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport Fight", 
     "Nova Sports 1", "Nova Sports 2", "Nova Sports 3", "Nova Sports 4", "Nova Sports Start",
@@ -629,6 +635,37 @@ def pulisci_etichetta_canale(nome_canale):
     return normalizza_nome_canale(" ".join(pulito.split()))
 
 # ==========================================
+# FUNZIONE DI PULIZIA E DEDUPLICAZIONE CANALI (Eleven Sports & Altri)
+# ==========================================
+def pulisci_e_deduplica_canali(canali_grezzi):
+    canali_puliti = []
+    for c in canali_grezzi:
+        c_pulito = pulisci_etichetta_canale(c)
+        if not c_pulito or is_blacklisted(c_pulito):
+            continue
+        if c_pulito not in canali_puliti:
+            canali_puliti.append(c_pulito)
+            
+    ha_eleven_num = any(re.search(r'eleven sports\s*[1-4]', c, re.IGNORECASE) for c in canali_puliti)
+
+    canali_filtrati = []
+    for c in canali_puliti:
+        c_low = c.lower()
+        
+        # Filtro Eleven Sports generico/estero superfluo se esistono quelli numerati dall'1 al 4
+        if "eleven sports" in c_low:
+            is_generico = (c_low.strip() == "eleven sports")
+            is_estero = "poland" in c_low or "pl" in c_low or "be" in c_low
+            
+            if (is_generico or is_estero) and ha_eleven_num:
+                continue
+
+        if c not in canali_filtrati:
+            canali_filtrati.append(c)
+            
+    return canali_filtrati
+
+# ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE
 # ==========================================
 def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=None):
@@ -909,7 +946,9 @@ def generate_ics(matches):
         gruppo_bianco = []
         gruppo_arancione = []
         
-        for c in p['canali']:
+        canali_ottimizzati = pulisci_e_deduplica_canali(p['canali'])
+        
+        for c in canali_ottimizzati:
             c_pulito = pulisci_etichetta_canale(c)
             if not c_pulito or is_blacklisted(c_pulito):
                 continue
@@ -994,7 +1033,9 @@ def generate_html_palinsesto(matches):
         gruppo_bianco = []
         gruppo_arancione = []
         
-        for c in p['canali']:
+        canali_ottimizzati = pulisci_e_deduplica_canali(p['canali'])
+        
+        for c in canali_ottimizzati:
             c_pulito = pulisci_etichetta_canale(c)
             if not c_pulito or is_blacklisted(c_pulito):
                 continue
