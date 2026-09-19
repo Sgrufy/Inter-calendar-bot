@@ -3,16 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ AS Roma vs Inter
-DTSTART:20260919T160000Z
-DTEND:20260919T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 1\n📺 Max Sport 3\n⭐ A Spor\n⭐ Max Sport 3\n⭐ N Sports\n⭐ Se
- tanta Sport 1\n⭐ Setanta Sport 1 Eurasia\n⭐ Sport 1\n🔵 Setanta Spor
- t 1\n🟡 RTS Ⓖ\n⚪ SPORTS-1\n🟠 Eurasia\n🟠 SPORTS 1 ---\n🟠 Spo
- rt 3
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Parma Calcio 1913
 DTSTART:20261010T160000Z
 DTEND:20261010T180000Z
@@ -32,5 +22,12 @@ DTSTART:20261017T160000Z
 DTEND:20261017T180000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Inter vs FK Shakhtar Donetsk
+DTSTART:20261021T190000Z
+DTEND:20261021T210000Z
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
+ n attesa di programmazione ufficiale ⏳
 END:VEVENT
 END:VCALENDAR
