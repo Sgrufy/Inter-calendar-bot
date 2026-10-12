@@ -6,15 +6,19 @@ BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Club Brugge KV
 DTSTART:20261013T190000Z
 DTEND:20261013T210000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
- n attesa di programmazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
+ 📺 Polsat Sport\n📺 Polsat Sport Premium 3\n⭐ A Spor\n⭐ Setanta Sp
+ ort 1\n⭐ Setanta Sport 1 Eurasia\n⭐ Sport 1\n🔵 Arena Sport 1\n🔵 
+ Setanta Sport 1\n⚪ ARENA SPORT 1\n⚪ ARENA SPORT 1 HD HR\n⚪ Arena Spo
+ rt 1 HD\n⚪ pre
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Bologna FC 1909 vs Inter
 DTSTART:20261017T160000Z
 DTEND:20261017T180000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
+ rts 2\n⭐ N Sports\n🟡 RTS 2\n🟡 RTS Ⓖ\n⚪ SPORTS-2\n🟠 SPORTS 2
+  ---
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs FK Shakhtar Donetsk
