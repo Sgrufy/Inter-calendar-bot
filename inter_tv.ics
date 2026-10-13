@@ -3,16 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter vs Club Brugge KV
-DTSTART:20261013T190000Z
-DTEND:20261013T210000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
- 📺 Polsat Sport\n📺 Polsat Sport Premium 3\n⭐ A Spor\n⭐ Setanta Sp
- ort 1\n⭐ Setanta Sport 1 Eurasia\n⭐ Sport 1\n🔵 Arena Sport 1\n🔵 
- Setanta Sport 1\n⚪ ARENA SPORT 1\n⚪ ARENA SPORT 1 HD HR\n⚪ Arena Spo
- rt 1 HD\n⚪ pre
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Bologna FC 1909 vs Inter
 DTSTART:20261017T160000Z
 DTEND:20261017T180000Z
@@ -31,6 +21,13 @@ BEGIN:VEVENT
 SUMMARY:⚽ Inter vs ACF Fiorentina
 DTSTART:20261025T113000Z
 DTEND:20261025T133000Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Venezia FC vs Inter
+DTSTART:20261028T173000Z
+DTEND:20261028T193000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
