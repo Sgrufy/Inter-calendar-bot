@@ -6,15 +6,16 @@ BEGIN:VEVENT
 SUMMARY:⚽ Venezia FC vs Inter
 DTSTART:20261028T173000Z
 DTEND:20261028T193000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
+ rts 2\n⭐ N Sports\n🟡 RTS 2\n🟡 RTS Ⓖ\n⚪ SPORTS-2\n🟠 SPORTS 2
+  ---
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ AC Milan vs Inter
 DTSTART:20261031T194500Z
 DTEND:20261031T214500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
+ rts 1\n⭐ N Sports\n🟡 RTS Ⓖ\n⚪ SPORTS-1\n🟠 SPORTS 1 ---
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Feyenoord Rotterdam vs Inter
