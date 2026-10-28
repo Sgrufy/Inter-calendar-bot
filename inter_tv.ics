@@ -3,14 +3,6 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Venezia FC vs Inter
-DTSTART:20261028T173000Z
-DTEND:20261028T193000Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 2\n⭐ N Sports\n🟡 RTS 2\n🟡 RTS Ⓖ\n⚪ SPORTS-2\n🟠 SPORTS 2
-  ---
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ AC Milan vs Inter
 DTSTART:20261031T194500Z
 DTEND:20261031T214500Z
@@ -29,6 +21,13 @@ BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Como 1907
 DTSTART:20261108T170000Z
 DTEND:20261108T190000Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Atalanta BC vs Inter
+DTSTART:20261122T194500Z
+DTEND:20261122T214500Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
