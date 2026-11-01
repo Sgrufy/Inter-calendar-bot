@@ -204,10 +204,16 @@ EPG_PW_TARGET_IDS = {
     "480001": "Canal+",
     "490001": "Sky Sport Austria 1",
     "490002": "Sky Sport Austria 3",
-    "490003": "Sky Sport Arena"
+    "490003": "Sky Sport Arena",
+    # Canali ORF (Austria)
+    "539623": "ORF Sport+",
+    "76756": "ORF Sport+",
+    "76734": "ORF 3",
+    "76616": "ORF 2",
+    "438442": "ORF 1"
 }
 
-# Canali con la stellina ⭐ (Inclusi Max Sport 1-4, AS3 Sport TV, N Sports, A Spor e Sport+ Qazaqstan)
+# Canali con la stellina ⭐ (Inclusi Max Sport 1-4, AS3 Sport TV, N Sports, A Spor, Sport+ Qazaqstan e ORF)
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
@@ -219,7 +225,8 @@ CANALI_STELLE = {
     "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
     "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan",
-    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4"
+    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
+    "ORF 1", "ORF 2", "ORF 3", "ORF Sport+"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -401,7 +408,7 @@ def carica_canali_esterni():
 
     lista_paesi_standard = [
         'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 
-        'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 
+        'ch', 'at', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 
         'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
     ]
     
@@ -417,7 +424,7 @@ def carica_canali_esterni():
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
         'us': 'usa', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae', 'sa': 'saudiarabia', 
-        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia', 
+        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'at': 'austria', 'cz': 'czech', 'hr': 'bosnia', 
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey', 
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia', 
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
@@ -430,7 +437,7 @@ def carica_canali_esterni():
     globetv_mappatura = {
         'it': 'Italy', 'fr': 'France', 'es': 'Spain', 'pt': 'Portugal', 'pl': 'Poland', 
         'us': 'Usa', 'ar': 'Argentina', 'za': 'Southafrica', 'ae': 'Uae', 'sa': 'Saudiarabia', 
-        'qa': 'Qatar', 'eg': 'Egypt', 'ch': 'Switzerland', 'cz': 'Czech', 'hr': 'Bosnia', 
+        'qa': 'Qatar', 'eg': 'Egypt', 'ch': 'Switzerland', 'at': 'Austria', 'cz': 'Czech', 'hr': 'Bosnia', 
         'rs': 'Serbia', 'hu': 'Hungary', 'sk': 'Slovakia', 'al': 'Albania', 'tr': 'Turkey', 
         'nl': 'Netherlands', 'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'ge': 'Georgia', 
         'md': 'Moldova', 'kz': 'Kazakhstan', 'az': 'Azerbaijan', 'ie': 'Ireland', 'my': 'Malaysia', 
@@ -587,7 +594,7 @@ def scarica_epg_mirato_per_data(data_partita_str):
 
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'at', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
     
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     valid_channel_ids = set(tutti_i_target_pw.keys())
