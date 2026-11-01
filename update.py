@@ -420,6 +420,9 @@ def carica_canali_esterni():
         URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
 
     URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
+    
+    # Aggiunta della guida sportiva di EPGTalk
+    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/acidjesuz/EPGTalk/master/Sports_guide.xml.gz")
 
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland', 
