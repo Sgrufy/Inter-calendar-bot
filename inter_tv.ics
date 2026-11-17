@@ -6,8 +6,9 @@ BEGIN:VEVENT
 SUMMARY:⚽ Atalanta BC vs Inter
 DTSTART:20261122T194500Z
 DTEND:20261122T214500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
- ogrammazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
+ rts 1\n📺 Eleven Sports 1 Ⓢ\n⭐ N Sports\n🟡 Eleven Sports 1 Ⓢ\n
+ 🟡 RTS Ⓖ\n⚪ SPORTS-1\n🟠 SPORTS 1 ---
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs VfB Stuttgart
