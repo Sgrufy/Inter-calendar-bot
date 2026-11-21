@@ -14,6 +14,10 @@ URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
 URL_SECONDA_LISTA = os.getenv("URL_SECONDA_LISTA")
 URL_TERZA_LISTA = os.getenv("URL_TERZA_LISTA")
 URLS_SEI_PLAYLIST = os.getenv("URLS_SEI_PLAYLIST")
+URL_CALENDARIO_STANZA = os.getenv(
+    "URL_CALENDARIO_STANZA",
+    "webcal://app.stanzacal.com/api/calendar/webcal/inter/65f18722ad1fa93828fcce93/6a6d309aad145f808c854ef9.ics?updated=2026-07-31T23%3A35%3A01.227Z"
+)
 
 HEADERS = {
     'X-Auth-Token': API_KEY,
@@ -633,6 +637,103 @@ def pulisci_nome(nome):
                 .replace("FC Inter", "Inter")
                 .replace("Internazionale", "Inter"))
 
+# ==========================================
+# INTEGRAZIONE CALENDARIO ESTERNO STANZA (ANTI-DOPPIONI)
+# ==========================================
+def _dt_to_utc(dt_val):
+    if isinstance(dt_val, datetime):
+        if dt_val.tzinfo is None:
+            return dt_val.replace(tzinfo=timezone.utc)
+        return dt_val.astimezone(timezone.utc)
+    # Se è un oggetto date (senza orario)
+    return datetime(dt_val.year, dt_val.month, dt_val.day, 0, 0, tzinfo=timezone.utc)
+
+def _is_doppione_partita(ora_utc, partite_esistenti, tolleranza_ore=4):
+    for p in partite_esistenti:
+        p_utc = p['ora_utc']
+        if p_utc.date() == ora_utc.date():
+            return True
+        if abs((p_utc - ora_utc).total_seconds()) <= tolleranza_ore * 3600:
+            return True
+    return False
+
+def recupera_partite_da_stanza(url_stanza, partite_esistenti):
+    nuove_partite = []
+    if not url_stanza:
+        return nuove_partite
+
+    url_https = url_stanza.strip()
+    if url_https.lower().startswith("webcal://"):
+        url_https = "https://" + url_https[9:]
+
+    try:
+        resp = requests.get(url_https, headers=HEADERS, timeout=15)
+        if resp.status_code != 200 or not resp.text:
+            print(f"Calendario Stanza non disponibile (status {resp.status_code}).")
+            return nuove_partite
+
+        cal = Calendar.from_ical(resp.text)
+        adesso = datetime.now(timezone.utc)
+
+        for component in cal.walk('vevent'):
+            summary_raw = str(component.get('summary', '')).strip()
+            if not summary_raw:
+                continue
+
+            summary_norm = normalizza_testo(summary_raw)
+            if "inter" not in summary_norm and "internazionale" not in summary_norm:
+                continue
+
+            if any(pe in summary_norm for pe in PAROLE_ESCLUSE_REPLICHE):
+                continue
+
+            dtstart_prop = component.get('dtstart')
+            if not dtstart_prop:
+                continue
+
+            ora_utc = _dt_to_utc(dtstart_prop.dt)
+            if ora_utc.date() < adesso.date():
+                continue
+
+            # Evita doppioni rispetto alle partite già trovate o già aggiunte da Stanza
+            if _is_doppione_partita(ora_utc, partite_esistenti + nuove_partite):
+                continue
+
+            nome_pulito = pulisci_nome(summary_raw)
+            # Pulisce eventuali emoji iniziali o prefissi tipo "Inter - " se già presenti
+            nome_pulito = re.sub(r'^[^\w\s]+\s*', '', nome_pulito).strip()
+
+            # Prova a estrarre home/away se presenti separatori comuni
+            home, away = "Inter", nome_pulito
+            for sep in [" vs ", " - ", " v "]:
+                if sep in nome_pulito:
+                    parti = nome_pulito.split(sep, 1)
+                    home = pulisci_nome(parti[0].strip())
+                    away = pulisci_nome(parti[1].strip())
+                    break
+
+            comp_label = "Supercoppa / Calendario Extra"
+            desc_raw = str(component.get('description', '')).strip()
+            if desc_raw:
+                prima_riga = desc_raw.splitlines()[0].strip()
+                if prima_riga and len(prima_riga) < 60:
+                    comp_label = prima_riga
+
+            nuove_partite.append({
+                'ora_utc': ora_utc,
+                'name': nome_pulito if nome_pulito else f"{home} vs {away}",
+                'competizione': comp_label,
+                'home': home,
+                'away': away
+            })
+
+        if nuove_partite:
+            print(f"Aggiunte {len(nuove_partite)} partite mancanti dal calendario Stanza.")
+    except Exception as e:
+        print(f"Errore lettura calendario Stanza: {e}")
+
+    return nuove_partite
+
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
@@ -718,11 +819,11 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
                         contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
                         contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
 
-                        if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia"])):
+                        if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "supercoppa"])):
                             c_pulito = pulisci_etichetta_canale(ch_name)
                             if c_pulito and c_pulito not in canali_trovati_extra and not is_blacklisted(c_pulito):
                                 canali_trovati_extra.append(c_pulito)
-            except Exception as e:
+            except Exception:
                 continue
                 
     return canali_trovati_extra
@@ -787,7 +888,6 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
         ch_name = normalizza_nome_canale(prog.get('channel_name', ch_id))
-        source_epg = prog.get('source', 'EPG Generale')
         
         if is_blacklisted(ch_name):
             continue
@@ -804,7 +904,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         match_trovato = False
         if contiene_inter and contiene_avversario:
             match_trovato = True
-        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "liga"]):
+        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "supercoppa", "liga"]):
             match_trovato = True
 
         if match_trovato:
@@ -858,6 +958,8 @@ def fetch_next_matches():
         data = response.json()
         
         partite_da_analizzare = []
+        adesso = datetime.now(timezone.utc)
+
         for match in data.get('matches', []):
             if match.get('competition', {}).get('code') not in COMPETITIONS:
                 continue
@@ -868,12 +970,15 @@ def fetch_next_matches():
                 continue
                 
             date_str = match.get('utcDate')
-            if not date_str: continue
+            if not date_str:
+                continue
                 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-            adesso = datetime.now(timezone.utc)
             
             if date_utc.date() < adesso.date():
+                continue
+
+            if _is_doppione_partita(date_utc, partite_da_analizzare):
                 continue
 
             home = pulisci_nome(match.get('homeTeam', {}).get('name', 'Casa'))
@@ -886,6 +991,10 @@ def fetch_next_matches():
                 'home': home,
                 'away': away
             })
+
+        # Integra eventuali partite mancanti (es. Supercoppa) dal calendario Stanza senza doppioni
+        extra_stanza = recupera_partite_da_stanza(URL_CALENDARIO_STANZA, partite_da_analizzare)
+        partite_da_analizzare.extend(extra_stanza)
             
         partite_da_analizzare.sort(key=lambda x: x['ora_utc'])
         partite_da_analizzare = partite_da_analizzare[:4]
@@ -964,7 +1073,6 @@ def generate_ics(matches):
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
             else:
-                # Controlli indipendenti per consentire la doppia icona (es. 📺 e ⭐)
                 if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                     nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                     if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
@@ -990,7 +1098,6 @@ def generate_ics(matches):
                         nome_formattato = f"🟠 {c_pulito}"
                         if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
                 
-        # Ordinamento alfabetico dei singoli gruppi
         gruppo_tv.sort()
         gruppo_stelle.sort()
         gruppo_blu.sort()
@@ -1065,7 +1172,6 @@ def generate_html_palinsesto(matches):
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(f"⏳ {c_pulito}")
             else:
-                # Controlli indipendenti per consentire la doppia icona (es. 📺 e ⭐)
                 if c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
                     nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
                     if nome_formattato not in gruppo_tv: gruppo_tv.append(nome_formattato)
@@ -1082,50 +1188,4 @@ def generate_html_palinsesto(matches):
                         nome_formattato = f"⚫ {c_pulito}"
                         if nome_formattato not in gruppo_nero: gruppo_nero.append(nome_formattato)
                     elif c_pulito in TUTTI_I_CANALI_GIALLI:
-                        nome_formattato = f"🟡 {c_pulito}"
-                        if nome_formattato not in gruppo_giallo: gruppo_giallo.append(nome_formattato)
-                    elif c_pulito in TUTTI_I_CANALI_BIANCHI:
-                        nome_formattato = f"⚪ {c_pulito}"
-                        if nome_formattato not in gruppo_bianco: gruppo_bianco.append(nome_formattato)
-                    else:
-                        nome_formattato = f"🟠 {c_pulito}"
-                        if nome_formattato not in gruppo_arancione: gruppo_arancione.append(nome_formattato)
-                
-        # Ordinamento alfabetico dei singoli gruppi
-        gruppo_tv.sort()
-        gruppo_stelle.sort()
-        gruppo_blu.sort()
-        gruppo_nero.sort()
-        gruppo_giallo.sort()
-        gruppo_bianco.sort()
-        gruppo_arancione.sort()
-
-        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
-        if not righe_ordinate:
-            righe_ordinate = ["⏳ In attesa di programmazione ufficiale"]
-
-        canali_str = "\n".join(righe_ordinate)
-        
-        html_content += f"""
-        <div class="match-card">
-            <div class="match-title">⚽ {p['name']}</div>
-            <div class="match-date">📅 {ora_locale} | 🏆 {p['competizione']}</div>
-            <div class="channels">{canali_str}</div>
-        </div>
-        """
-
-    html_content += """
-    </div>
-</body>
-</html>
-"""
-    
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
-    print("Pagina HTML generata con successo (index.html).")
-
-if __name__ == '__main__':
-    carica_canali_esterni()
-    matches = fetch_next_matches()
-    generate_ics(matches)
-    generate_html_palinsesto(matches)
+                        nome_
