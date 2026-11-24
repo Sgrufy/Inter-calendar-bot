@@ -19,7 +19,7 @@ jobs:
 
       - name: Installa dipendenze
         run: |
-          pip install requests icalendar
+          pip install requests icalendar beautifulsoup4
 
       - name: Esegui script di aggiornamento
         env:
