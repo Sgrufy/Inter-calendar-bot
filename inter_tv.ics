@@ -3,20 +3,12 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Atalanta BC vs Inter
-DTSTART:20261122T194500Z
-DTEND:20261122T214500Z
-DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 1\n📺 Eleven Sports 1 Ⓢ\n⭐ A Spor\n⭐ N Sports\n⭐ Setanta Spo
- rt 1\n⭐ Setanta Sport 1 Eurasia\n⭐ Sport 1\n🔵 Setanta Sport 1\n🟡
-  Eleven Sports 1 Ⓢ\n🟡 RTS Ⓖ\n⚪ SPORTS-1\n🟠 SPORTS 1 ---
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Inter vs VfB Stuttgart
 DTSTART:20261125T200000Z
 DTEND:20261125T220000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
- n attesa di programmazione ufficiale ⏳
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
+ ⭐ Sport 2\n🔵 Arena Sport 2\n🟡 Šport\n⚪ Arena Sport 2 HD\n⚪ AR
+ ENA SPORT 2 HD HR\n⚪ ARENA SPORT 2\n🟠 Sport\n🟠 A Spor
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Genoa CFC
@@ -26,9 +18,30 @@ DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
+SUMMARY:⚽ Inter - Genoa
+DTSTART:20261201T200000Z
+DTEND:20261201T220000Z
+DESCRIPTION:🏆 Competizione: Coppa Italia\n\n📡 Canali TV:\nIn attesa 
+ di programmazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
 SUMMARY:⚽ Frosinone Calcio vs Inter
 DTSTART:20261205T170000Z
 DTEND:20261205T190000Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
+ ogrammazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Borussia Dortmund vs Inter
+DTSTART:20261209T200000Z
+DTEND:20261209T220000Z
+DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\nI
+ n attesa di programmazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ Inter vs Torino FC
+DTSTART:20261213T140000Z
+DTEND:20261213T160000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\nIn attesa di pr
  ogrammazione ufficiale ⏳
 END:VEVENT
