@@ -56,13 +56,23 @@ def is_blacklisted(nome_canale):
             return True
     return False
 
+def is_prime_video_channel(testo):
+    if not testo:
+        return False
+    t = testo.lower()
+    return (
+        "prime video" in t
+        or "amazon prime" in t
+        or bool(re.search(r'\bprime\s*(video|sport|it|uk|ch|de|fr|es|pt|pl)?\b', t))
+    )
+
 # ==========================================
-# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA & CO.)
+# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA, PRIME VIDEO & CO.)
 # ==========================================
 def normalizza_nome_canale(ch_name):
     """
-    Standardizza i nomi dei canali Setanta e dell'area Eurasia distinguendo i feed regionali
-    ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
+    Standardizza i nomi dei canali Setanta, dell'area Eurasia, Prime Video e canali italiani
+    distinguendo i feed regionali ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
     """
     if not ch_name:
         return ""
@@ -79,6 +89,9 @@ def normalizza_nome_canale(ch_name):
 
     if 'max sport 3' in ch_lower:
         return "Max Sport 3"
+
+    if is_prime_video_channel(ch_name):
+        return "Prime Video"
 
     if ch_lower in {"italia uno", "italia 1"} or re.fullmatch(r'italia\s*(uno|1)', ch_lower):
         return "Italia 1"
@@ -271,6 +284,7 @@ def normalizza_testo(testo):
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',
         'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',
         'italia uno': 'italia 1', 'canale cinque': 'canale 5',
+        'amazon prime video': 'prime video', 'amazon prime': 'prime video',
         'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
         'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
         'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma', 'as roma': 'roma',
@@ -406,7 +420,7 @@ def carica_canali_esterni():
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
 
-    for can_it in ["Canale 5", "Italia 1", "Italia Uno"]:
+    for can_it in ["Canale 5", "Italia 1", "Italia Uno", "Prime Video"]:
         can_norm = normalizza_nome_canale(can_it)
         TUTTI_I_CANALI_BLU.add(can_norm)
         INFO_CANALI[can_norm] = {"id": can_norm}
@@ -422,7 +436,7 @@ def carica_canali_esterni():
 
     lista_paesi_standard = [
         'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg',
-        'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el',
+        'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el',
         'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
     ]
 
@@ -438,7 +452,7 @@ def carica_canali_esterni():
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland',
         'us': 'usa', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae', 'sa': 'saudiarabia',
-        'qa': 'qatar', 'eg': 'egypt', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia',
+        'qa': 'qatar', 'eg': 'egypt', 'at': 'austria', 'ch': 'switzerland', 'cz': 'czech', 'hr': 'bosnia',
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey',
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia',
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
@@ -451,7 +465,7 @@ def carica_canali_esterni():
     globetv_mappatura = {
         'it': 'Italy', 'fr': 'France', 'es': 'Spain', 'pt': 'Portugal', 'pl': 'Poland',
         'us': 'Usa', 'ar': 'Argentina', 'za': 'Southafrica', 'ae': 'Uae', 'sa': 'Saudiarabia',
-        'qa': 'Qatar', 'eg': 'Egypt', 'ch': 'Switzerland', 'cz': 'Czech', 'hr': 'Bosnia',
+        'qa': 'Qatar', 'eg': 'Egypt', 'at': 'Austria', 'ch': 'Switzerland', 'cz': 'Czech', 'hr': 'Bosnia',
         'rs': 'Serbia', 'hu': 'Hungary', 'sk': 'Slovakia', 'al': 'Albania', 'tr': 'Turkey',
         'nl': 'Netherlands', 'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'ge': 'Georgia',
         'md': 'Moldova', 'kz': 'Kazakhstan', 'az': 'Azerbaijan', 'ie': 'Ireland', 'my': 'Malaysia',
@@ -504,6 +518,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                             valid_channel_ids.add(ch_id)
                             valid_channel_ids.add(ch_name)
                             valid_channel_ids.add(normalizza_testo(ch_name))
+                            if is_prime_video_channel(ch_name):
+                                valid_channel_ids.add("Prime Video")
             elem.clear()
 
         context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
@@ -528,23 +544,41 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                     else:
                         ch_lookup = "Okko Sport"
 
-                if (ch in tutti_i_target_pw or ch in ["5Sport.il", "QazSport.kz"] or ch in valid_channel_ids or ch_lookup in valid_channel_ids or normalizza_testo(ch_lookup) in valid_channel_ids or ch.isdigit() or "okko" in ch_lookup_lower or "окко" in ch_lookup_lower):
+                title_el = elem.find('title')
+                title_text = title_el.text if (title_el is not None and title_el.text) else ""
+                title_norm = normalizza_testo(title_text)
+                desc_el = elem.find('desc')
+                desc_text = desc_el.text if (desc_el is not None and desc_el.text) else ""
+                desc_norm = normalizza_testo(desc_text)
+
+                is_prime_context = is_prime_video_channel(ch_lookup) or is_prime_video_channel(title_text) or is_prime_video_channel(desc_text)
+
+                if (
+                    ch in tutti_i_target_pw
+                    or ch in ["5Sport.il", "QazSport.kz"]
+                    or ch in valid_channel_ids
+                    or ch_lookup in valid_channel_ids
+                    or normalizza_testo(ch_lookup) in valid_channel_ids
+                    or ch.isdigit()
+                    or "okko" in ch_lookup_lower
+                    or "окко" in ch_lookup_lower
+                    or is_prime_context
+                ):
                     if ch in tutti_i_target_pw:
                         ch_lookup = normalizza_nome_canale(tutti_i_target_pw[ch])
                     elif ch == "5Sport.il":
                         ch_lookup = "5Sport"
                     elif ch == "QazSport.kz":
                         ch_lookup = "QazSport"
-
-                    title_el = elem.find('title')
-                    title_text = title_el.text if (title_el is not None and title_el.text) else ""
-                    title_norm = normalizza_testo(title_text)
+                    elif is_prime_video_channel(ch_lookup):
+                        ch_lookup = "Prime Video"
 
                     if title_text and elem.get('start') and not any(scarto in title_norm for scarto in parole_da_scartare):
                         programmi_locali.append({
                             'channel': ch,
                             'channel_name': ch_lookup,
                             'title': title_norm,
+                            'desc': desc_norm,
                             'start': elem.get('start'),
                             'source': source_label
                         })
@@ -608,12 +642,14 @@ def scarica_epg_mirato_per_data(data_partita_str):
 
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
+    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
 
     tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
     valid_channel_ids = set(tutti_i_target_pw.keys())
     valid_channel_ids.add("5Sport.il")
     valid_channel_ids.add("QazSport.kz")
+    valid_channel_ids.add("Prime Video")
+    valid_channel_ids.add("prime video")
 
     for nome, info in INFO_CANALI.items():
         if not is_blacklisted(nome):
@@ -742,6 +778,8 @@ def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
+    if is_prime_video_channel(nome_canale):
+        return "Prime Video"
     nome_canale = normalizza_nome_canale(nome_canale)
     if "5sport" in nome_canale.lower() or "sport 5" in nome_canale.lower() or "ספורט 5" in nome_canale:
         return "5Sport"
@@ -751,7 +789,8 @@ def pulisci_etichetta_canale(nome_canale):
     pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
     pulito = re.sub(r'^[:\-\s]+', '', pulito)
-    return normalizza_nome_canale(" ".join(pulito.split()))
+    pulito_norm = normalizza_nome_canale(" ".join(pulito.split()))
+    return "Prime Video" if is_prime_video_channel(pulito_norm) else pulito_norm
 
 # ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE
@@ -880,6 +919,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
         title = prog['title']
         title_lower = title.lower()
+        desc_norm = prog.get('desc', '')
 
         if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
             continue
@@ -909,6 +949,8 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
                             c_uff = "QazSport"
                         elif "okko" in ch_name_lower or "окко" in ch_name_lower:
                             c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
+                        elif is_prime_video_channel(ch_name) or is_prime_video_channel(title) or is_prime_video_channel(desc_norm):
+                            c_uff = "Prime Video"
                         elif ch_id in EPG_PW_TARGET_IDS:
                             c_uff = normalizza_nome_canale(EPG_PW_TARGET_IDS[ch_id])
                         elif ch_id in EPG_PW_TV_IDS:
@@ -1057,11 +1099,13 @@ def generate_ics(matches):
                 c_pulito = "QazSport"
             elif "okko" in c_lower or "окко" in c_lower:
                 c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
+            elif is_prime_video_channel(c_pulito):
+                c_pulito = "Prime Video"
 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(c_pulito)
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
+                nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv:
                     gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
@@ -1149,11 +1193,13 @@ def generate_html_palinsesto(matches):
                 c_pulito = "QazSport"
             elif "okko" in c_lower or "окко" in c_lower:
                 c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
+            elif is_prime_video_channel(c_pulito):
+                c_pulito = "Prime Video"
 
             if "In attesa" in c_pulito:
                 gruppo_arancione.append(f"⏳ {c_pulito}")
             elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if "prime" in c_lower else f"📺 {c_pulito}"
+                nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
                 if nome_formattato not in gruppo_tv:
                     gruppo_tv.append(nome_formattato)
             elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
