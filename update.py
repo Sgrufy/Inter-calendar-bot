@@ -9,6 +9,8 @@ import io
 import unicodedata
 import re
 import gzip
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 
 API_KEY = os.getenv("FOOTBALL_DATA_KEY")
 URL_CANALI_BLU = os.getenv("URL_CANALI_BLU")
@@ -23,6 +25,12 @@ URL_CALENDARIO_FOTMOB = os.getenv(
 HEADERS = {
     'X-Auth-Token': API_KEY,
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+}
+
+WEB_SCRAPE_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9,it;q=0.8'
 }
 
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
@@ -272,6 +280,13 @@ TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
 TUTTI_I_CANALI_BIANCHI = set()
 URLS_EPG_DINAMICI = set()
+
+# Mappa per partita: chiave -> set di nomi canale puliti trovati su OddAlerts
+CANALI_SOLE_ODDALERTS_PER_MATCH = {}
+
+def _chiave_match_sole(match_name, ora_utc):
+    data_g = ora_utc.strftime('%Y-%m-%d') if isinstance(ora_utc, datetime) else str(ora_utc)[:10]
+    return f"{normalizza_testo(match_name)}|{data_g}"
 
 def normalizza_testo(testo):
     if not testo:
@@ -793,6 +808,234 @@ def pulisci_etichetta_canale(nome_canale):
     return "Prime Video" if is_prime_video_channel(pulito_norm) else pulito_norm
 
 # ==========================================
+# FONTI WEB AGGIUNTIVE: PAGINE SQUADRA INTER, LIVE-FOOTBALLONTV & ODDALERTS
+# ==========================================
+_RUOLO_O_RUMORE_WEB = {
+    "tv", "live", "stream", "streaming", "watch", "channel", "channels",
+    "schedule", "fixtures", "results", "standings", "table", "news",
+    "preview", "prediction", "odds", "stats", "lineups", "kickoff", "ko",
+    "serie a", "champions league", "coppa italia", "supercoppa",
+    "inter", "internazionale", "inter milan", "home", "away", "vs", "v",
+    "uk", "us", "usa", "italy", "spain", "france", "germany", "portugal",
+    "poland", "greece", "croatia", "serbia", "bulgaria", "romania", "netherlands"
+}
+
+def _parole_avversario_match(home_team, away_team):
+    h_norm = normalizza_testo(home_team)
+    avversario = away_team if "inter" in h_norm else home_team
+    av_norm = normalizza_testo(avversario)
+    stop = {"fc", "ac", "as", "ssc", "us", "cf", "cd", "sc", "calcio", "inter", "internazionale", "milan", "vfb", "rb", "fk", "sk"}
+    return [p for p in av_norm.split() if len(p) > 2 and p not in stop]
+
+def _estrai_emittenti_da_contenitore(el, av_parole):
+    trovati = []
+    if not el:
+        return trovati
+
+    # Cerca prima elementi dedicati a canali/broadcaster/immagini con alt o title
+    candidati_testo = []
+    for sub in el.find_all(["a", "span", "div", "li", "img", "button", "p", "td"]):
+        if sub.name == "img":
+            alt_t = (sub.get("alt") or "").strip()
+            title_t = (sub.get("title") or "").strip()
+            for val in (alt_t, title_t):
+                if val and len(val) <= 45:
+                    candidati_testo.append(val)
+        else:
+            txt = " ".join(sub.get_text(" ", strip=True).split())
+            if txt and 2 <= len(txt) <= 45:
+                candidati_testo.append(txt)
+
+    for raw in candidati_testo:
+        low = raw.lower().strip()
+        if low in _RUOLO_O_RUMORE_WEB:
+            continue
+        if any(pe in low for pe in PAROLE_ESCLUSE_REPLICHE):
+            continue
+        if any(re.search(rf'\b{re.escape(ap)}\b', normalizza_testo(low)) for ap in av_parole):
+            continue
+        if re.fullmatch(r'[\d\s:/\-\+\.]+', low):
+            continue
+
+        c_pulito = pulisci_etichetta_canale(raw)
+        if c_pulito and len(c_pulito) >= 2 and not is_blacklisted(c_pulito):
+            if c_pulito.lower() not in _RUOLO_O_RUMORE_WEB and c_pulito not in trovati:
+                trovati.append(c_pulito)
+    return trovati
+
+def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
+    """
+    Cerca canali TV dalle pagine squadra dell'Inter su whichtvchannel.com e wheresthematch.com
+    senza alterare le altre fonti o la pipeline esistente.
+    """
+    canali_trovati = []
+    av_parole = _parole_avversario_match(home_team, away_team)
+    data_str = data_partita.strftime('%Y-%m-%d') if isinstance(data_partita, datetime) else str(data_partita)[:10]
+
+    pagine_squadra = [
+        "https://whichtvchannel.com/football/teams/inter-milan",
+        "https://www.wheresthematch.com/Football/Inter-Milan.asp"
+    ]
+
+    for url in pagine_squadra:
+        try:
+            resp = requests.get(url, headers=WEB_SCRAPE_HEADERS, timeout=10)
+            if resp.status_code != 200 or not resp.text:
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            blocchi = soup.find_all(["tr", "li", "article", "div", "section"])
+
+            for blocco in blocchi:
+                testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
+                if "inter" not in testo_blocco:
+                    continue
+                if av_parole and not any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole):
+                    continue
+                if len(testo_blocco) > 1200:
+                    continue
+
+                for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
+                    if c not in canali_trovati:
+                        print(f"   ✅ CANALE AGGIUNTO da Pagina Squadra ({url}): {c} [{data_str}]")
+                        canali_trovati.append(c)
+        except Exception:
+            continue
+
+    return canali_trovati
+
+def cerca_canali_live_footballontv(home_team, away_team, data_partita):
+    """
+    Cerca canali da live-footballontv.com (pagina calcio italiano e relativa ancora/data del match).
+    """
+    canali_trovati = []
+    av_parole = _parole_avversario_match(home_team, away_team)
+
+    try:
+        dt_obj = data_partita if isinstance(data_partita, datetime) else datetime.now(timezone.utc)
+        anchor = dt_obj.strftime("%Y%b%d")  # es. 2026Nov25
+        base_url = "https://www.live-footballontv.com/live-italian-football-on-tv.html"
+        urls_da_provare = [f"{base_url}#{anchor}", base_url]
+
+        for url in urls_da_provare:
+            resp = requests.get(url, headers=WEB_SCRAPE_HEADERS, timeout=10)
+            if resp.status_code != 200 or not resp.text:
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            target_container = soup.find(id=anchor) or soup.find("a", attrs={"name": anchor}) or soup
+
+            blocchi = target_container.find_all(["tr", "li", "article", "div", "p"])
+            for blocco in blocchi:
+                testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
+                if "inter" not in testo_blocco:
+                    continue
+                if av_parole and not any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole):
+                    continue
+                if len(testo_blocco) > 1200:
+                    continue
+
+                for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
+                    if c not in canali_trovati:
+                        print(f"   ✅ CANALE AGGIUNTO da Live-FootballOnTV: {c}")
+                        canali_trovati.append(c)
+
+            if canali_trovati:
+                break
+    except Exception:
+        pass
+
+    return canali_trovati
+
+def cerca_canali_oddalerts(home_team, away_team, data_partita):
+    """
+    Cerca dinamicamente per ogni partita dell'Inter i canali su oddalerts.com
+    (individuando il link del match del giorno/avversario e leggendone le emittenti)
+    e registra i canali trovati per l'icona automatica del sole (☀️) quando non già
+    appartenenti ai gruppi stelline/TV/classificazioni esistenti.
+    """
+    canali_trovati = []
+    av_parole = _parole_avversario_match(home_team, away_team)
+    dt_obj = data_partita if isinstance(data_partita, datetime) else datetime.now(timezone.utc)
+    data_iso = dt_obj.strftime("%Y-%m-%d")
+
+    chiave_sole = _chiave_match_sole(f"{home_team} vs {away_team}", dt_obj)
+    CANALI_SOLE_ODDALERTS_PER_MATCH.setdefault(chiave_sole, set())
+
+    pagine_indice = [
+        f"https://www.oddalerts.com/livescores?date={data_iso}",
+        "https://www.oddalerts.com/livescores",
+        "https://www.oddalerts.com/tv-guide/italy",
+        "https://www.oddalerts.com/tv-guide"
+    ]
+
+    link_match_trovati = []
+
+    try:
+        for idx_url in pagine_indice:
+            resp = requests.get(idx_url, headers=WEB_SCRAPE_HEADERS, timeout=10)
+            if resp.status_code != 200 or not resp.text:
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            for a_tag in soup.find_all("a", href=True):
+                href = a_tag["href"].strip()
+                testo_link = normalizza_testo(a_tag.get_text(" ", strip=True))
+                href_norm = normalizza_testo(href)
+
+                if "/livescores/" in href:
+                    ha_inter = ("inter" in href_norm) or ("inter" in testo_link)
+                    ha_avv = any(re.search(rf'\b{re.escape(ap)}\b', f"{href_norm} {testo_link}") for ap in av_parole) if av_parole else False
+                    if ha_inter and (ha_avv or not av_parole):
+                        full_url = urljoin("https://www.oddalerts.com", href)
+                        if full_url not in link_match_trovati:
+                            link_match_trovati.append(full_url)
+
+            # Se sull'indice troviamo direttamente un blocco match con i canali inline
+            for blocco in soup.find_all(["tr", "li", "article", "div"]):
+                testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
+                if "inter" in testo_blocco and (not av_parole or any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole)) and len(testo_blocco) < 900:
+                    for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
+                        if c not in canali_trovati:
+                            canali_trovati.append(c)
+                            CANALI_SOLE_ODDALERTS_PER_MATCH[chiave_sole].add(c)
+
+            if link_match_trovati:
+                break
+
+        for match_url in link_match_trovati[:3]:
+            resp_m = requests.get(match_url, headers=WEB_SCRAPE_HEADERS, timeout=10)
+            if resp_m.status_code != 200 or not resp_m.text:
+                continue
+
+            soup_m = BeautifulSoup(resp_m.text, "html.parser")
+            sezioni_tv = soup_m.find_all(["section", "div", "table", "ul"])
+            trovato_in_sezione = False
+
+            for sez in sezioni_tv:
+                txt_sez = normalizza_testo(sez.get_text(" ", strip=True))
+                if any(k in txt_sez for k in ["tv channel", "where to watch", "broadcast", "live stream", "canali", "tv guide"]):
+                    if len(txt_sez) < 2500:
+                        for c in _estrai_emittenti_da_contenitore(sez, av_parole):
+                            if c not in canali_trovati:
+                                canali_trovati.append(c)
+                                CANALI_SOLE_ODDALERTS_PER_MATCH[chiave_sole].add(c)
+                                trovato_in_sezione = True
+
+            if not trovato_in_sezione:
+                for c in _estrai_emittenti_da_contenitore(soup_m, av_parole):
+                    if c not in canali_trovati:
+                        canali_trovati.append(c)
+                        CANALI_SOLE_ODDALERTS_PER_MATCH[chiave_sole].add(c)
+
+        for c in canali_trovati:
+            print(f"   ✅ CANALE AGGIUNTO da OddAlerts: {c}")
+    except Exception:
+        pass
+
+    return canali_trovati
+
+# ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE
 # ==========================================
 def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=None):
@@ -1051,6 +1294,21 @@ def fetch_next_matches():
                     if c not in canali_reali:
                         canali_reali.append(c)
 
+                canali_pagine_squadra = cerca_canali_pagine_squadra_inter(p['home'], p['away'], p['ora_utc'])
+                for c in canali_pagine_squadra:
+                    if c not in canali_reali:
+                        canali_reali.append(c)
+
+                canali_live_tv = cerca_canali_live_footballontv(p['home'], p['away'], p['ora_utc'])
+                for c in canali_live_tv:
+                    if c not in canali_reali:
+                        canali_reali.append(c)
+
+                canali_oddalerts = cerca_canali_oddalerts(p['home'], p['away'], p['ora_utc'])
+                for c in canali_oddalerts:
+                    if c not in canali_reali:
+                        canali_reali.append(c)
+
                 if not canali_reali:
                     canali_reali = ["In attesa di programmazione ufficiale ⏳"]
 
@@ -1066,6 +1324,42 @@ def fetch_next_matches():
 
     return all_matches
 
+def _formatta_canale_per_gruppo(c, canali_sole_set):
+    c_pulito = pulisci_etichetta_canale(c)
+    if not c_pulito or is_blacklisted(c_pulito):
+        return None, None
+
+    c_lower = c_pulito.lower()
+
+    if "5sport" in c_lower or "sport 5" in c_lower:
+        c_pulito = "5Sport"
+    elif "qazsport" in c_lower:
+        c_pulito = "QazSport"
+    elif "okko" in c_lower or "окко" in c_lower:
+        c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
+    elif is_prime_video_channel(c_pulito):
+        c_pulito = "Prime Video"
+
+    if "In attesa" in c_pulito:
+        return "arancione", f"⏳ {c_pulito}"
+    elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
+        nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
+        return "tv", nome_formattato
+    elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+        return "stelle", f"⭐ {c_pulito}"
+    elif c_pulito in TUTTI_I_CANALI_BLU:
+        return "blu", f"🔵 {c_pulito}"
+    elif c_pulito in TUTTI_I_CANALI_NERI:
+        return "nero", f"⚫ {c_pulito}"
+    elif c_pulito in TUTTI_I_CANALI_GIALLI:
+        return "giallo", f"🟡 {c_pulito}"
+    elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+        return "bianco", f"⚪ {c_pulito}"
+    elif c_pulito in canali_sole_set or c in canali_sole_set:
+        return "sole", f"☀️ {c_pulito}"
+    else:
+        return "arancione", f"🟠 {c_pulito}"
+
 def generate_ics(matches):
     cal = Calendar()
     cal.add('prodid', '-//Calendario Inter V89 EPG//IT')
@@ -1078,62 +1372,40 @@ def generate_ics(matches):
         evento.add('dtstart', p['ora_utc'])
         evento.add('dtend', p['ora_utc'] + timedelta(hours=2))
 
+        chiave_sole = _chiave_match_sole(p['name'], p['ora_utc'])
+        canali_sole_set = CANALI_SOLE_ODDALERTS_PER_MATCH.get(chiave_sole, set())
+
         gruppo_tv = []
         gruppo_stelle = []
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
         gruppo_bianco = []
+        gruppo_sole = []
         gruppo_arancione = []
 
         for c in p['canali']:
-            c_pulito = pulisci_etichetta_canale(c)
-            if not c_pulito or is_blacklisted(c_pulito):
+            gruppo, nome_formattato = _formatta_canale_per_gruppo(c, canali_sole_set)
+            if not gruppo:
                 continue
+            if gruppo == "tv" and nome_formattato not in gruppo_tv:
+                gruppo_tv.append(nome_formattato)
+            elif gruppo == "stelle" and nome_formattato not in gruppo_stelle:
+                gruppo_stelle.append(nome_formattato)
+            elif gruppo == "blu" and nome_formattato not in gruppo_blu:
+                gruppo_blu.append(nome_formattato)
+            elif gruppo == "nero" and nome_formattato not in gruppo_nero:
+                gruppo_nero.append(nome_formattato)
+            elif gruppo == "giallo" and nome_formattato not in gruppo_giallo:
+                gruppo_giallo.append(nome_formattato)
+            elif gruppo == "bianco" and nome_formattato not in gruppo_bianco:
+                gruppo_bianco.append(nome_formattato)
+            elif gruppo == "sole" and nome_formattato not in gruppo_sole:
+                gruppo_sole.append(nome_formattato)
+            elif gruppo == "arancione" and nome_formattato not in gruppo_arancione:
+                gruppo_arancione.append(nome_formattato)
 
-            c_lower = c_pulito.lower()
-
-            if "5sport" in c_lower or "sport 5" in c_lower:
-                c_pulito = "5Sport"
-            elif "qazsport" in c_lower:
-                c_pulito = "QazSport"
-            elif "okko" in c_lower or "окко" in c_lower:
-                c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
-            elif is_prime_video_channel(c_pulito):
-                c_pulito = "Prime Video"
-
-            if "In attesa" in c_pulito:
-                gruppo_arancione.append(c_pulito)
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
-                if nome_formattato not in gruppo_tv:
-                    gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
-                nome_formattato = f"⭐ {c_pulito}"
-                if nome_formattato not in gruppo_stelle:
-                    gruppo_stelle.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BLU:
-                nome_formattato = f"🔵 {c_pulito}"
-                if nome_formattato not in gruppo_blu:
-                    gruppo_blu.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_NERI:
-                nome_formattato = f"⚫ {c_pulito}"
-                if nome_formattato not in gruppo_nero:
-                    gruppo_nero.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_GIALLI:
-                nome_formattato = f"🟡 {c_pulito}"
-                if nome_formattato not in gruppo_giallo:
-                    gruppo_giallo.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
-                nome_formattato = f"⚪ {c_pulito}"
-                if nome_formattato not in gruppo_bianco:
-                    gruppo_bianco.append(nome_formattato)
-            else:
-                nome_formattato = f"🟠 {c_pulito}"
-                if nome_formattato not in gruppo_arancione:
-                    gruppo_arancione.append(nome_formattato)
-
-        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
+        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_sole + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["In attesa di programmazione ufficiale ⏳"]
 
@@ -1172,62 +1444,40 @@ def generate_html_palinsesto(matches):
         ora_italiana = p['ora_utc'].astimezone(ZoneInfo("Europe/Rome"))
         ora_locale = ora_italiana.strftime('%d/%m/%Y alle %H:%M')
 
+        chiave_sole = _chiave_match_sole(p['name'], p['ora_utc'])
+        canali_sole_set = CANALI_SOLE_ODDALERTS_PER_MATCH.get(chiave_sole, set())
+
         gruppo_tv = []
         gruppo_stelle = []
         gruppo_blu = []
         gruppo_nero = []
         gruppo_giallo = []
         gruppo_bianco = []
+        gruppo_sole = []
         gruppo_arancione = []
 
         for c in p['canali']:
-            c_pulito = pulisci_etichetta_canale(c)
-            if not c_pulito or is_blacklisted(c_pulito):
+            gruppo, nome_formattato = _formatta_canale_per_gruppo(c, canali_sole_set)
+            if not gruppo:
                 continue
+            if gruppo == "tv" and nome_formattato not in gruppo_tv:
+                gruppo_tv.append(nome_formattato)
+            elif gruppo == "stelle" and nome_formattato not in gruppo_stelle:
+                gruppo_stelle.append(nome_formattato)
+            elif gruppo == "blu" and nome_formattato not in gruppo_blu:
+                gruppo_blu.append(nome_formattato)
+            elif gruppo == "nero" and nome_formattato not in gruppo_nero:
+                gruppo_nero.append(nome_formattato)
+            elif gruppo == "giallo" and nome_formattato not in gruppo_giallo:
+                gruppo_giallo.append(nome_formattato)
+            elif gruppo == "bianco" and nome_formattato not in gruppo_bianco:
+                gruppo_bianco.append(nome_formattato)
+            elif gruppo == "sole" and nome_formattato not in gruppo_sole:
+                gruppo_sole.append(nome_formattato)
+            elif gruppo == "arancione" and nome_formattato not in gruppo_arancione:
+                gruppo_arancione.append(nome_formattato)
 
-            c_lower = c_pulito.lower()
-
-            if "5sport" in c_lower or "sport 5" in c_lower:
-                c_pulito = "5Sport"
-            elif "qazsport" in c_lower:
-                c_pulito = "QazSport"
-            elif "okko" in c_lower or "окко" in c_lower:
-                c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
-            elif is_prime_video_channel(c_pulito):
-                c_pulito = "Prime Video"
-
-            if "In attesa" in c_pulito:
-                gruppo_arancione.append(f"⏳ {c_pulito}")
-            elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
-                nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
-                if nome_formattato not in gruppo_tv:
-                    gruppo_tv.append(nome_formattato)
-            elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
-                nome_formattato = f"⭐ {c_pulito}"
-                if nome_formattato not in gruppo_stelle:
-                    gruppo_stelle.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BLU:
-                nome_formattato = f"🔵 {c_pulito}"
-                if nome_formattato not in gruppo_blu:
-                    gruppo_blu.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_NERI:
-                nome_formattato = f"⚫ {c_pulito}"
-                if nome_formattato not in gruppo_nero:
-                    gruppo_nero.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_GIALLI:
-                nome_formattato = f"🟡 {c_pulito}"
-                if nome_formattato not in gruppo_giallo:
-                    gruppo_giallo.append(nome_formattato)
-            elif c_pulito in TUTTI_I_CANALI_BIANCHI:
-                nome_formattato = f"⚪ {c_pulito}"
-                if nome_formattato not in gruppo_bianco:
-                    gruppo_bianco.append(nome_formattato)
-            else:
-                nome_formattato = f"🟠 {c_pulito}"
-                if nome_formattato not in gruppo_arancione:
-                    gruppo_arancione.append(nome_formattato)
-
-        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_arancione
+        righe_ordinate = gruppo_tv + gruppo_stelle + gruppo_blu + gruppo_nero + gruppo_giallo + gruppo_bianco + gruppo_sole + gruppo_arancione
         if not righe_ordinate:
             righe_ordinate = ["⏳ In attesa di programmazione ufficiale"]
 
