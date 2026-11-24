@@ -80,6 +80,12 @@ def normalizza_nome_canale(ch_name):
     if 'max sport 3' in ch_lower:
         return "Max Sport 3"
 
+    if ch_lower in {"italia uno", "italia 1"} or re.fullmatch(r'italia\s*(uno|1)', ch_lower):
+        return "Italia 1"
+
+    if ch_lower in {"canale cinque", "canale 5"} or re.fullmatch(r'canale\s*(cinque|5)', ch_lower):
+        return "Canale 5"
+
     return ch_name.strip()
 
 # ==========================================
@@ -206,7 +212,12 @@ EPG_PW_TARGET_IDS = {
     "480001": "Canal+",
     "490001": "Sky Sport Austria 1",
     "490002": "Sky Sport Austria 3",
-    "490003": "Sky Sport Arena"
+    "490003": "Sky Sport Arena",
+    "539623": "ORF Sport+",
+    "76756": "ORF Sport+",
+    "76734": "ORF 3",
+    "76616": "ORF 2",
+    "438442": "ORF 1"
 }
 
 CANALI_STELLE = {
@@ -218,7 +229,10 @@ CANALI_STELLE = {
     "Okko Futbol", "Okko Sport", "beIN Sports 1", "beIN Sports 2",
     "beIN Sports 3", "beIN Sports French", "beIN Sports English",
     "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
-    "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+"
+    "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
+    "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan",
+    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
+    "ORF 1", "ORF 2", "ORF 3", "ORF Sport+"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -234,7 +248,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
-    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "TV8", "Prime Video",
+    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Italia Uno", "TV8", "Prime Video",
     "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4"
 })
 
@@ -256,6 +270,7 @@ def normalizza_testo(testo):
     traduzioni_estere = {
         'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',
         'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',
+        'italia uno': 'italia 1', 'canale cinque': 'canale 5',
         'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
         'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
         'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma', 'as roma': 'roma',
@@ -390,6 +405,12 @@ def carica_canali_esterni():
             TUTTI_I_CANALI_BLU.add(cname)
             INFO_CANALI[cname] = {"id": cid}
             INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
+
+    for can_it in ["Canale 5", "Italia 1", "Italia Uno"]:
+        can_norm = normalizza_nome_canale(can_it)
+        TUTTI_I_CANALI_BLU.add(can_norm)
+        INFO_CANALI[can_norm] = {"id": can_norm}
+        INFO_CANALI[normalizza_testo(can_norm)] = {"id": can_norm}
 
     TUTTI_I_CANALI_BLU.add("5Sport")
     INFO_CANALI["5Sport"] = {"id": "5Sport.il"}
