@@ -1,11 +1,13 @@
 import os
 import requests
+from requests.adapters import HTTPAdapter
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from icalendar import Calendar, Event
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import io
+import threading
 import unicodedata
 import re
 import gzip
@@ -23,7 +25,7 @@ URL_CALENDARIO_FOTMOB = os.getenv(
 )
 
 HEADERS = {
-    'X-Auth-Token': API_KEY,
+    'X-Auth-Token': API_KEY or '',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
@@ -33,9 +35,26 @@ WEB_SCRAPE_HEADERS = {
     'Accept-Language': 'en-US,en;q=0.9,it;q=0.8'
 }
 
+
+def _crea_sessione_http(pool_maxsize=20):
+    sessione = requests.Session()
+    adapter = HTTPAdapter(pool_connections=pool_maxsize, pool_maxsize=pool_maxsize, max_retries=1)
+    sessione.mount("http://", adapter)
+    sessione.mount("https://", adapter)
+    return sessione
+
+
+HTTP_SESSION = _crea_sessione_http(pool_maxsize=24)
+
 COMPETITIONS = ['SA', 'CL', 'COI', 'ITC', 'CLI', 'FR1']
 TEAM_ID = 108
 THESPORTSDB_TEAM_ID = "133604"
+
+PAESI_STANDARD = [
+    'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg',
+    'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el',
+    'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
+]
 
 # Parole chiave globali per scartare repliche e sintesi
 PAROLE_ESCLUSE_REPLICHE = [
@@ -68,6 +87,7 @@ BLACKLIST_CANALI = {
     "AC Milan", "Ajax", "Atletico Madrid", "Barcelona", "Bayern Munich",
     "Benfica", "FC Porto", "Juventus", "PSG", "Real Madrid"
 }
+BLACKLIST_CANALI_LOWER = {b.lower() for b in BLACKLIST_CANALI}
 
 _FRASI_O_PAROLE_BLOCCATE_CANALI = [
     "dazn",
@@ -78,22 +98,17 @@ _FRASI_O_PAROLE_BLOCCATE_CANALI = [
     "nottingham forest", "ipswich town", "coventry city", "leeds utd",
     "bayern munich", "atletico madrid", "real madrid", "fc porto", "ac milan"
 ]
+_REGEX_BLOCCATE_CANALI = [re.compile(rf'\b{re.escape(p)}\b', re.IGNORECASE) for p in _FRASI_O_PAROLE_BLOCCATE_CANALI]
+
 
 def is_blacklisted(nome_canale):
     if not nome_canale:
         return True
-    nome_pulito = nome_canale.strip()
-    low = nome_pulito.lower()
-
-    for b in BLACKLIST_CANALI:
-        if low == b.lower():
-            return True
-
-    # Evita di bloccare canali legittimi come "5Sport", "Sport TV", "CBS Sports Golazo", "Fox Soccer Plus"
-    if any(re.search(rf'\b{re.escape(p)}\b', low) for p in _FRASI_O_PAROLE_BLOCCATE_CANALI):
+    low = nome_canale.strip().lower()
+    if low in BLACKLIST_CANALI_LOWER:
         return True
+    return any(rx.search(low) for rx in _REGEX_BLOCCATE_CANALI)
 
-    return False
 
 def is_prime_video_channel(testo):
     if not testo:
@@ -104,6 +119,7 @@ def is_prime_video_channel(testo):
         or "amazon prime" in t
         or bool(re.search(r'\bprime\s*(video|sport|it|uk|ch|de|fr|es|pt|pl)?\b', t))
     )
+
 
 # ==========================================
 # NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA, PRIME VIDEO & CO.)
@@ -120,11 +136,9 @@ def normalizza_nome_canale(ch_name):
 
     if 'setanta' in ch_lower:
         is_eurasia = any(tag in ch_lower for tag in ['[uz]', '[ge]', '[ua]', '[kz]', 'eurasia', 'kazakhstan', 'georgia', 'ukraine', 'uzbekistan'])
-
         if '2' in ch_lower or 'second' in ch_lower:
             return "Setanta Sport 2 Eurasia" if is_eurasia else "Setanta Sport 2"
-        else:
-            return "Setanta Sport 1 Eurasia" if is_eurasia else "Setanta Sport 1"
+        return "Setanta Sport 1 Eurasia" if is_eurasia else "Setanta Sport 1"
 
     if 'max sport 3' in ch_lower:
         return "Max Sport 3"
@@ -139,6 +153,7 @@ def normalizza_nome_canale(ch_name):
         return "Canale 5"
 
     return ch_name.strip()
+
 
 # ==========================================
 # ID ESCLUSIVI EPG.PW - CANALI TV (📺)
@@ -267,6 +282,8 @@ EPG_PW_TARGET_IDS = {
     "438442": "ORF 1"
 }
 
+TUTTI_I_TARGET_PW = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
+
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
     "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic",
@@ -314,9 +331,38 @@ CANALI_SOLE_ODDALERTS_PER_MATCH = {}
 _CANALI_DALLE_LISTE_IPTV = set()
 _CANALI_DALLE_LISTE_IPTV_NORM = set()
 
+# Cache XML grezzi di epg.pw per (data_str, ch_id)
+_EPG_PW_XML_CACHE = {}
+_EPG_PW_CACHE_LOCK = threading.Lock()
+_PRINT_LOCK = threading.Lock()
+
+
+def _log(msg):
+    with _PRINT_LOCK:
+        print(msg)
+
+
 def _chiave_match_sole(match_name, ora_utc):
     data_g = ora_utc.strftime('%Y-%m-%d') if isinstance(ora_utc, datetime) else str(ora_utc)[:10]
     return f"{normalizza_testo(match_name)}|{data_g}"
+
+
+_TRADUZIONI_ESTERE = {
+    'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',
+    'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',
+    'italia uno': 'italia 1', 'canale cinque': 'canale 5',
+    'amazon prime video': 'prime video', 'amazon prime': 'prime video',
+    'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
+    'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
+    'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma', 'as roma': 'roma',
+    'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'болонья',
+    'футбол': 'football', 'матч': 'match', 'mecz': 'match',
+    'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football',
+    'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
+    'спорт': 'sport', 'sport': 'sport', 'ספורט 5': '5sport',
+    'qazsport': 'qazsport', 'setanta': 'setanta'
+}
+
 
 def normalizza_testo(testo):
     if not testo:
@@ -325,24 +371,8 @@ def normalizza_testo(testo):
     testo_pulito = re.sub(r'\[.*?\]|\(.*?\)', '', testo_pulito)
     testo_pulito = re.sub(r'[^\w\s\u0400-\u04FF\u0370-\u03FF\u0590-\u05FF]', ' ', testo_pulito)
 
-    traduzioni_estere = {
-        'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',
-        'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',
-        'italia uno': 'italia 1', 'canale cinque': 'canale 5',
-        'amazon prime video': 'prime video', 'amazon prime': 'prime video',
-        'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
-        'милан': 'milan', 'ювентус': 'juventus', 'барселона': 'barcelona',
-        'атлетико': 'atletico', 'наполи': 'napoli', 'рома': 'roma', 'as roma': 'roma',
-        'лацио': 'lazio', 'аталанта': 'atalanta', 'болонья': 'болонья',
-        'футбол': 'football', 'матч': 'match', 'mecz': 'match',
-        'pilka nozna': 'football', 'mac': 'match', 'futbol': 'football',
-        'agonas': 'match', 'podosfairo': 'football', 'окко': 'okko',
-        'спорт': 'sport', 'sport': 'sport', 'ספורט 5': '5sport',
-        'qazsport': 'qazsport', 'setanta': 'setanta'
-    }
-
     testo_lower = testo_pulito.lower()
-    for estero, lat in traduzioni_estere.items():
+    for estero, lat in _TRADUZIONI_ESTERE.items():
         if estero in testo_lower:
             testo_lower = testo_lower.replace(estero, lat)
 
@@ -350,22 +380,31 @@ def normalizza_testo(testo):
     risultato = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     return " ".join(risultato.split()).strip()
 
+
+def _applica_alias_speciali(nome_canale):
+    low = nome_canale.lower()
+    if "5sport" in low or "sport 5" in low or "ספורט 5" in nome_canale:
+        return "5Sport"
+    if "qazsport" in low:
+        return "QazSport"
+    return nome_canale
+
+
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
     if is_prime_video_channel(nome_canale):
         return "Prime Video"
-    nome_canale = normalizza_nome_canale(nome_canale)
-    if "5sport" in nome_canale.lower() or "sport 5" in nome_canale.lower() or "ספורט 5" in nome_canale:
-        return "5Sport"
-    elif "qazsport" in nome_canale.lower():
-        return "QazSport"
+    nome_canale = _applica_alias_speciali(normalizza_nome_canale(nome_canale))
+    if nome_canale in {"5Sport", "QazSport"}:
+        return nome_canale
     pulito = re.sub(r'\b(1080p|720p|4k|uhd|sd|fhd|hevc)\b', '', nome_canale, flags=re.IGNORECASE)
     pulito = re.sub(r'\[.*?\]|\(.*?\)', '', pulito)
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
     pulito = re.sub(r'^[:\-\s]+', '', pulito)
-    pulito_norm = normalizza_nome_canale(" ".join(pulito.split()))
+    pulito_norm = _applica_alias_speciali(normalizza_nome_canale(" ".join(pulito.split())))
     return "Prime Video" if is_prime_video_channel(pulito_norm) else pulito_norm
+
 
 def _registra_canale_lista_iptv(nome_canale):
     if not nome_canale or is_blacklisted(nome_canale):
@@ -377,6 +416,7 @@ def _registra_canale_lista_iptv(nome_canale):
     norm = normalizza_testo(c_pulito)
     if norm:
         _CANALI_DALLE_LISTE_IPTV_NORM.add(norm)
+
 
 def _canale_in_liste_iptv(nome_canale):
     if not nome_canale:
@@ -391,16 +431,18 @@ def _canale_in_liste_iptv(nome_canale):
         return False
     if norm_c in _CANALI_DALLE_LISTE_IPTV_NORM:
         return True
-    for n_lista in _CANALI_DALLE_LISTE_IPTV_NORM:
-        if len(n_lista) >= 3 and (n_lista in norm_c or norm_c in n_lista):
-            return True
-    return False
+    return any(
+        len(n_lista) >= 3 and (n_lista in norm_c or norm_c in n_lista)
+        for n_lista in _CANALI_DALLE_LISTE_IPTV_NORM
+    )
+
 
 def analizza_m3u_esteso(testo_m3u, target_set):
-    global URLS_EPG_DINAMICI
     current_tvg_id = None
     for line in testo_m3u.splitlines():
         line = line.strip()
+        if not line:
+            continue
         if line.startswith("#EXTM3U") and 'x-tvg-url="' in line:
             try:
                 parte_url = line.split('x-tvg-url="')[1].split('"')[0]
@@ -415,105 +457,68 @@ def analizza_m3u_esteso(testo_m3u, target_set):
             current_tvg_id = None
             if 'tvg-id="' in line:
                 try:
-                    part = line.split('tvg-id="')[1]
-                    current_tvg_id = part.split('"')[0].strip()
+                    current_tvg_id = line.split('tvg-id="')[1].split('"')[0].strip()
                 except Exception:
                     pass
-
-        if line.startswith("#EXTINF:") and "," in line:
-            c_name = line.split(",")[-1].strip()
-            if c_name and not is_blacklisted(c_name):
-                c_name = normalizza_nome_canale(c_name)
-                if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
-                    c_name = "5Sport"
-                elif "qazsport" in c_name.lower():
-                    c_name = "QazSport"
-                target_set.add(c_name)
-                _registra_canale_lista_iptv(c_name)
-                if current_tvg_id:
-                    INFO_CANALI[c_name] = {"id": current_tvg_id}
-                    INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
+            if "," in line:
+                c_name = line.split(",")[-1].strip()
+                if c_name and not is_blacklisted(c_name):
+                    c_name = _applica_alias_speciali(normalizza_nome_canale(c_name))
+                    target_set.add(c_name)
+                    _registra_canale_lista_iptv(c_name)
+                    if current_tvg_id:
+                        INFO_CANALI[c_name] = {"id": current_tvg_id}
+                        INFO_CANALI[normalizza_testo(c_name)] = {"id": current_tvg_id}
         elif "," in line and not line.startswith("#") and not line.startswith("http"):
-            parti = line.split(",", 1)
-            c_name = parti[0].strip()
+            c_name = line.split(",", 1)[0].strip()
             if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
-                c_name = normalizza_nome_canale(c_name)
-                if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
-                    c_name = "5Sport"
-                elif "qazsport" in c_name.lower():
-                    c_name = "QazSport"
+                c_name = _applica_alias_speciali(normalizza_nome_canale(c_name))
                 target_set.add(c_name)
                 _registra_canale_lista_iptv(c_name)
+
+
+def _carica_lista_singola(url, target_set):
+    if not url:
+        return
+    try:
+        response = HTTP_SESSION.get(url, headers=HEADERS, timeout=12)
+        if response.status_code != 200 or not response.text:
+            return
+        if "#EXTM3U" in response.text or "#EXTINF" in response.text:
+            analizza_m3u_esteso(response.text, target_set)
+            return
+        for line in response.text.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and not line.startswith("http"):
+                c_name = line.split(",", 1)[0].strip() if "," in line else line
+                if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
+                    c_name = _applica_alias_speciali(normalizza_nome_canale(c_name))
+                    target_set.add(c_name)
+                    _registra_canale_lista_iptv(c_name)
+    except Exception:
+        pass
+
 
 def carica_canali_esterni():
-    global TUTTI_I_CANALI_BLU, TUTTI_I_CANALI_NERI, TUTTI_I_CANALI_GIALLI, TUTTI_I_CANALI_BIANCHI, URLS_EPG_DINAMICI
-
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
         ("NERA", URL_SECONDA_LISTA, TUTTI_I_CANALI_NERI),
         ("GIALLA", URL_TERZA_LISTA, TUTTI_I_CANALI_GIALLI)
     ]
+    urls_6 = [u.strip() for u in (URLS_SEI_PLAYLIST or "").split() if u.strip()]
 
-    for nome_lista, url, target_set in playlist:
-        if url:
-            try:
-                response = requests.get(url, headers=HEADERS, timeout=15)
-                if response.status_code == 200:
-                    if "#EXTM3U" in response.text or "#EXTINF" in response.text:
-                        analizza_m3u_esteso(response.text, target_set)
-                    else:
-                        for line in response.text.splitlines():
-                            line = line.strip()
-                            if line and not line.startswith("#") and not line.startswith("http"):
-                                c_name = line.split(",", 1)[0].strip() if "," in line else line
-                                if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
-                                    c_name = normalizza_nome_canale(c_name)
-                                    if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
-                                        c_name = "5Sport"
-                                    elif "qazsport" in c_name.lower():
-                                        c_name = "QazSport"
-                                    target_set.add(c_name)
-                                    _registra_canale_lista_iptv(c_name)
-            except Exception:
-                pass
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        futures = [executor.submit(_carica_lista_singola, url, target_set) for _, url, target_set in playlist if url]
+        futures.extend(executor.submit(_carica_lista_singola, u, TUTTI_I_CANALI_BIANCHI) for u in urls_6)
+        for fut in as_completed(futures):
+            fut.result()
 
-    if URLS_SEI_PLAYLIST:
-        urls_6 = [u.strip() for u in URLS_SEI_PLAYLIST.split() if u.strip()]
-        for url_item in urls_6:
-            try:
-                response = requests.get(url_item, headers=HEADERS, timeout=15)
-                if response.status_code == 200:
-                    if "#EXTM3U" in response.text or "#EXTINF" in response.text:
-                        analizza_m3u_esteso(response.text, TUTTI_I_CANALI_BIANCHI)
-                    else:
-                        for line in response.text.splitlines():
-                            line = line.strip()
-                            if line and not line.startswith("#") and not line.startswith("http"):
-                                c_name = line.split(",", 1)[0].strip() if "," in line else line
-                                if c_name and len(c_name) < 50 and not is_blacklisted(c_name):
-                                    c_name = normalizza_nome_canale(c_name)
-                                    if "5sport" in c_name.lower() or "sport 5" in c_name.lower() or "ספורט 5" in c_name:
-                                        c_name = "5Sport"
-                                    elif "qazsport" in c_name.lower():
-                                        c_name = "QazSport"
-                                    TUTTI_I_CANALI_BIANCHI.add(c_name)
-                                    _registra_canale_lista_iptv(c_name)
-            except Exception:
-                pass
-
-    for cid, cname in EPG_PW_TV_IDS.items():
-        cname = normalizza_nome_canale(cname)
-        if not is_blacklisted(cname):
-            TUTTI_I_CANALI_BLU.add(cname)
-            INFO_CANALI[cname] = {"id": cid}
-            INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
-
-    for cid, cname in EPG_PW_TARGET_IDS.items():
-        cname = normalizza_nome_canale(cname)
-        if not is_blacklisted(cname):
-            TUTTI_I_CANALI_BLU.add(cname)
-            INFO_CANALI[cname] = {"id": cid}
-            INFO_CANALI[normalizza_testo(cname)] = {"id": cid}
+    for cid, cname in TUTTI_I_TARGET_PW.items():
+        cname_norm = normalizza_nome_canale(cname)
+        if not is_blacklisted(cname_norm):
+            TUTTI_I_CANALI_BLU.add(cname_norm)
+            INFO_CANALI[cname_norm] = {"id": cid}
+            INFO_CANALI[normalizza_testo(cname_norm)] = {"id": cid}
 
     for can_it in ["Canale 5", "Italia 1", "Italia Uno", "Prime Video"]:
         can_norm = normalizza_nome_canale(can_it)
@@ -521,28 +526,10 @@ def carica_canali_esterni():
         INFO_CANALI[can_norm] = {"id": can_norm}
         INFO_CANALI[normalizza_testo(can_norm)] = {"id": can_norm}
 
-    TUTTI_I_CANALI_BLU.add("5Sport")
-    INFO_CANALI["5Sport"] = {"id": "5Sport.il"}
-    INFO_CANALI[normalizza_testo("5Sport")] = {"id": "5Sport.il"}
-
-    TUTTI_I_CANALI_BLU.add("QazSport")
-    INFO_CANALI["QazSport"] = {"id": "QazSport.kz"}
-    INFO_CANALI[normalizza_testo("QazSport")] = {"id": "QazSport.kz"}
-
-    lista_paesi_standard = [
-        'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg',
-        'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el',
-        'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
-    ]
-
-    for p in lista_paesi_standard:
-        URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
-        URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
-        URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
-        URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
-        URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
-
-    URLS_EPG_DINAMICI.add("https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz")
+    for extra_fixed, extra_id in [("5Sport", "5Sport.il"), ("QazSport", "QazSport.kz")]:
+        TUTTI_I_CANALI_BLU.add(extra_fixed)
+        INFO_CANALI[extra_fixed] = {"id": extra_id}
+        INFO_CANALI[normalizza_testo(extra_fixed)] = {"id": extra_id}
 
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland',
@@ -553,10 +540,6 @@ def carica_canali_esterni():
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
         'uk': 'uk', 'gb': 'uk', 'il': 'israel', 'uz': 'uzbekistan', 'tj': 'tajikistan', 'kg': 'kyrgyzstan'
     }
-    for p in lista_paesi_standard:
-        nome_open = open_epg_mappatura.get(p, p)
-        URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
-
     globetv_mappatura = {
         'it': 'Italy', 'fr': 'France', 'es': 'Spain', 'pt': 'Portugal', 'pl': 'Poland',
         'us': 'Usa', 'ar': 'Argentina', 'za': 'Southafrica', 'ae': 'Uae', 'sa': 'Saudiarabia',
@@ -567,48 +550,60 @@ def carica_canali_esterni():
         'bg': 'Bulgaria', 'by': 'Belarus', 'uk': 'Uk', 'gb': 'Uk', 'il': 'Israel',
         'uz': 'Uzbekistan', 'tj': 'Tajikistan', 'kg': 'Kyrgyzstan'
     }
+
+    for p in PAESI_STANDARD:
+        URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
+        URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
+        nome_open = open_epg_mappatura.get(p, p)
+        URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
+
     for p_code, cartella_name in globetv_mappatura.items():
         for i in range(1, 7):
             URLS_EPG_DINAMICI.add(f"https://raw.githubusercontent.com/globetvapp/epg/main/{cartella_name}/{cartella_name.lower()}{i}.xml")
 
-    URLS_EPG_DINAMICI.add("https://iptv-org.github.io/iptv/index.country.m3u")
-    URLS_EPG_DINAMICI.add("https://epg.pw/xmltv/epg.xml.gz")
-    URLS_EPG_DINAMICI.add("https://iptvx.one/EPG")
-    URLS_EPG_DINAMICI.add("https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz")
-    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz")
-    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz")
-    URLS_EPG_DINAMICI.add("https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz")
-    URLS_EPG_DINAMICI.add("http://epg.one/ru.xml.gz")
-    URLS_EPG_DINAMICI.add("http://epg.one/ru2.xml.gz")
-    URLS_EPG_DINAMICI.add("http://epg.one/epg.xml.gz")
-    URLS_EPG_DINAMICI.add("https://tvprofil.net/xmltv/data/epg_tvprofil.net.xml")
+    URLS_EPG_DINAMICI.update([
+        "https://epgshare01.online/epgshare01/epg_ripper_ALL_SOURCES1.xml.gz",
+        "https://iptv-org.github.io/iptv/index.country.m3u",
+        "https://epg.pw/xmltv/epg.xml.gz",
+        "https://iptvx.one/EPG",
+        "https://gist.githubusercontent.com/guiworldtv2/0b805e7f86f55c8c5ffc37e51c8990ce/raw/1bbb74431ee1b0fbba0efa2da048444be29273ea/epg%2520master.xml.gz",
+        "https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports1.xml.gz",
+        "https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports2.xml.gz",
+        "https://raw.githubusercontent.com/globetvapp/epg/main/Sports/sports3.xml.gz",
+        "http://epg.one/ru.xml.gz",
+        "http://epg.one/ru2.xml.gz",
+        "http://epg.one/epg.xml.gz",
+        "https://tvprofil.net/xmltv/data/epg_tvprofil.net.xml"
+    ])
+
+
+_PAROLE_DA_SCARTARE_EPG = [
+    "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin",
+    "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie",
+    "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
+    "haber", "deltio", "interview"
+] + PAROLE_ESCLUSE_REPLICHE
+
+_CANALI_SUBSTRING_BLOCCATI = (
+    "news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24", "rt"
+)
+
 
 def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente Sconosciuta"):
     programmi_locali = []
-    parole_da_scartare = [
-        "journal", "news", "jt ", "le 20h", "informazione", "cronaca", "edition", "bulletin",
-        "notiziario", "tg", "meteo", "weather", "documentary", "documentario", "film", "serie",
-        "show", "talk", "magazine", "tribunal", "court", "process", "новости", "wiadomosci",
-        "haber", "deltio", "interview"
-    ] + PAROLE_ESCLUSE_REPLICHE
-
-    tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
-
     try:
         channel_id_to_name = {}
-        for event, elem in ET.iterparse(io.BytesIO(content_bytes), events=("end",)):
+        for _, elem in ET.iterparse(io.BytesIO(content_bytes), events=("end",)):
             if elem.tag == 'channel':
                 ch_id = elem.get('id')
                 if ch_id:
                     display_name_el = elem.find('display-name')
                     if display_name_el is not None and display_name_el.text:
-                        ch_name = display_name_el.text.strip()
-                        ch_name = normalizza_nome_canale(ch_name)
+                        ch_name = _applica_alias_speciali(normalizza_nome_canale(display_name_el.text.strip()))
                         if not is_blacklisted(ch_name):
-                            if "5sport" in ch_name.lower() or "sport 5" in ch_name.lower() or "ספורט 5" in ch_name:
-                                ch_name = "5Sport"
-                            elif "qazsport" in ch_name.lower():
-                                ch_name = "QazSport"
                             channel_id_to_name[ch_id] = ch_name
                             valid_channel_ids.add(ch_id)
                             valid_channel_ids.add(ch_name)
@@ -617,27 +612,19 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                                 valid_channel_ids.add("Prime Video")
             elem.clear()
 
-        context = ET.iterparse(io.BytesIO(content_bytes), events=("end",))
-        for event, elem in context:
+        for _, elem in ET.iterparse(io.BytesIO(content_bytes), events=("end",)):
             if elem.tag == 'programme':
-                ch = elem.get('channel')
-                ch_lookup = channel_id_to_name.get(ch, ch)
-                ch_lookup = normalizza_nome_canale(ch_lookup)
+                ch = elem.get('channel') or ""
+                ch_lookup = _applica_alias_speciali(normalizza_nome_canale(channel_id_to_name.get(ch, ch)))
+                ch_lookup_lower = ch_lookup.lower()
 
-                if is_blacklisted(ch_lookup) or any(b in ch_lookup.lower() for b in ["news", "cnews", "court", "cnn", "bbc", "bmt", "tagesschau", "w24", "rt"]):
+                if is_blacklisted(ch_lookup) or any(b in ch_lookup_lower for b in _CANALI_SUBSTRING_BLOCCATI):
                     elem.clear()
                     continue
 
-                ch_lookup_lower = ch_lookup.lower()
-                if "5sport" in ch_lookup_lower or "sport 5" in ch_lookup_lower or "ספורט 5" in ch_lookup:
-                    ch_lookup = "5Sport"
-                elif "qazsport" in ch_lookup_lower:
-                    ch_lookup = "QazSport"
-                elif "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
-                    if "football" in ch_lookup_lower or "футбол" in ch_lookup_lower or "prajm" in ch_lookup_lower:
-                        ch_lookup = "Okko Futbol"
-                    else:
-                        ch_lookup = "Okko Sport"
+                if "okko" in ch_lookup_lower or "окко" in ch_lookup_lower:
+                    ch_lookup = "Okko Futbol" if ("football" in ch_lookup_lower or "футбол" in ch_lookup_lower or "prajm" in ch_lookup_lower) else "Okko Sport"
+                    ch_lookup_lower = ch_lookup.lower()
 
                 title_el = elem.find('title')
                 title_text = title_el.text if (title_el is not None and title_el.text) else ""
@@ -646,11 +633,15 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                 desc_text = desc_el.text if (desc_el is not None and desc_el.text) else ""
                 desc_norm = normalizza_testo(desc_text)
 
-                is_prime_context = is_prime_video_channel(ch_lookup) or is_prime_video_channel(title_text) or is_prime_video_channel(desc_text)
+                is_prime_context = (
+                    is_prime_video_channel(ch_lookup)
+                    or is_prime_video_channel(title_text)
+                    or is_prime_video_channel(desc_text)
+                )
 
                 if (
-                    ch in tutti_i_target_pw
-                    or ch in ["5Sport.il", "QazSport.kz"]
+                    ch in TUTTI_I_TARGET_PW
+                    or ch in ("5Sport.il", "QazSport.kz")
                     or ch in valid_channel_ids
                     or ch_lookup in valid_channel_ids
                     or normalizza_testo(ch_lookup) in valid_channel_ids
@@ -659,8 +650,8 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                     or "окко" in ch_lookup_lower
                     or is_prime_context
                 ):
-                    if ch in tutti_i_target_pw:
-                        ch_lookup = normalizza_nome_canale(tutti_i_target_pw[ch])
+                    if ch in TUTTI_I_TARGET_PW:
+                        ch_lookup = normalizza_nome_canale(TUTTI_I_TARGET_PW[ch])
                     elif ch == "5Sport.il":
                         ch_lookup = "5Sport"
                     elif ch == "QazSport.kz":
@@ -668,7 +659,7 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                     elif is_prime_video_channel(ch_lookup):
                         ch_lookup = "Prime Video"
 
-                    if title_text and elem.get('start') and not any(scarto in title_norm for scarto in parole_da_scartare):
+                    if title_text and elem.get('start') and not any(scarto in title_norm for scarto in _PAROLE_DA_SCARTARE_EPG):
                         programmi_locali.append({
                             'channel': ch,
                             'channel_name': ch_lookup,
@@ -682,49 +673,76 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
         pass
     return programmi_locali
 
+
 def scarica_e_processa_paese(paese, valid_channel_ids):
     label = f"IPTV-EPG Paese [{paese.upper()}]"
     try:
-        res = requests.get(f"https://iptv-epg.org/files/epg-{paese}.xml", headers=HEADERS, timeout=12)
-        if res.status_code == 200:
+        res = HTTP_SESSION.get(f"https://iptv-epg.org/files/epg-{paese}.xml", headers=HEADERS, timeout=10)
+        if res.status_code == 200 and res.content:
             return analizza_epg_stream(res.content, valid_channel_ids, source_label=label)
     except Exception:
         pass
     return []
 
+
 def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
     label = f"URL Dinamico ({url_dinamico[:40]}...)"
     try:
-        res = requests.get(url_dinamico, headers=HEADERS, timeout=12)
-        if res.status_code == 200:
-            if ".m3u" in url_dinamico:
-                analizza_m3u_esteso(res.text, valid_channel_ids)
-                return []
-            xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
-            return analizza_epg_stream(xml_content, valid_channel_ids, source_label=label)
+        res = HTTP_SESSION.get(url_dinamico, headers=HEADERS, timeout=10)
+        if res.status_code != 200:
+            return []
+        if ".m3u" in url_dinamico:
+            analizza_m3u_esteso(res.text, valid_channel_ids)
+            return []
+        if not res.content:
+            return []
+        xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
+        return analizza_epg_stream(xml_content, valid_channel_ids, source_label=label)
     except Exception:
         pass
     return []
+
+
+def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=7):
+    cache_key = (data_partita_str, str(ch_id))
+    with _EPG_PW_CACHE_LOCK:
+        if cache_key in _EPG_PW_XML_CACHE:
+            return _EPG_PW_XML_CACHE[cache_key]
+
+    content = b""
+    try:
+        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}"
+        res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
+        if res.status_code == 200 and res.content and len(res.content) > 200:
+            content = res.content
+    except Exception:
+        content = b""
+
+    with _EPG_PW_CACHE_LOCK:
+        _EPG_PW_XML_CACHE[cache_key] = content
+    return content
+
 
 def scarica_singolo_id_pw(args):
     ch_id, ch_name, data_partita_str = args
     if is_blacklisted(ch_name):
         return []
-    label = f"EPG.PW (ID: {ch_id})"
-    try:
-        res = requests.get(f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}", headers=HEADERS, timeout=8)
-        if res.status_code == 200 and len(res.content) > 200:
-            progs = analizza_epg_stream(res.content, {ch_id, ch_name, normalizza_testo(ch_name)}, source_label=label)
-            for p in progs:
-                p['channel_name'] = normalizza_nome_canale(ch_name)
-            return progs
-    except Exception:
-        pass
-    return []
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=7)
+    if not xml_bytes:
+        return []
+    progs = analizza_epg_stream(
+        xml_bytes,
+        {ch_id, ch_name, normalizza_testo(ch_name)},
+        source_label=f"EPG.PW (ID: {ch_id})"
+    )
+    nome_norm = normalizza_nome_canale(ch_name)
+    for p in progs:
+        p['channel_name'] = nome_norm
+    return progs
+
 
 def scarica_epg_mirato_per_data(data_partita_str):
-    tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
-    args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in tutti_i_target_pw.items()]
+    args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in TUTTI_I_TARGET_PW.items()]
     programmi_mirati = []
 
     with ThreadPoolExecutor(max_workers=12) as executor:
@@ -735,16 +753,11 @@ def scarica_epg_mirato_per_data(data_partita_str):
                 programmi_mirati.extend(progs)
     return programmi_mirati
 
+
 def scarica_tutti_gli_epg(date_str_list):
     global PROGRAMMI_EPG
-    paesi = ['it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg', 'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el', 'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg']
-
-    tutti_i_target_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
-    valid_channel_ids = set(tutti_i_target_pw.keys())
-    valid_channel_ids.add("5Sport.il")
-    valid_channel_ids.add("QazSport.kz")
-    valid_channel_ids.add("Prime Video")
-    valid_channel_ids.add("prime video")
+    valid_channel_ids = set(TUTTI_I_TARGET_PW.keys())
+    valid_channel_ids.update({"5Sport.il", "QazSport.kz", "Prime Video", "prime video"})
 
     for nome, info in INFO_CANALI.items():
         if not is_blacklisted(nome):
@@ -753,28 +766,32 @@ def scarica_tutti_gli_epg(date_str_list):
             valid_channel_ids.add(normalizza_testo(nome))
             valid_channel_ids.add(nome)
 
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(scarica_e_processa_paese, p, valid_channel_ids): f"paese_{p}" for p in paesi}
-        for idx, url_dinamico in enumerate(URLS_EPG_DINAMICI):
-            futures[executor.submit(scarica_e_processa_gz_dinamico, url_dinamico, valid_channel_ids)] = f"dinamico_{idx}"
+    urls_uniche = list(dict.fromkeys(URLS_EPG_DINAMICI))
 
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        futures = [executor.submit(scarica_e_processa_paese, p, valid_channel_ids) for p in PAESI_STANDARD]
+        futures.extend(executor.submit(scarica_e_processa_gz_dinamico, u, valid_channel_ids) for u in urls_uniche)
         for future in as_completed(futures):
             risultati = future.result()
             if risultati:
                 PROGRAMMI_EPG.extend(risultati)
 
-    for data_str in date_str_list:
+    for data_str in sorted(set(date_str_list)):
         progs_mirati = scarica_epg_mirato_per_data(data_str)
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
 
-    print(f"Totale programmi salvati in memoria (inclusi flussi TV aggiuntivi): {len(PROGRAMMI_EPG)}")
+    _log(f"Totale programmi salvati in memoria (inclusi flussi TV aggiuntivi): {len(PROGRAMMI_EPG)}")
+
 
 def pulisci_nome(nome):
-    return (nome.replace("Football Club Internazionale Milano", "Inter")
-                .replace("Internazionale Milano", "Inter")
-                .replace("FC Inter", "Inter")
-                .replace("Internazionale", "Inter"))
+    return (
+        nome.replace("Football Club Internazionale Milano", "Inter")
+            .replace("Internazionale Milano", "Inter")
+            .replace("FC Inter", "Inter")
+            .replace("Internazionale", "Inter")
+    )
+
 
 # ==========================================
 # INTEGRAZIONE CALENDARIO FOTMOB ICS (ANTI-DOPPIONI)
@@ -786,6 +803,7 @@ def _dt_to_utc(dt_val):
         return dt_val.astimezone(timezone.utc)
     return datetime(dt_val.year, dt_val.month, dt_val.day, 0, 0, tzinfo=timezone.utc)
 
+
 def _is_doppione_partita(ora_utc, partite_esistenti, tolleranza_ore=4):
     for p in partite_esistenti:
         p_utc = p['ora_utc']
@@ -794,6 +812,7 @@ def _is_doppione_partita(ora_utc, partite_esistenti, tolleranza_ore=4):
         if abs((p_utc - ora_utc).total_seconds()) <= tolleranza_ore * 3600:
             return True
     return False
+
 
 def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
     nuove_partite = []
@@ -807,9 +826,9 @@ def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
         url_clean = "https://" + url_clean[9:]
 
     try:
-        resp = requests.get(url_clean, headers=HEADERS, timeout=12)
+        resp = HTTP_SESSION.get(url_clean, headers=HEADERS, timeout=10)
         if resp.status_code != 200 or not resp.text:
-            print(f"Calendario FotMob non disponibile (status {resp.status_code}).")
+            _log(f"Calendario FotMob non disponibile (status {resp.status_code}).")
             return nuove_partite
 
         cal = Calendar.from_ical(resp.text)
@@ -839,7 +858,7 @@ def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
             nome_pulito = re.sub(r'^[^\w\s]+\s*', '', nome_pulito).strip()
 
             home, away = "Inter", nome_pulito
-            for sep in [" vs ", " - ", " v "]:
+            for sep in (" vs ", " - ", " v "):
                 if sep in nome_pulito:
                     parti = nome_pulito.split(sep, 1)
                     home = pulisci_nome(parti[0].strip())
@@ -863,11 +882,12 @@ def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
             })
 
         if nuove_partite:
-            print(f"Aggiunte {len(nuove_partite)} partite mancanti da FotMob.")
+            _log(f"Aggiunte {len(nuove_partite)} partite mancanti da FotMob.")
     except Exception as e:
-        print(f"Errore lettura calendario FotMob: {e}")
+        _log(f"Errore lettura calendario FotMob: {e}")
 
     return nuove_partite
+
 
 # ==========================================
 # FONTI WEB AGGIUNTIVE: PAGINE SQUADRA INTER, LIVE-FOOTBALLONTV & ODDALERTS
@@ -898,6 +918,8 @@ _PATTERN_RUMORE_WEB = [
     r'\b(prediction|predictions|football|premier\s+league|premiership|serie\s+a|coppa\s+italia|champions\s+league|tonight|teams|dazn)\b',
     r'\b(v|vs)\b'
 ]
+_REGEX_RUMORE_WEB = [re.compile(pat, re.IGNORECASE) for pat in _PATTERN_RUMORE_WEB]
+
 
 def _parole_avversario_match(home_team, away_team):
     h_norm = normalizza_testo(home_team)
@@ -905,6 +927,7 @@ def _parole_avversario_match(home_team, away_team):
     av_norm = normalizza_testo(avversario)
     stop = {"fc", "ac", "as", "ssc", "us", "cf", "cd", "sc", "calcio", "inter", "internazionale", "milan", "vfb", "rb", "fk", "sk"}
     return [p for p in av_norm.split() if len(p) > 2 and p not in stop]
+
 
 def _estrai_emittenti_da_contenitore(el, av_parole):
     trovati = []
@@ -914,9 +937,7 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
     candidati_testo = []
     for sub in el.find_all(["a", "span", "li", "img", "td"]):
         if sub.name == "img":
-            alt_t = (sub.get("alt") or "").strip()
-            title_t = (sub.get("title") or "").strip()
-            for val in (alt_t, title_t):
+            for val in ((sub.get("alt") or "").strip(), (sub.get("title") or "").strip()):
                 if val and 2 <= len(val) <= 32:
                     candidati_testo.append(val)
         else:
@@ -926,15 +947,18 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
             if txt and 2 <= len(txt) <= 32:
                 candidati_testo.append(txt)
 
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
+
     for raw in candidati_testo:
         low = raw.lower().strip()
         if low in _RUOLO_O_RUMORE_WEB:
             continue
         if any(pe in low for pe in PAROLE_ESCLUSE_REPLICHE):
             continue
-        if any(re.search(pat, low, flags=re.IGNORECASE) for pat in _PATTERN_RUMORE_WEB):
+        if any(rx.search(low) for rx in _REGEX_RUMORE_WEB):
             continue
-        if any(re.search(rf'\b{re.escape(ap)}\b', normalizza_testo(low)) for ap in av_parole):
+        low_norm = normalizza_testo(low)
+        if any(arx.search(low_norm) for arx in av_regexes):
             continue
         if re.fullmatch(r'[\d\s:/\-\+\.]+', low):
             continue
@@ -944,19 +968,20 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
             c_low = c_pulito.lower()
             if (
                 c_low not in _RUOLO_O_RUMORE_WEB
-                and not any(re.search(pat, c_low, flags=re.IGNORECASE) for pat in _PATTERN_RUMORE_WEB)
+                and not any(rx.search(c_low) for rx in _REGEX_RUMORE_WEB)
                 and c_pulito not in trovati
             ):
                 trovati.append(c_pulito)
     return trovati
 
+
 def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
     """
-    Cerca canali TV dalle pagine squadra dell'Inter su whichtvchannel.com e wheresthematch.com
-    senza alterare le altre fonti o la pipeline esistente.
+    Cerca canali TV dalle pagine squadra dell'Inter su whichtvchannel.com e wheresthematch.com.
     """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
     data_str = data_partita.strftime('%Y-%m-%d') if isinstance(data_partita, datetime) else str(data_partita)[:10]
 
     pagine_squadra = [
@@ -966,30 +991,27 @@ def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
 
     for url in pagine_squadra:
         try:
-            resp = requests.get(url, headers=WEB_SCRAPE_HEADERS, timeout=8)
+            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=7)
             if resp.status_code != 200 or not resp.text:
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
-            blocchi = soup.find_all(["tr", "li", "article"])
-
-            for blocco in blocchi:
+            for blocco in soup.find_all(["tr", "li", "article"]):
                 testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
-                if "inter" not in testo_blocco:
+                if "inter" not in testo_blocco or len(testo_blocco) > 900:
                     continue
-                if av_parole and not any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole):
-                    continue
-                if len(testo_blocco) > 900:
+                if av_regexes and not any(arx.search(testo_blocco) for arx in av_regexes):
                     continue
 
                 for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
                     if c not in canali_trovati:
-                        print(f"   ✅ CANALE AGGIUNTO da Pagina Squadra ({url}): {c} [{data_str}]")
+                        _log(f"   ✅ CANALE AGGIUNTO da Pagina Squadra ({url}): {c} [{data_str}]")
                         canali_trovati.append(c)
         except Exception:
             continue
 
     return canali_trovati
+
 
 def cerca_canali_live_footballontv(home_team, away_team, data_partita):
     """
@@ -997,34 +1019,31 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
     """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
 
     try:
         dt_obj = data_partita if isinstance(data_partita, datetime) else datetime.now(timezone.utc)
         anchor = dt_obj.strftime("%Y%b%d")
         base_url = "https://www.live-footballontv.com/live-italian-football-on-tv.html"
-        urls_da_provare = [f"{base_url}#{anchor}", base_url]
 
-        for url in urls_da_provare:
-            resp = requests.get(url, headers=WEB_SCRAPE_HEADERS, timeout=8)
+        for url in (f"{base_url}#{anchor}", base_url):
+            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=7)
             if resp.status_code != 200 or not resp.text:
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
             target_container = soup.find(id=anchor) or soup.find("a", attrs={"name": anchor}) or soup
 
-            blocchi = target_container.find_all(["tr", "li", "article", "p"])
-            for blocco in blocchi:
+            for blocco in target_container.find_all(["tr", "li", "article", "p"]):
                 testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
-                if "inter" not in testo_blocco:
+                if "inter" not in testo_blocco or len(testo_blocco) > 900:
                     continue
-                if av_parole and not any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole):
-                    continue
-                if len(testo_blocco) > 900:
+                if av_regexes and not any(arx.search(testo_blocco) for arx in av_regexes):
                     continue
 
                 for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
                     if c not in canali_trovati:
-                        print(f"   ✅ CANALE AGGIUNTO da Live-FootballOnTV: {c}")
+                        _log(f"   ✅ CANALE AGGIUNTO da Live-FootballOnTV: {c}")
                         canali_trovati.append(c)
 
             if canali_trovati:
@@ -1034,15 +1053,15 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
 
     return canali_trovati
 
+
 def cerca_canali_oddalerts(home_team, away_team, data_partita):
     """
     Cerca dinamicamente per ogni partita dell'Inter i canali su oddalerts.com
-    (individuando il link del match del giorno/avversario e leggendone le emittenti)
-    e registra per l'icona automatica del sole (☀️) solo i canali presenti
-    nelle liste IPTV quando non già appartenenti ai gruppi stelline/TV/classificazioni esistenti.
+    e registra per l'icona automatica del sole (☀️) i canali presenti nelle liste IPTV.
     """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
     dt_obj = data_partita if isinstance(data_partita, datetime) else datetime.now(timezone.utc)
     data_iso = dt_obj.strftime("%Y-%m-%d")
 
@@ -1051,9 +1070,7 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
 
     def _aggiungi_se_in_liste(cand):
         c_pulito = pulisci_etichetta_canale(cand)
-        if not c_pulito or is_blacklisted(c_pulito):
-            return
-        if not _canale_in_liste_iptv(c_pulito):
+        if not c_pulito or is_blacklisted(c_pulito) or not _canale_in_liste_iptv(c_pulito):
             return
         if c_pulito not in canali_trovati:
             canali_trovati.append(c_pulito)
@@ -1064,32 +1081,30 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
         "https://www.oddalerts.com/livescores",
         "https://www.oddalerts.com/tv-guide/italy"
     ]
-
     link_match_trovati = []
 
     try:
         for idx_url in pagine_indice:
-            resp = requests.get(idx_url, headers=WEB_SCRAPE_HEADERS, timeout=8)
+            resp = HTTP_SESSION.get(idx_url, headers=WEB_SCRAPE_HEADERS, timeout=7)
             if resp.status_code != 200 or not resp.text:
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
             for a_tag in soup.find_all("a", href=True):
                 href = a_tag["href"].strip()
-                testo_link = normalizza_testo(a_tag.get_text(" ", strip=True))
-                href_norm = normalizza_testo(href)
-
                 if "/livescores/" in href:
+                    testo_link = normalizza_testo(a_tag.get_text(" ", strip=True))
+                    href_norm = normalizza_testo(href)
                     ha_inter = ("inter" in href_norm) or ("inter" in testo_link)
-                    ha_avv = any(re.search(rf'\b{re.escape(ap)}\b', f"{href_norm} {testo_link}") for ap in av_parole) if av_parole else False
-                    if ha_inter and (ha_avv or not av_parole):
+                    ha_avv = any(arx.search(f"{href_norm} {testo_link}") for arx in av_regexes) if av_regexes else False
+                    if ha_inter and (ha_avv or not av_regexes):
                         full_url = urljoin("https://www.oddalerts.com", href)
                         if full_url not in link_match_trovati:
                             link_match_trovati.append(full_url)
 
             for blocco in soup.find_all(["tr", "li", "article"]):
                 testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
-                if "inter" in testo_blocco and (not av_parole or any(re.search(rf'\b{re.escape(ap)}\b', testo_blocco) for ap in av_parole)) and len(testo_blocco) < 700:
+                if "inter" in testo_blocco and len(testo_blocco) < 700 and (not av_regexes or any(arx.search(testo_blocco) for arx in av_regexes)):
                     for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
                         _aggiungi_se_in_liste(c)
 
@@ -1097,88 +1112,93 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
                 break
 
         for match_url in link_match_trovati[:2]:
-            resp_m = requests.get(match_url, headers=WEB_SCRAPE_HEADERS, timeout=8)
+            resp_m = HTTP_SESSION.get(match_url, headers=WEB_SCRAPE_HEADERS, timeout=7)
             if resp_m.status_code != 200 or not resp_m.text:
                 continue
 
             soup_m = BeautifulSoup(resp_m.text, "html.parser")
-            sezioni_tv = soup_m.find_all(["section", "div", "table", "ul"])
             trovato_in_sezione = False
 
-            for sez in sezioni_tv:
+            for sez in soup_m.find_all(["section", "div", "table", "ul"]):
                 txt_sez = normalizza_testo(sez.get_text(" ", strip=True))
-                if any(k in txt_sez for k in ["tv channel", "where to watch", "broadcast", "live stream", "canali", "tv guide"]):
-                    if len(txt_sez) < 1800:
-                        for c in _estrai_emittenti_da_contenitore(sez, av_parole):
-                            _aggiungi_se_in_liste(c)
-                            trovato_in_sezione = True
+                if len(txt_sez) < 1800 and any(k in txt_sez for k in ("tv channel", "where to watch", "broadcast", "live stream", "canali", "tv guide")):
+                    for c in _estrai_emittenti_da_contenitore(sez, av_parole):
+                        _aggiungi_se_in_liste(c)
+                        trovato_in_sezione = True
 
             if not trovato_in_sezione:
                 for c in _estrai_emittenti_da_contenitore(soup_m, av_parole):
                     _aggiungi_se_in_liste(c)
 
         for c in canali_trovati:
-            print(f"   ✅ CANALE AGGIUNTO da OddAlerts (presente in liste IPTV): {c}")
+            _log(f"   ✅ CANALE AGGIUNTO da OddAlerts (presente in liste IPTV): {c}")
     except Exception:
         pass
 
     return canali_trovati
 
+
 # ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE (PARALLELIZZATO)
 # ==========================================
+_COPPE_KEYWORDS = ("champions", "ucl", "serie a", "coppa italia", "supercoppa")
+
+
 def _controlla_singolo_canale_mirato(args):
-    data_str, ch_id, ch_name, inter_keywords, av_parole, match_ora_utc = args
+    data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc = args
     ch_name_norm = normalizza_nome_canale(ch_name)
     if is_blacklisted(ch_name_norm):
         return []
 
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=7)
+    if not xml_bytes:
+        return []
+
     trovati = []
     try:
-        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_str}&channel_id={ch_id}"
-        res = requests.get(url, headers=HEADERS, timeout=7)
+        progs = analizza_epg_stream(
+            xml_bytes,
+            {ch_id, ch_name_norm, normalizza_testo(ch_name_norm)},
+            source_label=f"EPG.PW Mirato (ID {ch_id})"
+        )
+        for p in progs:
+            title = p['title']
+            title_lower = title.lower()
+            if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
+                continue
 
-        if res.status_code == 200 and len(res.content) > 200:
-            progs = analizza_epg_stream(res.content, {ch_id, ch_name_norm, normalizza_testo(ch_name_norm)}, source_label=f"EPG.PW Mirato (ID {ch_id})")
+            if match_ora_utc and p.get('start'):
+                try:
+                    prog_start = datetime.strptime(p['start'].split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+                    if abs((prog_start - match_ora_utc).total_seconds()) > 10800:
+                        continue
+                except ValueError:
+                    pass
 
-            for p in progs:
-                title = p['title']
-                title_lower = title.lower()
+            contiene_inter = any(rx.search(title) for rx in inter_regexes)
+            contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
 
-                if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
-                    continue
-
-                if match_ora_utc and p.get('start'):
-                    try:
-                        prog_start = datetime.strptime(p['start'].split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                        if abs((prog_start - match_ora_utc).total_seconds()) > 10800:
-                            continue
-                    except ValueError:
-                        pass
-
-                contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
-                contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
-
-                if contiene_inter and (contiene_avversario or any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "supercoppa"])):
-                    c_pulito = pulisci_etichetta_canale(ch_name_norm)
-                    if c_pulito and c_pulito not in trovati and not is_blacklisted(c_pulito):
-                        trovati.append((c_pulito, title, ch_id))
+            if contiene_inter and (contiene_avversario or any(coppa in title for coppa in _COPPE_KEYWORDS)):
+                c_pulito = pulisci_etichetta_canale(ch_name_norm)
+                if c_pulito and not is_blacklisted(c_pulito) and all(item[0] != c_pulito for item in trovati):
+                    trovati.append((c_pulito, title, ch_id))
     except Exception:
         pass
     return trovati
 
+
 def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=None):
     canali_trovati_extra = []
-    tutti_i_canali_epg_pw = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
-
     inter_keywords = ["inter", "internazionale", "интер", "ιντερ"]
+    inter_regexes = [re.compile(rf'\b{k}\b') for k in inter_keywords]
     av_norm = normalizza_testo(away_team if "inter" in normalizza_testo(home_team) else home_team)
     av_parole = [p for p in av_norm.split() if len(p) > 2 and p not in inter_keywords]
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
 
     tasks = [
-        (data_str, ch_id, ch_name, inter_keywords, av_parole, match_ora_utc)
-        for data_str in date_str_list
-        for ch_id, ch_name in tutti_i_canali_epg_pw.items()
+        (data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc)
+        for data_str in sorted(set(date_str_list))
+        for ch_id, ch_name in TUTTI_I_TARGET_PW.items()
     ]
 
     with ThreadPoolExecutor(max_workers=12) as executor:
@@ -1186,10 +1206,11 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
         for future in as_completed(futures):
             for c_pulito, title, ch_id in future.result():
                 if c_pulito not in canali_trovati_extra:
-                    print(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
+                    _log(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
                     canali_trovati_extra.append(c_pulito)
 
     return canali_trovati_extra
+
 
 # ==========================================
 # INTEGRAZIONE THESPORTSDB V1
@@ -1199,38 +1220,35 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
     try:
         data_str = data_partita.strftime('%Y-%m-%d')
         url_search = f"https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d={data_str}&s=Soccer"
-
-        response = requests.get(url_search, headers=HEADERS, timeout=8)
+        response = HTTP_SESSION.get(url_search, headers=HEADERS, timeout=8)
         if response.status_code == 200:
-            data = response.json()
-            events = data.get('events') or []
+            events = (response.json() or {}).get('events') or []
+            h_low = home_team.lower()
+            a_low = away_team.lower()
 
             for ev in events:
-                h_ev = ev.get('strHomeTeam', '')
-                a_ev = ev.get('strAwayTeam', '')
-
-                if (home_team.lower() in h_ev.lower() or h_ev.lower() in home_team.lower()) and \
-                   (away_team.lower() in a_ev.lower() or a_ev.lower() in away_team.lower()):
-
+                h_ev = (ev.get('strHomeTeam') or '').lower()
+                a_ev = (ev.get('strAwayTeam') or '').lower()
+                if (h_low in h_ev or h_ev in h_low) and (a_low in a_ev or a_ev in a_low):
                     event_id = ev.get('idEvent')
                     if event_id:
-                        url_tv = f"https://www.thesportsdb.com/api/v1/json/123/lookuptv.php?id={event_id}"
-                        res_tv = requests.get(url_tv, headers=HEADERS, timeout=8)
+                        res_tv = HTTP_SESSION.get(
+                            f"https://www.thesportsdb.com/api/v1/json/123/lookuptv.php?id={event_id}",
+                            headers=HEADERS,
+                            timeout=8
+                        )
                         if res_tv.status_code == 200:
-                            tv_data = res_tv.json()
-                            channels = tv_data.get('tvevents') or []
+                            channels = (res_tv.json() or {}).get('tvevents') or []
                             for ch in channels:
-                                nome_canale = ch.get('strChannel')
-                                if nome_canale:
-                                    nome_canale = normalizza_nome_canale(nome_canale)
-                                if nome_canale and not is_blacklisted(nome_canale):
-                                    if nome_canale not in canali_tsdb:
-                                        print(f"   ✅ CANALE AGGIUNTO da TheSportsDB: {nome_canale}")
-                                        canali_tsdb.append(nome_canale)
+                                nome_canale = normalizza_nome_canale(ch.get('strChannel') or "")
+                                if nome_canale and not is_blacklisted(nome_canale) and nome_canale not in canali_tsdb:
+                                    _log(f"   ✅ CANALE AGGIUNTO da TheSportsDB: {nome_canale}")
+                                    canali_tsdb.append(nome_canale)
     except Exception as e:
-        print(f"Errore integrazione TheSportsDB: {e}")
+        _log(f"Errore integrazione TheSportsDB: {e}")
 
     return canali_tsdb
+
 
 def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
     canali_trovati = []
@@ -1239,16 +1257,27 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
     h_norm = normalizza_testo(home_team)
     inter_keywords = ["inter", "internazionale", "интер"]
+    inter_regexes = [re.compile(rf'\b{k}\b') for k in inter_keywords]
     parole_da_ignorare = {"ssc", "fc", "ac", "as", "calcio", "cd", "sad", "cf", "s.p.a."}
 
-    if "inter" in h_norm or "интер" in h_norm:
-        avversario_full = away_team
-    else:
-        avversario_full = home_team
-
+    avversario_full = away_team if ("inter" in h_norm or "интер" in h_norm) else home_team
     av_norm = normalizza_testo(avversario_full)
     av_parole = [p for p in av_norm.split() if p not in parole_da_ignorare and not p.isdigit() and p not in inter_keywords]
-    tutti_i_validi = TUTTI_I_CANALI_BLU.union(TUTTI_I_CANALI_NERI).union(TUTTI_I_CANALI_GIALLI).union(TUTTI_I_CANALI_BIANCHI).union(CANALI_TV_CLASSICI)
+    av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
+
+    tutti_i_validi = (
+        TUTTI_I_CANALI_BLU
+        .union(TUTTI_I_CANALI_NERI)
+        .union(TUTTI_I_CANALI_GIALLI)
+        .union(TUTTI_I_CANALI_BIANCHI)
+        .union(CANALI_TV_CLASSICI)
+    )
+    validi_precalc = []
+    for nc in tutti_i_validi:
+        if not is_blacklisted(nc):
+            norm_nc = normalizza_testo(nc)
+            if norm_nc:
+                validi_precalc.append((nc, norm_nc))
 
     for prog in PROGRAMMI_EPG:
         ch_id = str(prog['channel'])
@@ -1260,72 +1289,97 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
 
         title = prog['title']
         title_lower = title.lower()
-        desc_norm = prog.get('desc', '')
-
         if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
             continue
 
-        contiene_inter = any(re.search(rf'\b{k}\b', title) for k in inter_keywords)
-        contiene_avversario = any(re.search(rf'\b{ap}\b', title) for ap in av_parole) if av_parole else False
+        contiene_inter = any(rx.search(title) for rx in inter_regexes)
+        contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
+        match_trovato = contiene_inter and (
+            contiene_avversario
+            or any(coppa in title for coppa in ("champions", "ucl", "serie a", "coppa italia", "supercoppa", "liga"))
+        )
 
-        match_trovato = False
-        if contiene_inter and contiene_avversario:
-            match_trovato = True
-        elif contiene_inter and any(coppa in title for coppa in ["champions", "ucl", "serie a", "coppa italia", "supercoppa", "liga"]):
-            match_trovato = True
+        if not match_trovato:
+            continue
 
-        if match_trovato:
-            start_str = prog['start']
-            if start_str:
-                try:
-                    prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+        start_str = prog['start']
+        if not start_str:
+            continue
 
-                    if abs((prog_start - date_utc).total_seconds()) <= 10800:
-                        c_uff = None
-                        ch_name_lower = ch_name.lower()
+        try:
+            prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
+            if abs((prog_start - date_utc).total_seconds()) > 10800:
+                continue
 
-                        if "5sport" in ch_name_lower or "sport 5" in ch_name_lower or "ספורט 5" in ch_name or ch_id == "5Sport.il":
-                            c_uff = "5Sport"
-                        elif "qazsport" in ch_name_lower or ch_id == "QazSport.kz":
-                            c_uff = "QazSport"
-                        elif "okko" in ch_name_lower or "окко" in ch_name_lower:
-                            c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
-                        elif is_prime_video_channel(ch_name) or is_prime_video_channel(title) or is_prime_video_channel(desc_norm):
-                            c_uff = "Prime Video"
-                        elif ch_id in EPG_PW_TARGET_IDS:
-                            c_uff = normalizza_nome_canale(EPG_PW_TARGET_IDS[ch_id])
-                        elif ch_id in EPG_PW_TV_IDS:
-                            c_uff = normalizza_nome_canale(EPG_PW_TV_IDS[ch_id])
-                        elif ch_name and not ch_name.isdigit():
-                            c_uff = normalizza_nome_canale(ch_name)
+            desc_norm = prog.get('desc', '')
+            c_uff = None
+            ch_name_lower = ch_name.lower()
 
-                        if c_uff:
-                            c_pulito = pulisci_etichetta_canale(c_uff)
-                            if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
-                                print(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
-                                canali_trovati.append(c_pulito)
+            if "5sport" in ch_name_lower or "sport 5" in ch_name_lower or "ספורט 5" in ch_name or ch_id == "5Sport.il":
+                c_uff = "5Sport"
+            elif "qazsport" in ch_name_lower or ch_id == "QazSport.kz":
+                c_uff = "QazSport"
+            elif "okko" in ch_name_lower or "окко" in ch_name_lower:
+                c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
+            elif is_prime_video_channel(ch_name) or is_prime_video_channel(title) or is_prime_video_channel(desc_norm):
+                c_uff = "Prime Video"
+            elif ch_id in TUTTI_I_TARGET_PW:
+                c_uff = normalizza_nome_canale(TUTTI_I_TARGET_PW[ch_id])
+            elif ch_name and not ch_name.isdigit():
+                c_uff = normalizza_nome_canale(ch_name)
 
-                        norm_ch = normalizza_testo(ch_name)
-                        for nc in tutti_i_validi:
-                            if is_blacklisted(nc):
-                                continue
-                            norm_nc = normalizza_testo(nc)
-                            if norm_nc and (norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc))):
-                                nc_pulito = pulisci_etichetta_canale(nc)
-                                if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito):
-                                    print(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
-                                    canali_trovati.append(nc_pulito)
-                except ValueError:
-                    continue
+            if c_uff:
+                c_pulito = pulisci_etichetta_canale(c_uff)
+                if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
+                    _log(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
+                    canali_trovati.append(c_pulito)
+
+            norm_ch = normalizza_testo(ch_name)
+            for nc, norm_nc in validi_precalc:
+                if norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc)):
+                    nc_pulito = pulisci_etichetta_canale(nc)
+                    if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito):
+                        _log(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
+                        canali_trovati.append(nc_pulito)
+        except ValueError:
+            continue
 
     return canali_trovati
+
+
+def _arricchisci_canali_partita(p, date_str_list):
+    _log(f"\n🔍 Elaborazione match: {p['name']} ({p['ora_utc']})")
+    canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
+
+    fonti_extra = [
+        controllo_mirato_epg_pw(date_str_list, p['home'], p['away'], p['ora_utc']),
+        cerca_canali_thesportsdb(p['home'], p['away'], p['ora_utc']),
+        cerca_canali_pagine_squadra_inter(p['home'], p['away'], p['ora_utc']),
+        cerca_canali_live_footballontv(p['home'], p['away'], p['ora_utc']),
+        cerca_canali_oddalerts(p['home'], p['away'], p['ora_utc']),
+    ]
+    for lista_canali in fonti_extra:
+        for c in lista_canali:
+            if c not in canali_reali:
+                canali_reali.append(c)
+
+    if not canali_reali:
+        canali_reali = ["In attesa di programmazione ufficiale ⏳"]
+
+    return {
+        'ora_utc': p['ora_utc'],
+        'name': p['name'],
+        'competizione': p['competizione'],
+        'canali': canali_reali
+    }
+
 
 def fetch_next_matches():
     all_matches = []
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED,TIMED"
 
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = HTTP_SESSION.get(url, headers=HEADERS, timeout=10)
         data = response.json()
 
         partite_da_analizzare = []
@@ -1336,7 +1390,6 @@ def fetch_next_matches():
                 continue
 
             comp_name = match.get('competition', {}).get('name', 'Competizione')
-
             if "youth" in comp_name.lower() or "u19" in comp_name.lower():
                 continue
 
@@ -1345,7 +1398,6 @@ def fetch_next_matches():
                 continue
 
             date_utc = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-
             if date_utc.date() < adesso.date():
                 continue
 
@@ -1375,50 +1427,16 @@ def fetch_next_matches():
                 date_da_scaricare.add(p['ora_utc'].strftime('%Y%m%d'))
 
             scarica_tutti_gli_epg(list(date_da_scaricare))
+            date_list_sorted = sorted(date_da_scaricare)
 
             for p in partite_da_analizzare:
-                print(f"\n🔍 Elaborazione match: {p['name']} ({p['ora_utc']})")
-                canali_reali = cerca_canali_per_partita_ottimizzato(p['ora_utc'], p['home'], p['away'])
-
-                canali_extra_epg_pw = controllo_mirato_epg_pw(list(date_da_scaricare), p['home'], p['away'], p['ora_utc'])
-                for c in canali_extra_epg_pw:
-                    if c not in canali_reali:
-                        canali_reali.append(c)
-
-                canali_tsdb = cerca_canali_thesportsdb(p['home'], p['away'], p['ora_utc'])
-                for c in canali_tsdb:
-                    if c not in canali_reali:
-                        canali_reali.append(c)
-
-                canali_pagine_squadra = cerca_canali_pagine_squadra_inter(p['home'], p['away'], p['ora_utc'])
-                for c in canali_pagine_squadra:
-                    if c not in canali_reali:
-                        canali_reali.append(c)
-
-                canali_live_tv = cerca_canali_live_footballontv(p['home'], p['away'], p['ora_utc'])
-                for c in canali_live_tv:
-                    if c not in canali_reali:
-                        canali_reali.append(c)
-
-                canali_oddalerts = cerca_canali_oddalerts(p['home'], p['away'], p['ora_utc'])
-                for c in canali_oddalerts:
-                    if c not in canali_reali:
-                        canali_reali.append(c)
-
-                if not canali_reali:
-                    canali_reali = ["In attesa di programmazione ufficiale ⏳"]
-
-                all_matches.append({
-                    'ora_utc': p['ora_utc'],
-                    'name': p['name'],
-                    'competizione': p['competizione'],
-                    'canali': canali_reali
-                })
+                all_matches.append(_arricchisci_canali_partita(p, date_list_sorted))
 
     except Exception as e:
-        print(f"Errore API partite: {e}")
+        _log(f"Errore API partite: {e}")
 
     return all_matches
+
 
 def _formatta_canale_per_gruppo(c, canali_sole_set):
     c_pulito = pulisci_etichetta_canale(c)
@@ -1438,23 +1456,32 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
 
     if "In attesa" in c_pulito:
         return "arancione", f"⏳ {c_pulito}"
-    elif c_pulito in CANALI_STELLE or "tnt sports" in c_lower or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+    if (
+        c_pulito in CANALI_STELLE
+        or "tnt sports" in c_lower
+        or "okko" in c_lower
+        or "setanta" in c_lower
+        or c_pulito in {"5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"}
+    ):
         return "stelle", f"⭐ {c_pulito}"
-    elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "Eleven Sports"]):
+    if (
+        c_pulito in CANALI_TV_CLASSICI
+        or any(tv_ok in c_pulito for tv_ok in ("Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "Eleven Sports"))
+    ):
         nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
         return "tv", nome_formattato
-    elif c_pulito in TUTTI_I_CANALI_BLU:
+    if c_pulito in TUTTI_I_CANALI_BLU:
         return "blu", f"🔵 {c_pulito}"
-    elif c_pulito in TUTTI_I_CANALI_NERI:
+    if c_pulito in TUTTI_I_CANALI_NERI:
         return "nero", f"⚫ {c_pulito}"
-    elif c_pulito in TUTTI_I_CANALI_GIALLI:
+    if c_pulito in TUTTI_I_CANALI_GIALLI:
         return "giallo", f"🟡 {c_pulito}"
-    elif c_pulito in TUTTI_I_CANALI_BIANCHI:
+    if c_pulito in TUTTI_I_CANALI_BIANCHI:
         return "bianco", f"⚪ {c_pulito}"
-    elif c_pulito in canali_sole_set or c in canali_sole_set:
+    if c_pulito in canali_sole_set or c in canali_sole_set:
         return "sole", f"☀️ {c_pulito}"
-    else:
-        return "arancione", f"🟠 {c_pulito}"
+    return "arancione", f"🟠 {c_pulito}"
+
 
 def _raggruppa_canali_match(p, fallback_vuoto):
     chiave_sole = _chiave_match_sole(p['name'], p['ora_utc'])
@@ -1473,9 +1500,7 @@ def _raggruppa_canali_match(p, fallback_vuoto):
 
     for c in p['canali']:
         gruppo, nome_formattato = _formatta_canale_per_gruppo(c, canali_sole_set)
-        if not gruppo or not nome_formattato:
-            continue
-        if nome_formattato not in gruppi[gruppo]:
+        if gruppo and nome_formattato and nome_formattato not in gruppi[gruppo]:
             gruppi[gruppo].append(nome_formattato)
 
     righe_ordinate = (
@@ -1489,6 +1514,18 @@ def _raggruppa_canali_match(p, fallback_vuoto):
         + gruppi["arancione"]
     )
     return righe_ordinate if righe_ordinate else [fallback_vuoto]
+
+
+def _scrivi_se_modificato(percorso, contenuto_bytes):
+    if os.path.exists(percorso):
+        with open(percorso, 'rb') as existing:
+            if existing.read() == contenuto_bytes:
+                _log(f"Nessuna variazione di contenuto per {percorso} (scrittura saltata).")
+                return False
+    with open(percorso, 'wb') as f:
+        f.write(contenuto_bytes)
+    return True
+
 
 def generate_ics(matches):
     cal = Calendar()
@@ -1507,33 +1544,12 @@ def generate_ics(matches):
         evento.add('description', f"🏆 Competizione: {p['competizione']}\n\n📡 Canali TV:\n{canali_testo}")
         cal.add_component(evento)
 
-    with open("inter_tv.ics", 'wb') as f:
-        f.write(cal.to_ical())
-    print("File ICS generato con successo e raggruppato per tipo.")
+    if _scrivi_se_modificato("inter_tv.ics", cal.to_ical()):
+        _log("File ICS generato con successo e raggruppato per tipo.")
+
 
 def generate_html_palinsesto(matches):
-    html_content = """<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Palinsesto INTER</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; }
-        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 20px; color: #38bdf8; }
-        .match-card { background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        .match-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }
-        .match-date { font-size: 0.9rem; color: #94a3b8; margin-bottom: 10px; }
-        .channels { font-size: 0.95rem; line-height: 1.5; white-space: pre-line; background: #0f172a; padding: 10px; border-radius: 8px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>📺 Palinsesto INTER</h1>
-"""
-
+    cards = []
     for p in matches:
         ora_italiana = p['ora_utc'].astimezone(ZoneInfo("Europe/Rome"))
         ora_locale = ora_italiana.strftime('%d/%m/%Y alle %H:%M')
@@ -1541,23 +1557,43 @@ def generate_html_palinsesto(matches):
         righe_ordinate = _raggruppa_canali_match(p, "⏳ In attesa di programmazione ufficiale")
         canali_str = "\n".join(righe_ordinate)
 
-        html_content += f"""
+        cards.append(f"""
         <div class="match-card">
             <div class="match-title">⚽ {p['name']}</div>
             <div class="match-date">📅 {ora_locale} | 🏆 {p['competizione']}</div>
             <div class="channels">{canali_str}</div>
         </div>
-        """
+        """)
 
-    html_content += """
+    html_content = f"""<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palinsesto INTER</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>">
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }}
+        .container {{ max-width: 600px; margin: 0 auto; }}
+        h1 {{ font-size: 1.5rem; text-align: center; margin-bottom: 20px; color: #38bdf8; }}
+        .match-card {{ background: #1e293b; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }}
+        .match-title {{ font-size: 1.1rem; font-weight: bold; margin-bottom: 6px; }}
+        .match-date {{ font-size: 0.9rem; color: #94a3b8; margin-bottom: 10px; }}
+        .channels {{ font-size: 0.95rem; line-height: 1.5; white-space: pre-line; background: #0f172a; padding: 10px; border-radius: 8px; }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📺 Palinsesto INTER</h1>
+{"".join(cards)}
     </div>
 </body>
 </html>
 """
 
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
-    print("Pagina HTML generata con successo (index.html).")
+    if _scrivi_se_modificato("index.html", html_content.encode("utf-8")):
+        _log("Pagina HTML generata con successo (index.html).")
+
 
 if __name__ == '__main__':
     carica_canali_esterni()
