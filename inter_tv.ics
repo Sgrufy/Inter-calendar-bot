@@ -3,39 +3,39 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter vs VfB Stuttgart
+SUMMARY:⚽ Inter - VfB Stuttgart  (0-0)
 DTSTART:20261125T200000Z
 DTEND:20261125T220000Z
-DESCRIPTION:🏆 Competizione: UEFA Champions League\n\n📡 Canali TV:\n
- ⭐ Sport 2\n⭐ A Spor\n⭐ TNT Sports 7 HBO Max\n⭐ TNT Sports 7\n🔵 
- Arena Sport 2\n🟡 Šport\n⚪ ARENA SPORT 2\n⚪ ARENA SPORT 2 HD HR\n
- ⚪ Arena Sport 2 HD\n🟠 Sport\n🟠 HBO Max
+DESCRIPTION:🏆 Competizione: FotMob Calendar\n\n📡 Canali TV:\n⭐ Spo
+ rt 2\n⭐ Sport\n⭐ Šport\n⭐ TNT Sports 7 HBO Max\n⭐ TNT Sports 7\n
+ 🔵 Arena Sport 2\n🔵 A Spor\n⚪ ARENA SPORT 2 HD HR\n⚪ Arena Sport 
+ 2 HD\n⚪ ARENA SPORT 2\n🟠 HBO Max
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Genoa CFC
 DTSTART:20261128T194500Z
 DTEND:20261128T214500Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 2 Portugal\n📺 Eleven Sports 2\n🔵 Sport TV 7\n🟡 TV2\n☀️ Pa
- ramount+\n☀️ S Sport Turkey\n☀️ S Sport\n☀️ Ziggo Sport 2 Neth
- erlands\n☀️ Ziggo Sport 2\n☀️ matchtv.ru Russia\n☀️ matchtv.ru
- \n☀️ Sportbox.ru Russia\n☀️ Sportbox.ru\n☀️ ESPN 3 Netherlands
- \n☀️ ESPN 3\n☀️ Voyo\n☀️ TV2 Sport X Denmark\n☀️ TV2 Sport
-  X\n☀️ NOW TV\n☀️ STARZPLAY\n☀️ VG+\n☀️ Tring Sport 1\n☀
- ️ TLN\n☀️ Sky Sport\n☀️ Bein Sports 3\n🟠 Premier Sports 1
+ rts 2 Portugal\n📺 Eleven Sports 2\n⭐ Bein Sports 3\n🔵 Sport TV 7\n
+ 🟡 TV2\n☀️ Paramount+\n☀️ S Sport Turkey\n☀️ S Sport\n☀️
+  Ziggo Sport 2 Netherlands\n☀️ Ziggo Sport 2\n☀️ matchtv.ru Russia
+ \n☀️ matchtv.ru\n☀️ Sportbox.ru Russia\n☀️ Sportbox.ru\n☀️
+  ESPN 3 Netherlands\n☀️ ESPN 3\n☀️ Voyo\n☀️ TV2 Sport X Denmar
+ k\n☀️ TV2 Sport X\n☀️ NOW TV\n☀️ STARZPLAY\n☀️ VG+\n☀️
+  Tring Sport 1\n☀️ TLN\n☀️ Sky Sport\n🟠 Premier Sports 1
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter - Genoa
 DTSTART:20261201T200000Z
 DTEND:20261201T220000Z
 DESCRIPTION:🏆 Competizione: Coppa Italia\n\n📡 Canali TV:\n📺 Eleve
- n Sports 2 Portugal\n📺 Eleven Sports 2\n🔵 Sport TV 7\n🟡 TV2\n🟠
-  Premier Sports 1\n🟠 Paramount+\n🟠 S Sport Turkey\n🟠 S Sport\n
- 🟠 Ziggo Sport 2 Netherlands\n🟠 Ziggo Sport 2\n🟠 matchtv.ru Russia
- \n🟠 matchtv.ru\n🟠 Sportbox.ru Russia\n🟠 Sportbox.ru\n🟠 ESPN 3 
- Netherlands\n🟠 ESPN 3\n🟠 Voyo\n🟠 TV2 Sport X Denmark\n🟠 TV2 Sp
- ort X\n🟠 NOW TV\n🟠 STARZPLAY\n🟠 VG+\n🟠 Tring Sport 1\n🟠 TLN
- \n🟠 Sky Sport\n🟠 Bein Sports 3
+ n Sports 2 Portugal\n📺 Eleven Sports 2\n⭐ Bein Sports 3\n🔵 Sport T
+ V 7\n🟡 TV2\n🟠 Premier Sports 1\n🟠 Paramount+\n🟠 S Sport Turkey
+ \n🟠 S Sport\n🟠 Ziggo Sport 2 Netherlands\n🟠 Ziggo Sport 2\n🟠 m
+ atchtv.ru Russia\n🟠 matchtv.ru\n🟠 Sportbox.ru Russia\n🟠 Sportbox.
+ ru\n🟠 ESPN 3 Netherlands\n🟠 ESPN 3\n🟠 Voyo\n🟠 TV2 Sport X Denm
+ ark\n🟠 TV2 Sport X\n🟠 NOW TV\n🟠 STARZPLAY\n🟠 VG+\n🟠 Tring S
+ port 1\n🟠 TLN\n🟠 Sky Sport
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Frosinone Calcio vs Inter
