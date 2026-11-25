@@ -36,7 +36,7 @@ WEB_SCRAPE_HEADERS = {
 }
 
 
-def _crea_sessione_http(pool_maxsize=20):
+def _crea_sessione_http(pool_maxsize=24):
     sessione = requests.Session()
     adapter = HTTPAdapter(pool_connections=pool_maxsize, pool_maxsize=pool_maxsize, max_retries=1)
     sessione.mount("http://", adapter)
@@ -53,7 +53,8 @@ THESPORTSDB_TEAM_ID = "133604"
 PAESI_STANDARD = [
     'it', 'fr', 'es', 'pt', 'pl', 'us', 'ar', 'za', 'ae', 'sa', 'qa', 'eg',
     'at', 'ch', 'cz', 'hr', 'rs', 'hu', 'sk', 'al', 'tr', 'nl', 'ru', 'ua', 'el',
-    'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg'
+    'ge', 'md', 'kz', 'az', 'ie', 'my', 'bg', 'by', 'uk', 'gb', 'il', 'uz', 'tj', 'kg',
+    'dk', 'se', 'no', 'fi', 'id', 'br', 'mx', 'co', 'cl', 'pe', 'uy', 'do', 'jm', 'pr'
 ]
 
 # Parole chiave globali per scartare repliche e sintesi
@@ -85,7 +86,15 @@ BLACKLIST_CANALI = {
     "Sunderland", "Tottenham", "Aberdeen", "Celtic", "Hearts", "Hibs", "Rangers",
     "England", "England Women", "Northern Ireland", "Scotland", "Wales",
     "AC Milan", "Ajax", "Atletico Madrid", "Barcelona", "Bayern Munich",
-    "Benfica", "FC Porto", "Juventus", "PSG", "Real Madrid"
+    "Benfica", "FC Porto", "Juventus", "PSG", "Real Madrid",
+    # Voci UI / menu / statistiche / quote finite per errore da portali come OddAlerts
+    "Alerts", "More", "Explore", "Value Bets", "OddAlerts Alpha",
+    "Bet of the Day", "Corners", "Sports Edge Bot", "Betslip Generator",
+    "Foul Alerts", "Bet Builder", "Map", "Home Wins", "Suggested Alerts",
+    "Bet Tracking", "Tennis Alerts", "CSV Downloads", "API",
+    "Explore Pro Features", "Bet Builder Tips", "Partners",
+    "Home Wins Form", "All Filter Presets", "Home Win Value Bets",
+    "Over 2.5 Goals Value Bets", "Corner Betting Tips", "Your country"
 }
 BLACKLIST_CANALI_LOWER = {b.lower() for b in BLACKLIST_CANALI}
 
@@ -96,18 +105,50 @@ _FRASI_O_PAROLE_BLOCCATE_CANALI = [
     "view all teams", "tonight", "england women", "northern ireland",
     "manchester city", "manchester utd", "aston villa", "crystal palace",
     "nottingham forest", "ipswich town", "coventry city", "leeds utd",
-    "bayern munich", "atletico madrid", "real madrid", "fc porto", "ac milan"
+    "bayern munich", "atletico madrid", "real madrid", "fc porto", "ac milan",
+    "value bets", "bet builder", "betslip generator", "sports edge bot",
+    "suggested alerts", "bet tracking", "tennis alerts", "foul alerts",
+    "csv downloads", "filter presets", "betting tips", "bet of the day",
+    "oddalerts alpha", "explore pro features", "home wins form", "your country"
 ]
 _REGEX_BLOCCATE_CANALI = [re.compile(rf'\b{re.escape(p)}\b', re.IGNORECASE) for p in _FRASI_O_PAROLE_BLOCCATE_CANALI]
+
+# Blocco specifico per voci UI/statistiche che possono apparire in scraping web/OddAlerts
+_RUMORE_UI_ODDALERTS_ESATTO = {
+    "alerts", "more", "explore", "value bets", "oddalerts alpha",
+    "bet of the day", "corners", "sports edge bot", "betslip generator",
+    "foul alerts", "bet builder", "map", "home wins", "suggested alerts",
+    "bet tracking", "tennis alerts", "csv downloads", "api",
+    "explore pro features", "bet builder tips", "partners",
+    "home wins form", "all filter presets", "home win value bets",
+    "over 2.5 goals value bets", "corner betting tips", "your country",
+    "pro features", "filter presets", "value bet", "odds", "stats",
+    "standings", "table", "lineups", "fixtures", "results", "home", "away"
+}
+_REGEX_RUMORE_UI_ODDALERTS = [
+    re.compile(r'\b(alerts?|value\s*bets?|bet\s*builder|betslip|corner\s*betting|over\s*\d+(\.\d+)?|filter\s*presets?|pro\s*features?|csv\s*downloads?|your\s*country|edge\s*bot|home\s*wins?)\b', re.IGNORECASE),
+    re.compile(r'^(more|explore|corners?|map|api|partners|odds|stats|standings|table|lineups|fixtures|results)$', re.IGNORECASE)
+]
+
+
+def _is_rumore_ui_web(testo):
+    if not testo:
+        return False
+    low = " ".join(testo.strip().lower().split())
+    if low in _RUMORE_UI_ODDALERTS_ESATTO:
+        return True
+    return any(rx.search(low) for rx in _REGEX_RUMORE_UI_ODDALERTS)
 
 
 def is_blacklisted(nome_canale):
     if not nome_canale:
         return True
-    low = nome_canale.strip().lower()
-    if low in BLACKLIST_CANALI_LOWER:
+    low = " ".join(nome_canale.strip().lower().split())
+    if low in BLACKLIST_CANALI_LOWER or low in _RUMORE_UI_ODDALERTS_ESATTO:
         return True
-    return any(rx.search(low) for rx in _REGEX_BLOCCATE_CANALI)
+    if any(rx.search(low) for rx in _REGEX_BLOCCATE_CANALI):
+        return True
+    return any(rx.search(low) for rx in _REGEX_RUMORE_UI_ODDALERTS)
 
 
 def is_prime_video_channel(testo):
@@ -393,6 +434,8 @@ def _applica_alias_speciali(nome_canale):
 def pulisci_etichetta_canale(nome_canale):
     if not nome_canale:
         return ""
+    if _is_rumore_ui_web(nome_canale) or is_blacklisted(nome_canale):
+        return ""
     if is_prime_video_channel(nome_canale):
         return "Prime Video"
     nome_canale = _applica_alias_speciali(normalizza_nome_canale(nome_canale))
@@ -403,6 +446,8 @@ def pulisci_etichetta_canale(nome_canale):
     pulito = pulito.replace('\n', ' ').replace('\r', ' ').strip()
     pulito = re.sub(r'^[:\-\s]+', '', pulito)
     pulito_norm = _applica_alias_speciali(normalizza_nome_canale(" ".join(pulito.split())))
+    if not pulito_norm or _is_rumore_ui_web(pulito_norm) or is_blacklisted(pulito_norm):
+        return ""
     return "Prime Video" if is_prime_video_channel(pulito_norm) else pulito_norm
 
 
@@ -419,7 +464,7 @@ def _registra_canale_lista_iptv(nome_canale):
 
 
 def _canale_in_liste_iptv(nome_canale):
-    if not nome_canale:
+    if not nome_canale or _is_rumore_ui_web(nome_canale):
         return False
     c_pulito = pulisci_etichetta_canale(nome_canale)
     if not c_pulito or is_blacklisted(c_pulito):
@@ -427,12 +472,12 @@ def _canale_in_liste_iptv(nome_canale):
     if c_pulito in _CANALI_DALLE_LISTE_IPTV:
         return True
     norm_c = normalizza_testo(c_pulito)
-    if not norm_c:
+    if not norm_c or _is_rumore_ui_web(norm_c):
         return False
     if norm_c in _CANALI_DALLE_LISTE_IPTV_NORM:
         return True
     return any(
-        len(n_lista) >= 3 and (n_lista in norm_c or norm_c in n_lista)
+        len(n_lista) >= 4 and (n_lista in norm_c or norm_c in n_lista)
         for n_lista in _CANALI_DALLE_LISTE_IPTV_NORM
     )
 
@@ -538,7 +583,10 @@ def carica_canali_esterni():
         'rs': 'serbia', 'hu': 'hungary', 'sk': 'slovakia', 'al': 'albania', 'tr': 'turkey',
         'nl': 'netherlands', 'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'ge': 'georgia',
         'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'ie': 'ireland', 'my': 'malaysia1', 'bg': 'bulgaria1', 'by': 'belarus',
-        'uk': 'uk', 'gb': 'uk', 'il': 'israel', 'uz': 'uzbekistan', 'tj': 'tajikistan', 'kg': 'kyrgyzstan'
+        'uk': 'uk', 'gb': 'uk', 'il': 'israel', 'uz': 'uzbekistan', 'tj': 'tajikistan', 'kg': 'kyrgyzstan',
+        'dk': 'denmark', 'se': 'sweden', 'no': 'norway', 'fi': 'finland', 'id': 'indonesia',
+        'br': 'brazil', 'mx': 'mexico', 'co': 'colombia', 'cl': 'chile', 'pe': 'peru',
+        'uy': 'uruguay', 'do': 'dominicanrepublic', 'jm': 'jamaica', 'pr': 'puertorico'
     }
     globetv_mappatura = {
         'it': 'Italy', 'fr': 'France', 'es': 'Spain', 'pt': 'Portugal', 'pl': 'Poland',
@@ -548,7 +596,10 @@ def carica_canali_esterni():
         'nl': 'Netherlands', 'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'ge': 'Georgia',
         'md': 'Moldova', 'kz': 'Kazakhstan', 'az': 'Azerbaijan', 'ie': 'Ireland', 'my': 'Malaysia',
         'bg': 'Bulgaria', 'by': 'Belarus', 'uk': 'Uk', 'gb': 'Uk', 'il': 'Israel',
-        'uz': 'Uzbekistan', 'tj': 'Tajikistan', 'kg': 'Kyrgyzstan'
+        'uz': 'Uzbekistan', 'tj': 'Tajikistan', 'kg': 'Kyrgyzstan',
+        'dk': 'Denmark', 'se': 'Sweden', 'no': 'Norway', 'fi': 'Finland', 'id': 'Indonesia',
+        'br': 'Brazil', 'mx': 'Mexico', 'co': 'Colombia', 'cl': 'Chile', 'pe': 'Peru',
+        'uy': 'Uruguay', 'do': 'Dominicanrepublic', 'jm': 'Jamaica', 'pr': 'Puertorico'
     }
 
     for p in PAESI_STANDARD:
@@ -950,14 +1001,16 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
 
     for raw in candidati_testo:
-        low = raw.lower().strip()
-        if low in _RUOLO_O_RUMORE_WEB:
+        low = " ".join(raw.lower().strip().split())
+        if not low or low in _RUOLO_O_RUMORE_WEB or _is_rumore_ui_web(low):
             continue
         if any(pe in low for pe in PAROLE_ESCLUSE_REPLICHE):
             continue
         if any(rx.search(low) for rx in _REGEX_RUMORE_WEB):
             continue
         low_norm = normalizza_testo(low)
+        if _is_rumore_ui_web(low_norm):
+            continue
         if any(arx.search(low_norm) for arx in av_regexes):
             continue
         if re.fullmatch(r'[\d\s:/\-\+\.]+', low):
@@ -968,6 +1021,7 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
             c_low = c_pulito.lower()
             if (
                 c_low not in _RUOLO_O_RUMORE_WEB
+                and not _is_rumore_ui_web(c_low)
                 and not any(rx.search(c_low) for rx in _REGEX_RUMORE_WEB)
                 and c_pulito not in trovati
             ):
@@ -1057,7 +1111,8 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
 def cerca_canali_oddalerts(home_team, away_team, data_partita):
     """
     Cerca dinamicamente per ogni partita dell'Inter i canali su oddalerts.com
-    e registra per l'icona automatica del sole (☀️) i canali presenti nelle liste IPTV.
+    e registra per l'icona automatica del sole (☀️) i canali presenti nelle liste IPTV,
+    escludendo rigorosamente voci di menu, statistiche, quote e widget UI.
     """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
@@ -1069,8 +1124,10 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
     CANALI_SOLE_ODDALERTS_PER_MATCH.setdefault(chiave_sole, set())
 
     def _aggiungi_se_in_liste(cand):
+        if _is_rumore_ui_web(cand):
+            return
         c_pulito = pulisci_etichetta_canale(cand)
-        if not c_pulito or is_blacklisted(c_pulito) or not _canale_in_liste_iptv(c_pulito):
+        if not c_pulito or is_blacklisted(c_pulito) or _is_rumore_ui_web(c_pulito) or not _canale_in_liste_iptv(c_pulito):
             return
         if c_pulito not in canali_trovati:
             canali_trovati.append(c_pulito)
@@ -1102,11 +1159,12 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
                         if full_url not in link_match_trovati:
                             link_match_trovati.append(full_url)
 
-            for blocco in soup.find_all(["tr", "li", "article"]):
-                testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
-                if "inter" in testo_blocco and len(testo_blocco) < 700 and (not av_regexes or any(arx.search(testo_blocco) for arx in av_regexes)):
-                    for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
-                        _aggiungi_se_in_liste(c)
+            if "/tv-guide/" in idx_url:
+                for blocco in soup.find_all(["tr", "li", "article"]):
+                    testo_blocco = normalizza_testo(blocco.get_text(" ", strip=True))
+                    if "inter" in testo_blocco and len(testo_blocco) < 700 and (not av_regexes or any(arx.search(testo_blocco) for arx in av_regexes)):
+                        for c in _estrai_emittenti_da_contenitore(blocco, av_parole):
+                            _aggiungi_se_in_liste(c)
 
             if link_match_trovati:
                 break
@@ -1117,18 +1175,11 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
                 continue
 
             soup_m = BeautifulSoup(resp_m.text, "html.parser")
-            trovato_in_sezione = False
-
             for sez in soup_m.find_all(["section", "div", "table", "ul"]):
                 txt_sez = normalizza_testo(sez.get_text(" ", strip=True))
-                if len(txt_sez) < 1800 and any(k in txt_sez for k in ("tv channel", "where to watch", "broadcast", "live stream", "canali", "tv guide")):
+                if len(txt_sez) < 1600 and any(k in txt_sez for k in ("tv channel", "where to watch", "broadcast", "live stream", "canali", "tv guide")):
                     for c in _estrai_emittenti_da_contenitore(sez, av_parole):
                         _aggiungi_se_in_liste(c)
-                        trovato_in_sezione = True
-
-            if not trovato_in_sezione:
-                for c in _estrai_emittenti_da_contenitore(soup_m, av_parole):
-                    _aggiungi_se_in_liste(c)
 
         for c in canali_trovati:
             _log(f"   ✅ CANALE AGGIUNTO da OddAlerts (presente in liste IPTV): {c}")
@@ -1439,8 +1490,10 @@ def fetch_next_matches():
 
 
 def _formatta_canale_per_gruppo(c, canali_sole_set):
+    if _is_rumore_ui_web(c):
+        return None, None
     c_pulito = pulisci_etichetta_canale(c)
-    if not c_pulito or is_blacklisted(c_pulito):
+    if not c_pulito or is_blacklisted(c_pulito) or _is_rumore_ui_web(c_pulito):
         return None, None
 
     c_lower = c_pulito.lower()
