@@ -52,16 +52,47 @@ BLACKLIST_CANALI = {
     "Mezzo", "Mezzo Live", "mezzo", "mezzo live",
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
-    "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo"
+    "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo",
+    "DAZN", "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
+    # Competizioni / programmi spuri visti in output
+    "Serie A Football", "Coppa Italia Football", "UEFA Champions League Football",
+    "Premier League", "Scottish Premiership", "Tonight", "Teams",
+    "View All Teams", "View All Teams ->", "All Teams",
+    # Squadre e nazionali finite per errore come canali
+    "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton",
+    "Chelsea", "Coventry City", "Crystal Palace", "Everton", "Fulham",
+    "Hull City", "Ipswich Town", "Leeds Utd", "Liverpool",
+    "Manchester City", "Manchester Utd", "Newcastle Utd", "Nottingham Forest",
+    "Sunderland", "Tottenham", "Aberdeen", "Celtic", "Hearts", "Hibs", "Rangers",
+    "England", "England Women", "Northern Ireland", "Scotland", "Wales",
+    "AC Milan", "Ajax", "Atletico Madrid", "Barcelona", "Bayern Munich",
+    "Benfica", "FC Porto", "Juventus", "PSG", "Real Madrid"
 }
+
+_FRASI_O_PAROLE_BLOCCATE_CANALI = [
+    "dazn",
+    "football", "premier league", "premiership", "serie a", "coppa italia",
+    "champions league", "europa league", "conference league", "supercoppa",
+    "view all teams", "tonight", "england women", "northern ireland",
+    "manchester city", "manchester utd", "aston villa", "crystal palace",
+    "nottingham forest", "ipswich town", "coventry city", "leeds utd",
+    "bayern munich", "atletico madrid", "real madrid", "fc porto", "ac milan"
+]
 
 def is_blacklisted(nome_canale):
     if not nome_canale:
         return True
     nome_pulito = nome_canale.strip()
+    low = nome_pulito.lower()
+
     for b in BLACKLIST_CANALI:
-        if nome_pulito.lower() == b.lower():
+        if low == b.lower():
             return True
+
+    # Evita di bloccare canali legittimi come "5Sport", "Sport TV", "CBS Sports Golazo", "Fox Soccer Plus"
+    if any(re.search(rf'\b{re.escape(p)}\b', low) for p in _FRASI_O_PAROLE_BLOCCATE_CANALI):
+        return True
+
     return False
 
 def is_prime_video_channel(testo):
@@ -163,7 +194,7 @@ EPG_PW_TV_IDS = {
 }
 
 # ==========================================
-# ID ESCLUSIVI EPG.PW - CANALI TARGET (🟠 / ⭐)
+# ID ESCLUSIVI EPG.PW - CANALI TARGET (⭐)
 # ==========================================
 EPG_PW_TARGET_IDS = {
     "547353": "5Sport Live",
@@ -222,11 +253,6 @@ EPG_PW_TARGET_IDS = {
     "450102": "beIN Sports 3",
     "450103": "beIN Sports French",
     "450104": "beIN Sports English",
-    "460001": "DAZN 1",
-    "460002": "DAZN 2",
-    "460003": "DAZN 1 Bar",
-    "460004": "DAZN Espana",
-    "460005": "DAZN Portugal",
     "470001": "Viaplay",
     "470002": "Viaplay Sweden",
     "470003": "Viaplay Denmark",
@@ -249,11 +275,12 @@ CANALI_STELLE = {
     "Setanta Sports 3 Georgia", "Setanta Sports Premium [UA]",
     "Okko Futbol", "Okko Sport", "beIN Sports 1", "beIN Sports 2",
     "beIN Sports 3", "beIN Sports French", "beIN Sports English",
-    "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
     "AS3 Sport TV", "N Sports", "A Spor", "Sport+ Qazaqstan",
     "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
-    "ORF 1", "ORF 2", "ORF 3", "ORF Sport+"
+    "ORF 1", "ORF 2", "ORF 3", "ORF Sport+",
+    "TNT Sports", "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4",
+    "TNT Sports 5", "TNT Sports 6", "TNT Sports 7", "TNT Sports 7 HBO Max"
 }
 
 CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
@@ -269,8 +296,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
     "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
-    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Italia Uno", "TV8", "Prime Video",
-    "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4"
+    "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Italia Uno", "TV8", "Prime Video"
 })
 
 INFO_CANALI = {}
@@ -853,14 +879,15 @@ _RUOLO_O_RUMORE_WEB = {
     "kickoff", "ko", "serie a", "champions league", "coppa italia", "supercoppa",
     "inter", "internazionale", "inter milan", "home", "away", "vs", "v",
     "previous slide", "next slide", "show broadcasts", "read more", "read less",
-    "on tv", "football", "league phase", "uefa champions league",
+    "on tv", "football", "league phase", "uefa champions league", "tonight",
+    "teams", "view all teams", "premier league", "scottish premiership",
     "uk", "us", "usa", "italy", "spain", "france", "germany", "portugal",
     "poland", "greece", "croatia", "serbia", "bulgaria", "romania", "netherlands"
 }
 
 _PATTERN_RUMORE_WEB = [
     r'\b(previous|next)\s+slide\b',
-    r'\b(show\s+broadcasts|read\s+(more|less)|see\s+every\s+.*game|live\s+football\s+on\s+tv)\b',
+    r'\b(show\s+broadcasts|read\s+(more|less)|see\s+every\s+.*game|live\s+football\s+on\s+tv|view\s+all\s+teams)\b',
     r'\b(utc|gmt|cet|cest|est|pst)\b',
     r'\b\d{1,2}:\d{2}\b',
     r'\b(mon|tue|wed|thu|fri|sat|sun)\b',
@@ -868,7 +895,7 @@ _PATTERN_RUMORE_WEB = [
     r'\b(january|february|march|april|may|june|july|august|september|october|november|december)\b',
     r'\b(1st|2nd|3rd|\d+th)\b',
     r'\blogo\b',
-    r'\bprediction\b',
+    r'\b(prediction|predictions|football|premier\s+league|premiership|serie\s+a|coppa\s+italia|champions\s+league|tonight|teams|dazn)\b',
     r'\b(v|vs)\b'
 ]
 
@@ -893,7 +920,6 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
                 if val and 2 <= len(val) <= 32:
                     candidati_testo.append(val)
         else:
-            # Salta elementi che contengono troppi sotto-elementi annidati (es. card/blocco intero)
             if len(sub.find_all(["a", "div", "tr", "li", "table"])) > 2:
                 continue
             txt = " ".join(sub.get_text(" ", strip=True).split())
@@ -1412,11 +1438,11 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
 
     if "In attesa" in c_pulito:
         return "arancione", f"⏳ {c_pulito}"
-    elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "TNT Sports", "Eleven Sports"]):
+    elif c_pulito in CANALI_STELLE or "tnt sports" in c_lower or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
+        return "stelle", f"⭐ {c_pulito}"
+    elif c_pulito in CANALI_TV_CLASSICI or c_pulito in EPG_PW_TV_IDS.values() or any(tv_ok in c_pulito for tv_ok in ["Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "Eleven Sports"]):
         nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
         return "tv", nome_formattato
-    elif c_pulito in CANALI_STELLE or "okko" in c_lower or "setanta" in c_lower or c_pulito in ["5Sport", "QazSport", "5Sport Live", "5Sport Plus", "Sport 1", "Sport 1 Baltic", "Sport 2", "Sport 2 Baltic"]:
-        return "stelle", f"⭐ {c_pulito}"
     elif c_pulito in TUTTI_I_CANALI_BLU:
         return "blu", f"🔵 {c_pulito}"
     elif c_pulito in TUTTI_I_CANALI_NERI:
