@@ -246,13 +246,18 @@ EPG_PW_TV_IDS = {
     "408452": "Digi Sport 3",
     "408453": "Digi Sport 4",
     "415585": "Ziggo Sport",
-    "415586": "Ziggo Sport 1"
+    "406806": "Ziggo Sport 1",
+    "76654": "Canale 5",
+    "465330": "Italia 1",
+    "585499": "Rai 1",
+    "585468": "Rai 2"
 }
 
 # ==========================================
 # ID ESCLUSIVI EPG.PW - CANALI TARGET (⭐)
 # ==========================================
 EPG_PW_TARGET_IDS = {
+    "78599": "5Sport",
     "547353": "5Sport Live",
     "545663": "5Sport Plus",
     "406253": "Sport 1",
@@ -278,6 +283,7 @@ EPG_PW_TARGET_IDS = {
     "553861": "Setanta 2 [UZ]",
     "417351": "Setanta Sports 2 Lietuva",
     "473658": "Setanta Sport+ [KZ]",
+    "567946": "Sport+ Qazaqstan",
     "62227": "Setanta Sports 1 KZ",
     "359087": "Setanta Kyrgyzstan",
     "534228": "Setanta Sports 3 Georgia",
@@ -289,6 +295,12 @@ EPG_PW_TARGET_IDS = {
     "400480": "TNT Sports 2",
     "400479": "TNT Sports 3",
     "400478": "TNT Sports 4",
+    "463026": "TNT Sports 5",
+    "463020": "TNT Sports 6",
+    "463024": "TNT Sports 7",
+    "463025": "TNT Sports 8",
+    "463021": "TNT Sports 9",
+    "431608": "TNT Sport Premium",
     "562308": "CBS Sports Golazo",
     "480375": "Okko Sport",
     "563613": "Go3 Sport",
@@ -298,8 +310,9 @@ EPG_PW_TARGET_IDS = {
     "381849": "Arena Sport 3",
     "465156": "Fox Deportes",
     "465291": "Fox Sports 1",
-    "415586": "Fox Sports 3",
     "415584": "Fox Sports 2",
+    "415586": "Fox Sports 3",
+    "431624": "Fox Sport HD",
     "465214": "Fox Soccer Plus",
     "408622": "CBS Sports Network",
     "464937": "CBS Sports Network",
@@ -320,7 +333,8 @@ EPG_PW_TARGET_IDS = {
     "76756": "ORF Sport+",
     "76734": "ORF 3",
     "76616": "ORF 2",
-    "438442": "ORF 1"
+    "438442": "ORF 1",
+    "580954": "A Spor"
 }
 
 TUTTI_I_TARGET_PW = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
@@ -338,14 +352,19 @@ CANALI_STELLE = {
     "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
     "ORF 1", "ORF 2", "ORF 3", "ORF Sport+",
     "TNT Sports", "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4",
-    "TNT Sports 5", "TNT Sports 6", "TNT Sports 7", "TNT Sports 7 HBO Max"
+    "TNT Sports 5", "TNT Sports 6", "TNT Sports 7", "TNT Sports 8", "TNT Sports 9",
+    "TNT Sports 7 HBO Max", "TNT Sport Premium",
+    "CBS Sports Golazo", "Fox Deportes", "Fox Sports 1", "Fox Sports 2",
+    "Fox Sports 3", "Fox Sport HD", "Fox Soccer Plus"
 }
 
-CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
+CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).difference({"Ziggo Sport", "Ziggo Sport 1"}).union({
     "Eleven Sports 1", "Eleven Sports 2", "Eleven Sports 3", "Eleven Sports 4",
     "Eleven Sports", "Eleven Sports 1 Poland", "Eleven Sports 2 Poland", "Eleven Sports 3 Poland", "Eleven Sports 4 Poland",
     "Canal+ Sport", "Canal+ Sport 2", "Canal+ Extra", "Canal+ 1",
     "Polsat Sport", "Polsat Sport 1", "Polsat Sport 2", "Polsat Sport 3", "Polsat Sport Fight",
+    "Polsat Sport Premium 1", "Polsat Sport Premium 2", "Polsat Sport Premium 3",
+    "Polsat Sport Premium 4", "Polsat Sport Premium 5", "Polsat Sport Premium 6",
     "Nova Sports 1", "Nova Sports 2", "Nova Sports 3", "Nova Sports 4", "Nova Sports Start",
     "Cosmote Sport 1", "Cosmote Sport 2", "Cosmote Sport 3", "Cosmote Sport 4", "Cosmote Sport 5",
     "Cosmote Sport 6", "Cosmote Sport 7", "Cosmote Sport 8", "Cosmote Sport 9",
@@ -353,7 +372,7 @@ CANALI_TV_CLASSICI = set(EPG_PW_TV_IDS.values()).union({
     "Diema Sport", "Diema Sport 2", "Diema Sport 3",
     "Eurosport 1 Poland", "Eurosport 2 Poland", "TVP Sport",
     "Prima Sport 1", "Prima Sport 2", "Digi Sport 1", "Digi Sport 2", "Digi Sport 3", "Digi Sport 4",
-    "Ziggo Sport", "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
+    "Sky Sport Austria 1", "Sky Sport Austria 3", "Sky Sport Arena",
     "RSI LA1", "RSI LA2", "Rai 1", "Rai 2", "Canale 5", "Italia 1", "Italia Uno", "TV8", "Prime Video"
 })
 
@@ -1519,7 +1538,7 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
         return "stelle", f"⭐ {c_pulito}"
     if (
         c_pulito in CANALI_TV_CLASSICI
-        or any(tv_ok in c_pulito for tv_ok in ("Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Ziggo", "Prime Video", "Eleven Sports"))
+        or any(tv_ok in c_pulito for tv_ok in ("Max Sport", "Nova Sport", "Polsat", "Cosmote", "Diema", "Digi Sport", "Prime Video", "Eleven Sports"))
     ):
         nome_formattato = "🎬 Prime Video" if is_prime_video_channel(c_pulito) else f"📺 {c_pulito}"
         return "tv", nome_formattato
