@@ -3,13 +3,11 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter - VfB Stuttgart  (0-0)
+SUMMARY:⚽ Inter - VfB Stuttgart  (2-0)
 DTSTART:20261125T200000Z
 DTEND:20261125T220000Z
-DESCRIPTION:🏆 Competizione: FotMob Calendar\n\n📡 Canali TV:\n⭐ Spo
- rt 2\n⭐ Sport\n⭐ Šport\n⭐ TNT Sports 7 HBO Max\n⭐ TNT Sports 7\n
- 🔵 Arena Sport 2\n🔵 A Spor\n⚪ ARENA SPORT 2 HD HR\n⚪ Arena Sport 
- 2 HD\n⚪ ARENA SPORT 2\n🟠 HBO Max
+DESCRIPTION:🏆 Competizione: FotMob Calendar\n\n📡 Canali TV:\n⏳ In 
+ attesa di programmazione ufficiale ⏳
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Genoa CFC
