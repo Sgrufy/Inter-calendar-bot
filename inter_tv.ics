@@ -3,37 +3,31 @@ VERSION:2.0
 PRODID:-//Calendario Inter V89 EPG//IT
 X-WR-CALNAME:Inter TV Broadcasts
 BEGIN:VEVENT
-SUMMARY:⚽ Inter - VfB Stuttgart  (2-0)
-DTSTART:20261125T200000Z
-DTEND:20261125T220000Z
-DESCRIPTION:🏆 Competizione: FotMob Calendar\n\n📡 Canali TV:\n⏳ In 
- attesa di programmazione ufficiale ⏳
-END:VEVENT
-BEGIN:VEVENT
 SUMMARY:⚽ Inter vs Genoa CFC
 DTSTART:20261128T194500Z
 DTEND:20261128T214500Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n📺 Eleven Spo
- rts 2 Portugal\n📺 Eleven Sports 2\n⭐ Bein Sports 3\n🔵 Sport TV 7\n
- 🟡 TV2\n☀️ Paramount+\n☀️ S Sport Turkey\n☀️ S Sport\n☀️
-  Ziggo Sport 2 Netherlands\n☀️ Ziggo Sport 2\n☀️ matchtv.ru Russia
- \n☀️ matchtv.ru\n☀️ Sportbox.ru Russia\n☀️ Sportbox.ru\n☀️
-  ESPN 3 Netherlands\n☀️ ESPN 3\n☀️ Voyo\n☀️ TV2 Sport X Denmar
- k\n☀️ TV2 Sport X\n☀️ NOW TV\n☀️ STARZPLAY\n☀️ VG+\n☀️
-  Tring Sport 1\n☀️ TLN\n☀️ Sky Sport\n🟠 Premier Sports 1
+ rts 2 Portugal\n📺 Eleven Sports 2\n⭐ Canal+\n⭐ Bein Sports 3\n🔵 
+ Sport TV 7\n🟡 TV2\n☀️ Paramount+\n☀️ S Sport Turkey\n☀️ S S
+ port\n☀️ Ziggo Sport 2 Netherlands\n☀️ Ziggo Sport 2\n☀️ match
+ tv.ru Russia\n☀️ matchtv.ru\n☀️ Sportbox.ru Russia\n☀️ Sportbo
+ x.ru\n☀️ ESPN 3 Netherlands\n☀️ ESPN 3\n☀️ Voyo\n☀️ TV2 Sp
+ ort X Denmark\n☀️ TV2 Sport X\n☀️ NOW TV\n☀️ Canal+ France\n
+ ☀️ STARZPLAY\n☀️ VG+\n☀️ Tring Sport 1\n☀️ TLN\n☀️ Sky
+  Sport\n🟠 Premier Sports 1
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Inter - Genoa
 DTSTART:20261201T200000Z
 DTEND:20261201T220000Z
 DESCRIPTION:🏆 Competizione: Coppa Italia\n\n📡 Canali TV:\n📺 Eleve
- n Sports 2 Portugal\n📺 Eleven Sports 2\n⭐ Bein Sports 3\n🔵 Sport T
- V 7\n🟡 TV2\n🟠 Premier Sports 1\n🟠 Paramount+\n🟠 S Sport Turkey
- \n🟠 S Sport\n🟠 Ziggo Sport 2 Netherlands\n🟠 Ziggo Sport 2\n🟠 m
- atchtv.ru Russia\n🟠 matchtv.ru\n🟠 Sportbox.ru Russia\n🟠 Sportbox.
- ru\n🟠 ESPN 3 Netherlands\n🟠 ESPN 3\n🟠 Voyo\n🟠 TV2 Sport X Denm
- ark\n🟠 TV2 Sport X\n🟠 NOW TV\n🟠 STARZPLAY\n🟠 VG+\n🟠 Tring S
- port 1\n🟠 TLN\n🟠 Sky Sport
+ n Sports 2 Portugal\n📺 Eleven Sports 2\n⭐ Canal+\n⭐ Bein Sports 3\n
+ 🔵 Sport TV 7\n🟡 TV2\n🟠 Premier Sports 1\n🟠 Paramount+\n🟠 S 
+ Sport Turkey\n🟠 S Sport\n🟠 Ziggo Sport 2 Netherlands\n🟠 Ziggo Spo
+ rt 2\n🟠 matchtv.ru Russia\n🟠 matchtv.ru\n🟠 Sportbox.ru Russia\n
+ 🟠 Sportbox.ru\n🟠 ESPN 3 Netherlands\n🟠 ESPN 3\n🟠 Voyo\n🟠 TV
+ 2 Sport X Denmark\n🟠 TV2 Sport X\n🟠 NOW TV\n🟠 Canal+ France\n🟠
+  STARZPLAY\n🟠 VG+\n🟠 Tring Sport 1\n🟠 TLN\n🟠 Sky Sport
 END:VEVENT
 BEGIN:VEVENT
 SUMMARY:⚽ Frosinone Calcio vs Inter
@@ -55,5 +49,12 @@ DTSTART:20261213T140000Z
 DTEND:20261213T160000Z
 DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n⏳ In attesa d
  i programmazione ufficiale ⏳
+END:VEVENT
+BEGIN:VEVENT
+SUMMARY:⚽ US Lecce vs Inter
+DTSTART:20261218T194500Z
+DTEND:20261218T214500Z
+DESCRIPTION:🏆 Competizione: Serie A\n\n📡 Canali TV:\n⭐ TNT Sports 
+ 3\n🟠 HBO Max
 END:VEVENT
 END:VCALENDAR
