@@ -165,13 +165,20 @@ def is_prime_video_channel(testo):
     )
 
 
+def _is_eleven_sports_portugal(nome_canale):
+    if not nome_canale:
+        return False
+    low = nome_canale.lower()
+    return "eleven sports" in low and ("portugal" in low or "(pt)" in low or "[pt]" in low or re.search(r'\bpt\b', low) is not None)
+
+
 # ==========================================
-# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA, PRIME VIDEO & CO.)
+# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA, PRIME VIDEO, ELEVEN PORTUGAL & CO.)
 # ==========================================
 def normalizza_nome_canale(ch_name):
     """
-    Standardizza i nomi dei canali Setanta, dell'area Eurasia, Prime Video e canali italiani
-    distinguendo i feed regionali ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
+    Standardizza i nomi dei canali Setanta, dell'area Eurasia, Prime Video, Eleven Sports Portugal
+    e canali italiani distinguendo i feed regionali ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
     """
     if not ch_name:
         return ""
@@ -186,6 +193,12 @@ def normalizza_nome_canale(ch_name):
 
     if 'max sport 3' in ch_lower:
         return "Max Sport 3"
+
+    if _is_eleven_sports_portugal(ch_name):
+        for num in ('1', '2', '3', '4'):
+            if re.search(rf'\b{num}\b', ch_lower):
+                return f"Eleven Sports Portugal {num}"
+        return "Eleven Sports Portugal"
 
     if is_prime_video_channel(ch_name):
         return "Prime Video"
@@ -428,6 +441,9 @@ CANALI_STELLE = {
     "Setanta Sports+", "Setanta Sports 1 Georgia", "Setanta Sports 2 Georgia",
     "Setanta Sports 3 Georgia", "Setanta Sports Premium [UA]",
     "Okko Futbol", "Okko Sport",
+    "Eleven Sports Portugal",
+    "Eleven Sports Portugal 1", "Eleven Sports Portugal 2",
+    "Eleven Sports Portugal 3", "Eleven Sports Portugal 4",
     "beIN Sports 1", "beIN Sports 2", "beIN Sports 3",
     "beIN Sports French", "beIN Sports English",
     "beIN Sport 3 (FR)", "beIN Sport (US)", "beIN Sports (SG)",
@@ -468,7 +484,6 @@ CANALI_STELLE = {
     "beIN Sports (CA)",
     "beIN Sports Xtra (US)",
     "beIN Sports USA HD",
-    "Eleven Sports 1 Portugal", "Eleven Sports 2 Portugal", "Eleven Sports 3 Portugal", "Eleven Sports 4 Portugal",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
     "AS3 Sport TV", "N Sports", "Sport+ Qazaqstan",
     "ORF 1", "ORF 2", "ORF 3", "ORF Sport+",
@@ -578,6 +593,8 @@ def pulisci_etichetta_canale(nome_canale):
         return ""
     if is_prime_video_channel(nome_canale):
         return "Prime Video"
+    if _is_eleven_sports_portugal(nome_canale):
+        return normalizza_nome_canale(nome_canale)
     nome_canale = _applica_alias_speciali(normalizza_nome_canale(nome_canale))
     if nome_canale in {"5Sport", "QazSport"}:
         return nome_canale
@@ -1663,6 +1680,8 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
         c_pulito = "QazSport"
     elif "okko" in c_lower or "окко" in c_lower:
         c_pulito = "Okko Futbol" if ("football" in c_lower or "футбол" in c_lower or "prajm" in c_lower) else "Okko Sport"
+    elif _is_eleven_sports_portugal(c_pulito):
+        c_pulito = normalizza_nome_canale(c_pulito)
     elif is_prime_video_channel(c_pulito):
         c_pulito = "Prime Video"
 
@@ -1670,6 +1689,7 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
         return "arancione", f"⏳ {c_pulito}"
     if (
         c_pulito in CANALI_STELLE
+        or _is_eleven_sports_portugal(c_pulito)
         or c_lower in {"sport", "šport"}
         or "tnt sports" in c_lower
         or "okko" in c_lower
