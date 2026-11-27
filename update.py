@@ -523,11 +523,19 @@ _EPG_PW_CACHE_LOCK = threading.Lock()
 _EPG_PW_PACE_LOCK = threading.Lock()
 _EPG_PW_LAST_CALL_TS = 0.0
 _PRINT_LOCK = threading.Lock()
+_LOGGED_DIAG_KEYS = set()
 
 
 def _log(msg):
     with _PRINT_LOCK:
         print(msg)
+
+
+def _log_una_volta(chiave, msg):
+    with _PRINT_LOCK:
+        if chiave not in _LOGGED_DIAG_KEYS:
+            _LOGGED_DIAG_KEYS.add(chiave)
+            print(msg)
 
 
 def _parsa_start_epg_utc(start_str):
@@ -907,27 +915,32 @@ def analizza_epg_stream(content_bytes, valid_channel_ids, source_label="Sorgente
                             'source': source_label
                         })
                 elem.clear()
-    except Exception:
-        pass
+    except ET.ParseError as e:
+        _log_una_volta(f"parse_err:{source_label}", f"   ⚠️ Parse XML incompleto su {source_label}: {e}")
+    except Exception as e:
+        _log_una_volta(f"stream_err:{source_label}", f"   ⚠️ Errore lettura EPG su {source_label}: {e}")
     return programmi_locali
 
 
 def scarica_e_processa_paese(paese, valid_channel_ids):
     label = f"IPTV-EPG Paese [{paese.upper()}]"
     try:
-        res = HTTP_SESSION.get(f"https://iptv-epg.org/files/epg-{paese}.xml", headers=HEADERS, timeout=10)
+        res = HTTP_SESSION.get(f"https://iptv-epg.org/files/epg-{paese}.xml", headers=HEADERS, timeout=15)
         if res.status_code == 200 and res.content:
             return analizza_epg_stream(res.content, valid_channel_ids, source_label=label)
-    except Exception:
-        pass
+        if res.status_code != 200:
+            _log_una_volta(f"paese_http:{paese}:{res.status_code}", f"   ⚠️ {label}: HTTP {res.status_code}")
+    except Exception as e:
+        _log_una_volta(f"paese_exc:{paese}", f"   ⚠️ {label}: timeout/errore rete ({type(e).__name__})")
     return []
 
 
 def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
-    label = f"URL Dinamico ({url_dinamico[:40]}...)"
+    label = f"URL Dinamico ({url_dinamico[:45]}...)"
     try:
-        res = HTTP_SESSION.get(url_dinamico, headers=HEADERS, timeout=10)
+        res = HTTP_SESSION.get(url_dinamico, headers=HEADERS, timeout=20)
         if res.status_code != 200:
+            _log_una_volta(f"dyn_http:{url_dinamico}:{res.status_code}", f"   ⚠️ {label}: HTTP {res.status_code}")
             return []
         if ".m3u" in url_dinamico:
             analizza_m3u_esteso(res.text, valid_channel_ids)
@@ -936,8 +949,8 @@ def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
             return []
         xml_content = gzip.decompress(res.content) if res.content[:2] == b'\x1f\x8b' else res.content
         return analizza_epg_stream(xml_content, valid_channel_ids, source_label=label)
-    except Exception:
-        pass
+    except Exception as e:
+        _log_una_volta(f"dyn_exc:{url_dinamico}", f"   ⚠️ {label}: timeout/errore ({type(e).__name__})")
     return []
 
 
@@ -1093,7 +1106,7 @@ def recupera_partite_da_fotmob(url_fotmob, partite_esistenti):
         url_clean = "https://" + url_clean[9:]
 
     try:
-        resp = HTTP_SESSION.get(url_clean, headers=HEADERS, timeout=10)
+        resp = HTTP_SESSION.get(url_clean, headers=HEADERS, timeout=12)
         if resp.status_code != 200 or not resp.text:
             _log(f"Calendario FotMob non disponibile (status {resp.status_code}).")
             return nuove_partite
@@ -1258,8 +1271,9 @@ def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
 
     for url in pagine_squadra:
         try:
-            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=7)
+            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=11)
             if resp.status_code != 200 or not resp.text:
+                _log_una_volta(f"web_http:{url}:{data_str}:{resp.status_code}", f"   ⚠️ Pagina Squadra ({url}): HTTP {resp.status_code}")
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -1274,8 +1288,8 @@ def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
                     if c not in canali_trovati:
                         _log(f"   ✅ CANALE AGGIUNTO da Pagina Squadra ({url}): {c} [{data_str}]")
                         canali_trovati.append(c)
-        except Exception:
-            continue
+        except Exception as e:
+            _log_una_volta(f"web_exc:{url}:{data_str}", f"   ⚠️ Pagina Squadra ({url}): timeout/errore ({type(e).__name__})")
 
     return canali_trovati
 
@@ -1291,8 +1305,9 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
         base_url = "https://www.live-footballontv.com/live-italian-football-on-tv.html"
 
         for url in (f"{base_url}#{anchor}", base_url):
-            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=7)
+            resp = HTTP_SESSION.get(url, headers=WEB_SCRAPE_HEADERS, timeout=11)
             if resp.status_code != 200 or not resp.text:
+                _log_una_volta(f"lfot_http:{anchor}:{resp.status_code}", f"   ⚠️ Live-FootballOnTV: HTTP {resp.status_code}")
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -1312,8 +1327,8 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
 
             if canali_trovati:
                 break
-    except Exception:
-        pass
+    except Exception as e:
+        _log_una_volta(f"lfot_exc:{data_partita}", f"   ⚠️ Live-FootballOnTV: timeout/errore ({type(e).__name__})")
 
     return canali_trovati
 
@@ -1347,8 +1362,9 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
 
     try:
         for idx_url in pagine_indice:
-            resp = HTTP_SESSION.get(idx_url, headers=WEB_SCRAPE_HEADERS, timeout=7)
+            resp = HTTP_SESSION.get(idx_url, headers=WEB_SCRAPE_HEADERS, timeout=11)
             if resp.status_code != 200 or not resp.text:
+                _log_una_volta(f"oa_http:{idx_url}:{resp.status_code}", f"   ⚠️ OddAlerts ({idx_url}): HTTP {resp.status_code}")
                 continue
 
             soup = BeautifulSoup(resp.text, "html.parser")
@@ -1375,7 +1391,7 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
                 break
 
         for match_url in link_match_trovati[:2]:
-            resp_m = HTTP_SESSION.get(match_url, headers=WEB_SCRAPE_HEADERS, timeout=7)
+            resp_m = HTTP_SESSION.get(match_url, headers=WEB_SCRAPE_HEADERS, timeout=11)
             if resp_m.status_code != 200 or not resp_m.text:
                 continue
 
@@ -1388,8 +1404,8 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
 
         for c in canali_trovati:
             _log(f"   ✅ CANALE AGGIUNTO da OddAlerts (presente in liste IPTV): {c}")
-    except Exception:
-        pass
+    except Exception as e:
+        _log_una_volta(f"oa_exc:{data_iso}", f"   ⚠️ OddAlerts: timeout/errore ({type(e).__name__})")
 
     return canali_trovati
 
@@ -1492,7 +1508,7 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
     try:
         data_str = data_partita.strftime('%Y-%m-%d')
         url_search = f"https://www.thesportsdb.com/api/v1/json/123/eventsday.php?d={data_str}&s=Soccer"
-        response = HTTP_SESSION.get(url_search, headers=HEADERS, timeout=8)
+        response = HTTP_SESSION.get(url_search, headers=HEADERS, timeout=11)
         if response.status_code == 200:
             events = (response.json() or {}).get('events') or []
             h_low = home_team.lower()
@@ -1507,7 +1523,7 @@ def cerca_canali_thesportsdb(home_team, away_team, data_partita):
                         res_tv = HTTP_SESSION.get(
                             f"https://www.thesportsdb.com/api/v1/json/123/lookuptv.php?id={event_id}",
                             headers=HEADERS,
-                            timeout=8
+                            timeout=11
                         )
                         if res_tv.status_code == 200:
                             channels = (res_tv.json() or {}).get('tvevents') or []
@@ -1650,7 +1666,7 @@ def fetch_next_matches():
     url = f"https://api.football-data.org/v4/teams/{TEAM_ID}/matches?status=SCHEDULED,TIMED"
 
     try:
-        response = HTTP_SESSION.get(url, headers=HEADERS, timeout=10)
+        response = HTTP_SESSION.get(url, headers=HEADERS, timeout=12)
         data = response.json()
 
         partite_da_analizzare = []
