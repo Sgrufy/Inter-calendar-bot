@@ -77,11 +77,9 @@ BLACKLIST_CANALI = {
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
     "Tagesschau24", "W24", "10 HD", "10", "RT", ":24", "Spo",
     "DAZN", "DAZN 1", "DAZN 2", "DAZN 1 Bar", "DAZN Espana", "DAZN Portugal",
-    # Competizioni / programmi spuri visti in output
     "Serie A Football", "Coppa Italia Football", "UEFA Champions League Football",
     "Premier League", "Scottish Premiership", "Tonight", "Teams",
     "View All Teams", "View All Teams ->", "All Teams",
-    # Squadre e nazionali finite per errore come canali
     "Arsenal", "Aston Villa", "Bournemouth", "Brentford", "Brighton",
     "Chelsea", "Coventry City", "Crystal Palace", "Everton", "Fulham",
     "Hull City", "Ipswich Town", "Leeds Utd", "Liverpool",
@@ -90,7 +88,6 @@ BLACKLIST_CANALI = {
     "England", "England Women", "Northern Ireland", "Scotland", "Wales",
     "AC Milan", "Ajax", "Atletico Madrid", "Barcelona", "Bayern Munich",
     "Benfica", "FC Porto", "Juventus", "PSG", "Real Madrid",
-    # Voci UI / menu / statistiche / quote finite per errore da portali come OddAlerts
     "Alerts", "More", "Explore", "Value Bets", "OddAlerts Alpha",
     "Bet of the Day", "Corners", "Sports Edge Bot", "Betslip Generator",
     "Foul Alerts", "Bet Builder", "Map", "Home Wins", "Suggested Alerts",
@@ -116,7 +113,6 @@ _FRASI_O_PAROLE_BLOCCATE_CANALI = [
 ]
 _REGEX_BLOCCATE_CANALI = [re.compile(rf'\b{re.escape(p)}\b', re.IGNORECASE) for p in _FRASI_O_PAROLE_BLOCCATE_CANALI]
 
-# Blocco specifico per voci UI/statistiche che possono apparire in scraping web/OddAlerts
 _RUMORE_UI_ODDALERTS_ESATTO = {
     "alerts", "more", "explore", "value bets", "oddalerts alpha",
     "bet of the day", "corners", "sports edge bot", "betslip generator",
@@ -165,14 +161,23 @@ def is_prime_video_channel(testo):
     )
 
 
+def _is_eleven_sports_portugal(nome_canale):
+    if not nome_canale:
+        return False
+    low = nome_canale.lower()
+    return "eleven" in low and ("portugal" in low or re.search(r'\bpt\b', low) is not None)
+
+
+def _is_max_sport_1_4(nome_canale):
+    if not nome_canale:
+        return False
+    return bool(re.search(r'\bmax\s*sport\s*[1-4]\b', nome_canale, flags=re.IGNORECASE))
+
+
 # ==========================================
-# NORMALIZZAZIONE NOMI CANALI (EURASIA, UZ, GE, UA, PRIME VIDEO & CO.)
+# NORMALIZZAZIONE NOMI CANALI
 # ==========================================
 def normalizza_nome_canale(ch_name):
-    """
-    Standardizza i nomi dei canali Setanta, dell'area Eurasia, Prime Video e canali italiani
-    distinguendo i feed regionali ([UZ], [GE], [UA], [KZ], ecc.) dai canali standard.
-    """
     if not ch_name:
         return ""
 
@@ -184,8 +189,9 @@ def normalizza_nome_canale(ch_name):
             return "Setanta Sport 2 Eurasia" if is_eurasia else "Setanta Sport 2"
         return "Setanta Sport 1 Eurasia" if is_eurasia else "Setanta Sport 1"
 
-    if 'max sport 3' in ch_lower:
-        return "Max Sport 3"
+    m_max = re.search(r'\bmax\s*sport\s*([1-4])\b', ch_name, flags=re.IGNORECASE)
+    if m_max:
+        return f"Max Sport {m_max.group(1)}"
 
     if is_prime_video_channel(ch_name):
         return "Prime Video"
@@ -470,7 +476,6 @@ CANALI_STELLE = {
     "beIN Sports USA HD",
     "Viaplay", "Viaplay Sweden", "Viaplay Denmark", "Canal+",
     "AS3 Sport TV", "N Sports", "Sport+ Qazaqstan",
-    "Max Sport 1", "Max Sport 2", "Max Sport 3", "Max Sport 4",
     "ORF 1", "ORF 2", "ORF 3", "ORF Sport+",
     "TNT Sports", "TNT Sports 1", "TNT Sports 2", "TNT Sports 3", "TNT Sports 4",
     "TNT Sports 5", "TNT Sports 6", "TNT Sports 7", "TNT Sports 8", "TNT Sports 9",
@@ -505,14 +510,11 @@ TUTTI_I_CANALI_GIALLI = set()
 TUTTI_I_CANALI_BIANCHI = set()
 URLS_EPG_DINAMICI = set()
 
-# Mappa per partita: chiave -> set di nomi canale puliti trovati su OddAlerts
 CANALI_SOLE_ODDALERTS_PER_MATCH = {}
 
-# Canali presenti effettivamente nelle liste IPTV caricate (M3U / testuali)
 _CANALI_DALLE_LISTE_IPTV = set()
 _CANALI_DALLE_LISTE_IPTV_NORM = set()
 
-# Cache XML grezzi di epg.pw per (data_str, ch_id)
 _EPG_PW_XML_CACHE = {}
 _EPG_PW_CACHE_LOCK = threading.Lock()
 _PRINT_LOCK = threading.Lock()
@@ -521,6 +523,31 @@ _PRINT_LOCK = threading.Lock()
 def _log(msg):
     with _PRINT_LOCK:
         print(msg)
+
+
+def _parsa_start_epg_utc(start_str):
+    """
+    Converte un attributo XMLTV `start` (es. '20261128204000 +0100', '20261128194000 UTC',
+    '20261128194000Z' o '20261128194000') in un oggetto datetime aware in UTC.
+    """
+    if not start_str:
+        return None
+    s = " ".join(start_str.strip().split())
+    m = re.match(r'^(\d{14})(?:\s*([+-]\d{4}|[+-]\d{2}:\d{2}|Z|UTC|GMT))?', s, flags=re.IGNORECASE)
+    if not m:
+        return None
+    dt_base = datetime.strptime(m.group(1), '%Y%m%d%H%M%S')
+    tz_part = (m.group(2) or "").strip().upper()
+
+    if not tz_part or tz_part in {"Z", "UTC", "GMT"}:
+        return dt_base.replace(tzinfo=timezone.utc)
+
+    tz_clean = tz_part.replace(":", "")
+    try:
+        offset_dt = datetime.strptime(tz_clean, "%z")
+        return dt_base.replace(tzinfo=offset_dt.tzinfo).astimezone(timezone.utc)
+    except ValueError:
+        return dt_base.replace(tzinfo=timezone.utc)
 
 
 def _chiave_match_sole(match_name, ora_utc):
@@ -913,7 +940,7 @@ def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
     return []
 
 
-def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=7):
+def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15):
     cache_key = (data_partita_str, str(ch_id))
     with _EPG_PW_CACHE_LOCK:
         if cache_key in _EPG_PW_XML_CACHE:
@@ -921,15 +948,15 @@ def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=7):
 
     content = b""
     try:
-        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=RXVyb3BlL1N0b2NraG9sbQ%3D%3D&date={data_partita_str}&channel_id={ch_id}"
+        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=VVRD&date={data_partita_str}&channel_id={ch_id}"
         res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
         if res.status_code == 200 and res.content and len(res.content) > 200:
             content = res.content
+            with _EPG_PW_CACHE_LOCK:
+                _EPG_PW_XML_CACHE[cache_key] = content
     except Exception:
         content = b""
 
-    with _EPG_PW_CACHE_LOCK:
-        _EPG_PW_XML_CACHE[cache_key] = content
     return content
 
 
@@ -937,7 +964,7 @@ def scarica_singolo_id_pw(args):
     ch_id, ch_name, data_partita_str = args
     if is_blacklisted(ch_name):
         return []
-    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=7)
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15)
     if not xml_bytes:
         return []
     progs = analizza_epg_stream(
@@ -1189,9 +1216,6 @@ def _estrai_emittenti_da_contenitore(el, av_parole):
 
 
 def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
-    """
-    Cerca canali TV dalle pagine squadra dell'Inter su whichtvchannel.com e wheresthematch.com.
-    """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
@@ -1227,9 +1251,6 @@ def cerca_canali_pagine_squadra_inter(home_team, away_team, data_partita):
 
 
 def cerca_canali_live_footballontv(home_team, away_team, data_partita):
-    """
-    Cerca canali da live-footballontv.com (pagina calcio italiano e relativa ancora/data del match).
-    """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
@@ -1268,11 +1289,6 @@ def cerca_canali_live_footballontv(home_team, away_team, data_partita):
 
 
 def cerca_canali_oddalerts(home_team, away_team, data_partita):
-    """
-    Cerca dinamicamente per ogni partita dell'Inter i canali su oddalerts.com
-    e registra per l'icona automatica del sole (☀️) i canali presenti nelle liste IPTV,
-    escludendo rigorosamente voci di menu, statistiche, quote e widget UI.
-    """
     canali_trovati = []
     av_parole = _parole_avversario_match(home_team, away_team)
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
@@ -1349,9 +1365,10 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
 
 
 # ==========================================
-# CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO E REPLICHE (PARALLELIZZATO)
+# CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO (±6 ORE) E REPLICHE
 # ==========================================
 _COPPE_KEYWORDS = ("champions", "ucl", "serie a", "coppa italia", "supercoppa")
+TOLLERANZA_ORARIA_SECONDI = 21600  # ±6 ore
 
 
 def _controlla_singolo_canale_mirato(args):
@@ -1360,7 +1377,7 @@ def _controlla_singolo_canale_mirato(args):
     if is_blacklisted(ch_name_norm):
         return []
 
-    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=7)
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=15)
     if not xml_bytes:
         return []
 
@@ -1378,12 +1395,9 @@ def _controlla_singolo_canale_mirato(args):
                 continue
 
             if match_ora_utc and p.get('start'):
-                try:
-                    prog_start = datetime.strptime(p['start'].split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-                    if abs((prog_start - match_ora_utc).total_seconds()) > 10800:
-                        continue
-                except ValueError:
-                    pass
+                prog_start = _parsa_start_epg_utc(p['start'])
+                if prog_start and abs((prog_start - match_ora_utc).total_seconds()) > TOLLERANZA_ORARIA_SECONDI:
+                    continue
 
             contiene_inter = any(rx.search(title) for rx in inter_regexes)
             contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
@@ -1516,43 +1530,42 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         if not start_str:
             continue
 
-        try:
-            prog_start = datetime.strptime(start_str.split(' ')[0][:14], '%Y%m%d%H%M%S').replace(tzinfo=timezone.utc)
-            if abs((prog_start - date_utc).total_seconds()) > 10800:
-                continue
-
-            desc_norm = prog.get('desc', '')
-            c_uff = None
-            ch_name_lower = ch_name.lower()
-
-            if "5sport" in ch_name_lower or "sport 5" in ch_name_lower or "ספורט 5" in ch_name or ch_id == "5Sport.il":
-                c_uff = "5Sport"
-            elif "qazsport" in ch_name_lower or ch_id == "QazSport.kz":
-                c_uff = "QazSport"
-            elif "okko" in ch_name_lower or "окко" in ch_name_lower:
-                c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
-            elif is_prime_video_channel(ch_name) or is_prime_video_channel(title) or is_prime_video_channel(desc_norm):
-                c_uff = "Prime Video"
-            elif ch_id in TUTTI_I_TARGET_PW:
-                c_uff = normalizza_nome_canale(TUTTI_I_TARGET_PW[ch_id])
-            elif ch_name and not ch_name.isdigit():
-                c_uff = normalizza_nome_canale(ch_name)
-
-            if c_uff:
-                c_pulito = pulisci_etichetta_canale(c_uff)
-                if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
-                    _log(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
-                    canali_trovati.append(c_pulito)
-
-            norm_ch = normalizza_testo(ch_name)
-            for nc, norm_nc in validi_precalc:
-                if norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc)):
-                    nc_pulito = pulisci_etichetta_canale(nc)
-                    if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito):
-                        _log(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
-                        canali_trovati.append(nc_pulito)
-        except ValueError:
+        prog_start = _parsa_start_epg_utc(start_str)
+        if not prog_start:
             continue
+        if abs((prog_start - date_utc).total_seconds()) > TOLLERANZA_ORARIA_SECONDI:
+            continue
+
+        desc_norm = prog.get('desc', '')
+        c_uff = None
+        ch_name_lower = ch_name.lower()
+
+        if "5sport" in ch_name_lower or "sport 5" in ch_name_lower or "ספורט 5" in ch_name or ch_id == "5Sport.il":
+            c_uff = "5Sport"
+        elif "qazsport" in ch_name_lower or ch_id == "QazSport.kz":
+            c_uff = "QazSport"
+        elif "okko" in ch_name_lower or "окко" in ch_name_lower:
+            c_uff = "Okko Futbol" if ("football" in ch_name_lower or "футбол" in ch_name_lower or "prajm" in ch_name_lower) else "Okko Sport"
+        elif is_prime_video_channel(ch_name) or is_prime_video_channel(title) or is_prime_video_channel(desc_norm):
+            c_uff = "Prime Video"
+        elif ch_id in TUTTI_I_TARGET_PW:
+            c_uff = normalizza_nome_canale(TUTTI_I_TARGET_PW[ch_id])
+        elif ch_name and not ch_name.isdigit():
+            c_uff = normalizza_nome_canale(ch_name)
+
+        if c_uff:
+            c_pulito = pulisci_etichetta_canale(c_uff)
+            if c_pulito and c_pulito not in canali_trovati and not is_blacklisted(c_pulito):
+                _log(f"   ✅ CANALE AGGIUNTO (Generale): {c_pulito} (Match '{title}' trovato su EPG | Fonte: {source_epg})")
+                canali_trovati.append(c_pulito)
+
+        norm_ch = normalizza_testo(ch_name)
+        for nc, norm_nc in validi_precalc:
+            if norm_nc == norm_ch or (len(norm_nc) > 2 and (norm_nc in norm_ch or norm_ch in norm_nc)):
+                nc_pulito = pulisci_etichetta_canale(nc)
+                if nc_pulito and nc_pulito not in canali_trovati and not is_blacklisted(nc_pulito):
+                    _log(f"   ✅ CANALE AGGIUNTO (Mapping Lista): {nc_pulito} (Match '{title}' | Fonte: {source_epg})")
+                    canali_trovati.append(nc_pulito)
 
     return canali_trovati
 
@@ -1668,6 +1681,10 @@ def _formatta_canale_per_gruppo(c, canali_sole_set):
 
     if "In attesa" in c_pulito:
         return "arancione", f"⏳ {c_pulito}"
+    if _is_eleven_sports_portugal(c_pulito):
+        return "stelle", f"⭐ {c_pulito}"
+    if _is_max_sport_1_4(c_pulito):
+        return "tv", f"📺 {c_pulito}"
     if (
         c_pulito in CANALI_STELLE
         or c_lower in {"sport", "šport"}
