@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from requests.adapters import HTTPAdapter
 import xml.etree.ElementTree as ET
@@ -72,6 +73,7 @@ PAROLE_ESCLUSE_REPLICHE = [
 BLACKLIST_CANALI = {
     "O!", "o!", "O", "o",
     "E!", "e!", "E", "e",
+    "pre", "PRE",
     "Mezzo", "Mezzo Live", "mezzo", "mezzo live",
     "Focus", "HRT 4", "ORTS (480p) [Not 24/7]", "Das Erste",
     "CNews", "Court TV", "CNN", "BBC News", "BMT",
@@ -122,11 +124,11 @@ _RUMORE_UI_ODDALERTS_ESATTO = {
     "home wins form", "all filter presets", "home win value bets",
     "over 2.5 goals value bets", "corner betting tips", "your country",
     "pro features", "filter presets", "value bet", "odds", "stats",
-    "standings", "table", "lineups", "fixtures", "results", "home", "away"
+    "standings", "table", "lineups", "fixtures", "results", "home", "away", "pre"
 }
 _REGEX_RUMORE_UI_ODDALERTS = [
     re.compile(r'\b(alerts?|value\s*bets?|bet\s*builder|betslip|corner\s*betting|over\s*\d+(\.\d+)?|filter\s*presets?|pro\s*features?|csv\s*downloads?|your\s*country|edge\s*bot|home\s*wins?)\b', re.IGNORECASE),
-    re.compile(r'^(more|explore|corners?|map|api|partners|odds|stats|standings|table|lineups|fixtures|results)$', re.IGNORECASE)
+    re.compile(r'^(more|explore|corners?|map|api|partners|odds|stats|standings|table|lineups|fixtures|results|pre)$', re.IGNORECASE)
 ]
 
 
@@ -143,7 +145,7 @@ def is_blacklisted(nome_canale):
     if not nome_canale:
         return True
     low = " ".join(nome_canale.strip().lower().split())
-    if low in BLACKLIST_CANALI_LOWER or low in _RUMORE_UI_ODDALERTS_ESATTO:
+    if len(low) < 2 or low in BLACKLIST_CANALI_LOWER or low in _RUMORE_UI_ODDALERTS_ESATTO:
         return True
     if any(rx.search(low) for rx in _REGEX_BLOCCATE_CANALI):
         return True
@@ -516,7 +518,10 @@ _CANALI_DALLE_LISTE_IPTV = set()
 _CANALI_DALLE_LISTE_IPTV_NORM = set()
 
 _EPG_PW_XML_CACHE = {}
+_EPG_PW_FAILED_KEYS = set()
 _EPG_PW_CACHE_LOCK = threading.Lock()
+_EPG_PW_PACE_LOCK = threading.Lock()
+_EPG_PW_LAST_CALL_TS = 0.0
 _PRINT_LOCK = threading.Lock()
 
 
@@ -526,10 +531,6 @@ def _log(msg):
 
 
 def _parsa_start_epg_utc(start_str):
-    """
-    Converte un attributo XMLTV `start` (es. '20261128204000 +0100', '20261128194000 UTC',
-    '20261128194000Z' o '20261128194000') in un oggetto datetime aware in UTC.
-    """
     if not start_str:
         return None
     s = " ".join(start_str.strip().split())
@@ -940,31 +941,59 @@ def scarica_e_processa_gz_dinamico(url_dinamico, valid_channel_ids):
     return []
 
 
-def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15):
+def _attendi_passo_epg_pw(min_interval=0.18):
+    global _EPG_PW_LAST_CALL_TS
+    with _EPG_PW_PACE_LOCK:
+        now = time.monotonic()
+        delta = now - _EPG_PW_LAST_CALL_TS
+        if delta < min_interval:
+            time.sleep(min_interval - delta)
+        _EPG_PW_LAST_CALL_TS = time.monotonic()
+
+
+def _sembra_xml_valido(content_bytes):
+    if not content_bytes or len(content_bytes) < 120:
+        return False
+    testa = content_bytes.lstrip()[:200].lower()
+    if testa.startswith(b"<!doctype html") or testa.startswith(b"<html"):
+        return False
+    return b"<programme" in content_bytes or b"<tv" in content_bytes
+
+
+def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15, force_retry=False):
     cache_key = (data_partita_str, str(ch_id))
     with _EPG_PW_CACHE_LOCK:
-        if cache_key in _EPG_PW_XML_CACHE:
+        if not force_retry and cache_key in _EPG_PW_XML_CACHE:
             return _EPG_PW_XML_CACHE[cache_key]
 
-    content = b""
-    try:
-        url = f"https://epg.pw/api/epg.xml?lang=en&timezone=VVRD&date={data_partita_str}&channel_id={ch_id}"
-        res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
-        if res.status_code == 200 and res.content and len(res.content) > 200:
-            content = res.content
-            with _EPG_PW_CACHE_LOCK:
-                _EPG_PW_XML_CACHE[cache_key] = content
-    except Exception:
-        content = b""
+    url = f"https://epg.pw/api/epg.xml?lang=en&timezone=VVRD&date={data_partita_str}&channel_id={ch_id}"
 
-    return content
+    for tentativo in range(2):
+        _attendi_passo_epg_pw(min_interval=0.18 if tentativo == 0 else 0.65)
+        try:
+            res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
+            if res.status_code == 429:
+                time.sleep(1.2 * (tentativo + 1))
+                continue
+            if res.status_code == 200 and _sembra_xml_valido(res.content):
+                with _EPG_PW_CACHE_LOCK:
+                    _EPG_PW_XML_CACHE[cache_key] = res.content
+                    _EPG_PW_FAILED_KEYS.discard(cache_key)
+                return res.content
+        except Exception:
+            if tentativo == 0:
+                time.sleep(0.5)
+
+    with _EPG_PW_CACHE_LOCK:
+        _EPG_PW_FAILED_KEYS.add(cache_key)
+    return b""
 
 
 def scarica_singolo_id_pw(args):
-    ch_id, ch_name, data_partita_str = args
+    ch_id, ch_name, data_partita_str, force_retry = args
     if is_blacklisted(ch_name):
         return []
-    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15)
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15, force_retry=force_retry)
     if not xml_bytes:
         return []
     progs = analizza_epg_stream(
@@ -978,11 +1007,12 @@ def scarica_singolo_id_pw(args):
     return progs
 
 
-def scarica_epg_mirato_per_data(data_partita_str):
-    args_list = [(ch_id, ch_name, data_partita_str) for ch_id, ch_name in TUTTI_I_TARGET_PW.items()]
+def scarica_epg_mirato_per_data(data_partita_str, ids_subset=None, force_retry=False):
+    mappa_ids = ids_subset if ids_subset is not None else TUTTI_I_TARGET_PW
+    args_list = [(ch_id, ch_name, data_partita_str, force_retry) for ch_id, ch_name in mappa_ids.items()]
     programmi_mirati = []
 
-    with ThreadPoolExecutor(max_workers=12) as executor:
+    with ThreadPoolExecutor(max_workers=4) as executor:
         futures = [executor.submit(scarica_singolo_id_pw, arg) for arg in args_list]
         for future in as_completed(futures):
             progs = future.result()
@@ -1014,7 +1044,7 @@ def scarica_tutti_gli_epg(date_str_list):
                 PROGRAMMI_EPG.extend(risultati)
 
     for data_str in sorted(set(date_str_list)):
-        progs_mirati = scarica_epg_mirato_per_data(data_str)
+        progs_mirati = scarica_epg_mirato_per_data(data_str, force_retry=False)
         if progs_mirati:
             PROGRAMMI_EPG.extend(progs_mirati)
 
@@ -1372,12 +1402,12 @@ TOLLERANZA_ORARIA_SECONDI = 21600  # ±6 ore
 
 
 def _controlla_singolo_canale_mirato(args):
-    data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc = args
+    data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc, force_retry = args
     ch_name_norm = normalizza_nome_canale(ch_name)
     if is_blacklisted(ch_name_norm):
         return []
 
-    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=15)
+    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=15, force_retry=force_retry)
     if not xml_bytes:
         return []
 
@@ -1418,20 +1448,38 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
     av_norm = normalizza_testo(away_team if "inter" in normalizza_testo(home_team) else home_team)
     av_parole = [p for p in av_norm.split() if len(p) > 2 and p not in inter_keywords]
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
+    date_ordinate = sorted(set(date_str_list))
 
-    tasks = [
-        (data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc)
-        for data_str in sorted(set(date_str_list))
+    def _esegui_lotto(mappa_ids, force_retry):
+        tasks = [
+            (data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc, force_retry)
+            for data_str in date_ordinate
+            for ch_id, ch_name in mappa_ids.items()
+        ]
+        if not tasks:
+            return
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(_controlla_singolo_canale_mirato, t) for t in tasks]
+            for future in as_completed(futures):
+                for c_pulito, title, ch_id in future.result():
+                    if c_pulito not in canali_trovati_extra:
+                        _log(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
+                        canali_trovati_extra.append(c_pulito)
+
+    # Primo giro su tutti i canali target di epg.pw
+    _esegui_lotto(TUTTI_I_TARGET_PW, force_retry=False)
+
+    # Secondo giro di recupero per tutti gli ID target che non hanno ancora portato risultato
+    canali_gia_trovati_lower = {c.lower() for c in canali_trovati_extra}
+    ids_da_riprovare = {
+        ch_id: ch_name
         for ch_id, ch_name in TUTTI_I_TARGET_PW.items()
-    ]
-
-    with ThreadPoolExecutor(max_workers=12) as executor:
-        futures = [executor.submit(_controlla_singolo_canale_mirato, t) for t in tasks]
-        for future in as_completed(futures):
-            for c_pulito, title, ch_id in future.result():
-                if c_pulito not in canali_trovati_extra:
-                    _log(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
-                    canali_trovati_extra.append(c_pulito)
+        if normalizza_nome_canale(ch_name).lower() not in canali_gia_trovati_lower
+    }
+    if ids_da_riprovare:
+        _log(f"   ↻ Recupero mirato EPG.PW su {len(ids_da_riprovare)} ID non ancora agganciati...")
+        time.sleep(0.8)
+        _esegui_lotto(ids_da_riprovare, force_retry=True)
 
     return canali_trovati_extra
 
