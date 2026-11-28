@@ -974,28 +974,56 @@ def _sembra_xml_valido(content_bytes):
 
 
 def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15, force_retry=False):
-    cache_key = (data_partita_str, str(ch_id))
+    ch_id_str = str(ch_id)
+    cache_key = (data_partita_str, ch_id_str)
     with _EPG_PW_CACHE_LOCK:
         if not force_retry and cache_key in _EPG_PW_XML_CACHE:
             return _EPG_PW_XML_CACHE[cache_key]
 
-    url = f"https://epg.pw/api/epg.xml?lang=en&timezone=VVRD&date={data_partita_str}&channel_id={ch_id}"
+    url = f"https://epg.pw/api/epg.xml?lang=en&timezone=VVRD&date={data_partita_str}&channel_id={ch_id_str}"
+    ultimo_esito = "vuoto"
 
     for tentativo in range(2):
-        _attendi_passo_epg_pw(min_interval=0.18 if tentativo == 0 else 0.65)
+        _attendi_passo_epg_pw(min_interval=0.18 if tentativo == 0 else 0.55)
         try:
             res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
             if res.status_code == 429:
-                time.sleep(1.2 * (tentativo + 1))
+                ultimo_esito = "HTTP 429 (rate-limit)"
+                if ch_id_str == "6340":
+                    _log_una_volta(f"pw_6340_429:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}, tentativo {tentativo + 1}): HTTP 429")
+                else:
+                    _log_una_volta("pw_global_429", "   ⚠️ EPG.PW: rilevato HTTP 429 (rate-limit)")
+                time.sleep(1.0 * (tentativo + 1))
                 continue
-            if res.status_code == 200 and _sembra_xml_valido(res.content):
+            if res.status_code != 200:
+                ultimo_esito = f"HTTP {res.status_code}"
+                if ch_id_str == "6340":
+                    _log_una_volta(f"pw_6340_http:{data_partita_str}:{res.status_code}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}): HTTP {res.status_code}")
+                break
+            if _sembra_xml_valido(res.content):
+                if ch_id_str == "6340":
+                    _log_una_volta(f"pw_6340_ok:{data_partita_str}", f"   ℹ️ EPG.PW ID 6340 ({data_partita_str}): XML valido ricevuto ({len(res.content)} byte)")
                 with _EPG_PW_CACHE_LOCK:
                     _EPG_PW_XML_CACHE[cache_key] = res.content
                     _EPG_PW_FAILED_KEYS.discard(cache_key)
                 return res.content
-        except Exception:
+
+            ultimo_esito = f"risposta non XML / incompleta ({len(res.content or b'')} byte)"
+            if ch_id_str == "6340":
+                _log_una_volta(f"pw_6340_invalid:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}, tentativo {tentativo + 1}): {ultimo_esito}")
             if tentativo == 0:
-                time.sleep(0.5)
+                time.sleep(0.4)
+        except Exception as e:
+            ultimo_esito = f"eccezione {type(e).__name__}"
+            if ch_id_str == "6340":
+                _log_una_volta(f"pw_6340_exc:{data_partita_str}:{type(e).__name__}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}): {ultimo_esito}")
+            else:
+                _log_una_volta(f"pw_exc:{type(e).__name__}", f"   ⚠️ EPG.PW: errore di rete ({type(e).__name__})")
+            if tentativo == 0:
+                time.sleep(0.4)
+
+    if ch_id_str == "6340":
+        _log_una_volta(f"pw_6340_fail:{data_partita_str}:{ultimo_esito}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}) non disponibile: {ultimo_esito}")
 
     with _EPG_PW_CACHE_LOCK:
         _EPG_PW_FAILED_KEYS.add(cache_key)
@@ -1466,36 +1494,21 @@ def controllo_mirato_epg_pw(date_str_list, home_team, away_team, match_ora_utc=N
     av_regexes = [re.compile(rf'\b{re.escape(ap)}\b') for ap in av_parole]
     date_ordinate = sorted(set(date_str_list))
 
-    def _esegui_lotto(mappa_ids, force_retry):
-        tasks = [
-            (data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc, force_retry)
-            for data_str in date_ordinate
-            for ch_id, ch_name in mappa_ids.items()
-        ]
-        if not tasks:
-            return
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            futures = [executor.submit(_controlla_singolo_canale_mirato, t) for t in tasks]
-            for future in as_completed(futures):
-                for c_pulito, title, ch_id in future.result():
-                    if c_pulito not in canali_trovati_extra:
-                        _log(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
-                        canali_trovati_extra.append(c_pulito)
-
-    # Primo giro su tutti i canali target di epg.pw
-    _esegui_lotto(TUTTI_I_TARGET_PW, force_retry=False)
-
-    # Secondo giro di recupero per tutti gli ID target che non hanno ancora portato risultato
-    canali_gia_trovati_lower = {c.lower() for c in canali_trovati_extra}
-    ids_da_riprovare = {
-        ch_id: ch_name
+    tasks = [
+        (data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc, False)
+        for data_str in date_ordinate
         for ch_id, ch_name in TUTTI_I_TARGET_PW.items()
-        if normalizza_nome_canale(ch_name).lower() not in canali_gia_trovati_lower
-    }
-    if ids_da_riprovare:
-        _log(f"   ↻ Recupero mirato EPG.PW su {len(ids_da_riprovare)} ID non ancora agganciati...")
-        time.sleep(0.8)
-        _esegui_lotto(ids_da_riprovare, force_retry=True)
+    ]
+    if not tasks:
+        return canali_trovati_extra
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = [executor.submit(_controlla_singolo_canale_mirato, t) for t in tasks]
+        for future in as_completed(futures):
+            for c_pulito, title, ch_id in future.result():
+                if c_pulito not in canali_trovati_extra:
+                    _log(f"   ✅ CANALE AGGIUNTO: {c_pulito} (grazie a '{title}' | Fonte: EPG.PW ID {ch_id})")
+                    canali_trovati_extra.append(c_pulito)
 
     return canali_trovati_extra
 
