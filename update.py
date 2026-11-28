@@ -571,6 +571,7 @@ def _chiave_match_sole(match_name, ora_utc):
 _TRADUZIONI_ESTERE = {
     'интер': 'inter', 'ιντερ': 'inter', 'ınter': 'inter',
     'inter de milao': 'inter', 'inter milao': 'inter', 'inter mediolan': 'inter',
+    'дженоа': 'genoa', 'серия а': 'serie a',
     'italia uno': 'italia 1', 'canale cinque': 'canale 5',
     'amazon prime video': 'prime video', 'amazon prime': 'prime video',
     'реал мадрид': 'real madrid', 'реал': 'real', 'мадрид': 'madrid',
@@ -1448,7 +1449,7 @@ def cerca_canali_oddalerts(home_team, away_team, data_partita):
 # ==========================================
 # CONTROLLO MIRATO UNIVERSALE CON FILTRO ORARIO (±6 ORE) E REPLICHE
 # ==========================================
-_COPPE_KEYWORDS = ("champions", "ucl", "serie a", "coppa italia", "supercoppa")
+_COPPE_KEYWORDS = ("champions", "ucl", "serie a", "серия а", "coppa italia", "supercoppa")
 TOLLERANZA_ORARIA_SECONDI = 21600  # ±6 ore
 
 
@@ -1634,7 +1635,7 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
         contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
         match_trovato = contiene_inter and (
             contiene_avversario
-            or any(coppa in title for coppa in ("champions", "ucl", "serie a", "coppa italia", "supercoppa", "liga"))
+            or any(coppa in title for coppa in ("champions", "ucl", "serie a", "серия а", "coppa italia", "supercoppa", "liga"))
         )
 
         if not match_trovato:
@@ -1649,6 +1650,11 @@ def cerca_canali_per_partita_ottimizzato(date_utc, home_team, away_team):
             continue
         if abs((prog_start - date_utc).total_seconds()) > TOLLERANZA_ORARIA_SECONDI:
             continue
+
+        _log_una_volta(
+            f"epg_match:{date_utc.strftime('%Y-%m-%d')}:{ch_id}:{ch_name}:{start_str}:{source_epg}:{title}",
+            f"   🔎 EPG MATCH [{date_utc.strftime('%Y-%m-%d')}]: channel_id='{ch_id}' | channel_name='{ch_name}' | start='{start_str}' | title='{title}' | source='{source_epg}'"
+        )
 
         desc_norm = prog.get('desc', '')
         c_uff = None
