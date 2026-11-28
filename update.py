@@ -427,6 +427,7 @@ EPG_PW_TARGET_IDS = {
 }
 
 TUTTI_I_TARGET_PW = {**EPG_PW_TARGET_IDS, **EPG_PW_TV_IDS}
+CANALI_DIAG_DETTAGLIO_IDS = {"6340", "6338", "535764"}
 
 CANALI_STELLE = {
     "QazSport", "5Sport", "5Sport Live", "5Sport Plus",
@@ -995,41 +996,41 @@ def _ottieni_xml_epg_pw(ch_id, data_partita_str, timeout=15, force_retry=False):
             res = HTTP_SESSION.get(url, headers=HEADERS, timeout=timeout)
             if res.status_code == 429:
                 ultimo_esito = "HTTP 429 (rate-limit)"
-                if ch_id_str == "6340":
-                    _log_una_volta(f"pw_6340_429:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}, tentativo {tentativo + 1}): HTTP 429")
+                if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+                    _log_una_volta(f"pw_diag_429:{ch_id_str}:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID {ch_id_str} ({data_partita_str}, tentativo {tentativo + 1}): HTTP 429")
                 else:
                     _log_una_volta("pw_global_429", "   ⚠️ EPG.PW: rilevato HTTP 429 (rate-limit)")
                 time.sleep(1.0 * (tentativo + 1))
                 continue
             if res.status_code != 200:
                 ultimo_esito = f"HTTP {res.status_code}"
-                if ch_id_str == "6340":
-                    _log_una_volta(f"pw_6340_http:{data_partita_str}:{res.status_code}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}): HTTP {res.status_code}")
+                if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+                    _log_una_volta(f"pw_diag_http:{ch_id_str}:{data_partita_str}:{res.status_code}", f"   ⚠️ EPG.PW ID {ch_id_str} ({data_partita_str}): HTTP {res.status_code}")
                 break
             if _sembra_xml_valido(res.content):
-                if ch_id_str == "6340":
-                    _log_una_volta(f"pw_6340_ok:{data_partita_str}", f"   ℹ️ EPG.PW ID 6340 ({data_partita_str}): XML valido ricevuto ({len(res.content)} byte)")
+                if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+                    _log_una_volta(f"pw_diag_ok:{ch_id_str}:{data_partita_str}", f"   ℹ️ EPG.PW ID {ch_id_str} ({data_partita_str}): XML valido ricevuto ({len(res.content)} byte)")
                 with _EPG_PW_CACHE_LOCK:
                     _EPG_PW_XML_CACHE[cache_key] = res.content
                     _EPG_PW_FAILED_KEYS.discard(cache_key)
                 return res.content
 
             ultimo_esito = f"risposta non XML / incompleta ({len(res.content or b'')} byte)"
-            if ch_id_str == "6340":
-                _log_una_volta(f"pw_6340_invalid:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}, tentativo {tentativo + 1}): {ultimo_esito}")
+            if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+                _log_una_volta(f"pw_diag_invalid:{ch_id_str}:{data_partita_str}:{tentativo}", f"   ⚠️ EPG.PW ID {ch_id_str} ({data_partita_str}, tentativo {tentativo + 1}): {ultimo_esito}")
             if tentativo == 0:
                 time.sleep(0.4)
         except Exception as e:
             ultimo_esito = f"eccezione {type(e).__name__}"
-            if ch_id_str == "6340":
-                _log_una_volta(f"pw_6340_exc:{data_partita_str}:{type(e).__name__}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}): {ultimo_esito}")
+            if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+                _log_una_volta(f"pw_diag_exc:{ch_id_str}:{data_partita_str}:{type(e).__name__}", f"   ⚠️ EPG.PW ID {ch_id_str} ({data_partita_str}): {ultimo_esito}")
             else:
                 _log_una_volta(f"pw_exc:{type(e).__name__}", f"   ⚠️ EPG.PW: errore di rete ({type(e).__name__})")
             if tentativo == 0:
                 time.sleep(0.4)
 
-    if ch_id_str == "6340":
-        _log_una_volta(f"pw_6340_fail:{data_partita_str}:{ultimo_esito}", f"   ⚠️ EPG.PW ID 6340 ({data_partita_str}) non disponibile: {ultimo_esito}")
+    if ch_id_str in CANALI_DIAG_DETTAGLIO_IDS:
+        _log_una_volta(f"pw_diag_fail:{ch_id_str}:{data_partita_str}:{ultimo_esito}", f"   ⚠️ EPG.PW ID {ch_id_str} ({data_partita_str}) non disponibile: {ultimo_esito}")
 
     with _EPG_PW_CACHE_LOCK:
         _EPG_PW_FAILED_KEYS.add(cache_key)
@@ -1463,6 +1464,10 @@ def _controlla_singolo_canale_mirato(args):
         return []
 
     trovati = []
+    diag_attivo = ch_id_str in CANALI_DIAG_DETTAGLIO_IDS
+    esempi_titoli = []
+    candidati_inter_o_coppa = 0
+
     try:
         progs = analizza_epg_stream(
             xml_bytes,
@@ -1472,6 +1477,9 @@ def _controlla_singolo_canale_mirato(args):
         for p in progs:
             title = p['title']
             title_lower = title.lower()
+            if diag_attivo and len(esempi_titoli) < 4:
+                esempi_titoli.append(f"{p.get('start')}:{title}")
+
             if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
                 continue
 
@@ -1482,22 +1490,35 @@ def _controlla_singolo_canale_mirato(args):
             contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
             ha_coppa = any(coppa in title for coppa in _COPPE_KEYWORDS)
 
-            if ch_id_str == "6340" and contiene_inter:
+            if diag_attivo and (contiene_inter or contiene_avversario or ha_coppa):
+                candidati_inter_o_coppa += 1
                 _log_una_volta(
-                    f"dbg_6340:{data_str}:{title}:{prog_start}:{match_ora_utc}",
-                    f"   🔎 DIAG 6340 ({data_str}): title='{title}' | prog_start={prog_start} | match_utc={match_ora_utc} | diff_s={diff_sec} (max={TOLLERANZA_ORARIA_SECONDI}) | avv={contiene_avversario} | coppa={ha_coppa}"
+                    f"dbg_id:{ch_id_str}:{data_str}:{title}:{p.get('start')}:{match_ora_utc}",
+                    f"   🔎 DIAG {ch_id_str} ({data_str}): title='{title}' | raw_start='{p.get('start')}' | prog_utc={prog_start} | match_utc={match_ora_utc} | diff_s={diff_sec} (max={TOLLERANZA_ORARIA_SECONDI}) | inter={contiene_inter} | avv={contiene_avversario} | coppa={ha_coppa}"
                 )
 
             if match_ora_utc and p.get('start'):
                 if not prog_start or diff_sec > TOLLERANZA_ORARIA_SECONDI:
+                    if diag_attivo and contiene_inter:
+                        _log_una_volta(
+                            f"dbg_skip_time:{ch_id_str}:{data_str}:{title}:{p.get('start')}",
+                            f"   ⏭️ DIAG {ch_id_str} ({data_str}): scartato da filtro orario title='{title}' diff_s={diff_sec}"
+                        )
                     continue
 
             if contiene_inter and (contiene_avversario or ha_coppa):
                 c_pulito = pulisci_etichetta_canale(ch_name_norm)
                 if c_pulito and not is_blacklisted(c_pulito) and all(item[0] != c_pulito for item in trovati):
                     trovati.append((c_pulito, title, ch_id_str))
-    except Exception:
-        pass
+
+        if diag_attivo and candidati_inter_o_coppa == 0:
+            _log_una_volta(
+                f"dbg_empty:{ch_id_str}:{data_str}:{match_ora_utc}",
+                f"   🔎 DIAG {ch_id_str} ({data_str}, match_utc={match_ora_utc}): {len(progs)} prog letti, 0 match inter/avv/coppa | esempi={esempi_titoli}"
+            )
+    except Exception as e:
+        if diag_attivo:
+            _log_una_volta(f"dbg_err:{ch_id_str}:{data_str}:{type(e).__name__}", f"   ⚠️ DIAG {ch_id_str} ({data_str}): errore {type(e).__name__}: {e}")
     return trovati
 
 
