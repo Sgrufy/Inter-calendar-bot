@@ -511,6 +511,9 @@ TUTTI_I_CANALI_NERI = set()
 TUTTI_I_CANALI_GIALLI = set()
 TUTTI_I_CANALI_BIANCHI = set()
 URLS_EPG_DINAMICI = set()
+PAGINE_INDICE_EPG = {
+    "https://ge.m3uiptv.com/epg-tv-xml/"
+}
 
 CANALI_SOLE_ODDALERTS_PER_MATCH = {}
 
@@ -720,6 +723,26 @@ def _carica_lista_singola(url, target_set):
         pass
 
 
+def _estrai_link_epg_da_pagina_html(url_pagina):
+    trovati = []
+    try:
+        res = HTTP_SESSION.get(url_pagina, headers=WEB_SCRAPE_HEADERS, timeout=12)
+        if res.status_code != 200 or not res.text:
+            _log_una_volta(f"idx_http:{url_pagina}:{res.status_code}", f"   ⚠️ Indice EPG ({url_pagina}): HTTP {res.status_code}")
+            return trovati
+        soup = BeautifulSoup(res.text, "html.parser")
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"].strip()
+            full_url = urljoin(url_pagina, href)
+            low_url = full_url.lower().split("?", 1)[0]
+            if low_url.endswith((".xml", ".xml.gz", ".m3u", ".m3u8")) and full_url not in trovati:
+                trovati.append(full_url)
+        _log_una_volta(f"idx_ok:{url_pagina}:{len(trovati)}", f"   ℹ️ Indice EPG ({url_pagina}): estratti {len(trovati)} link EPG/M3U")
+    except Exception as e:
+        _log_una_volta(f"idx_exc:{url_pagina}:{type(e).__name__}", f"   ⚠️ Indice EPG ({url_pagina}): errore ({type(e).__name__})")
+    return trovati
+
+
 def carica_canali_esterni():
     playlist = [
         ("BLU", URL_CANALI_BLU, TUTTI_I_CANALI_BLU),
@@ -755,59 +778,38 @@ def carica_canali_esterni():
     open_epg_mappatura = {
         'it': 'italy1', 'fr': 'france', 'es': 'spain', 'pt': 'portugal', 'pl': 'poland',
         'us': 'usa', 'ca': 'canada', 'ar': 'argentina', 'za': 'southafrica', 'ae': 'uae',
-        'sa': 'saudiarabia', 'qa': 'qatar', 'eg': 'egypt', 'at': 'austria', 'ch': 'switzerland',
-        'de': 'germany', 'be': 'belgium', 'lu': 'luxembourg', 'nl': 'netherlands',
+        'sa': 'saudiarabia', 'eg': 'egypt', 'at': 'austria', 'ch': 'switzerland',
+        'de': 'germany', 'be': 'belgium', 'nl': 'netherlands',
         'cz': 'czech', 'sk': 'slovakia', 'hr': 'bosnia', 'ba': 'bosnia', 'rs': 'serbia',
         'me': 'montenegro', 'mk': 'macedonia', 'si': 'slovenia', 'hu': 'hungary',
         'ro': 'romania', 'bg': 'bulgaria1', 'by': 'belarus', 'al': 'albania', 'tr': 'turkey',
         'ru': 'russia', 'ua': 'ukraine', 'el': 'greece', 'cy': 'cyprus', 'ge': 'georgia',
-        'md': 'moldova', 'kz': 'kazakhstan', 'az': 'azerbaijan', 'lt': 'lithuania',
-        'lv': 'latvia', 'ee': 'estonia', 'ie': 'ireland', 'my': 'malaysia1', 'sg': 'singapore',
-        'th': 'thailand', 'vn': 'vietnam', 'ph': 'philippines', 'hk': 'hongkong', 'tw': 'taiwan',
-        'cn': 'china', 'jp': 'japan', 'kr': 'southkorea', 'in': 'india', 'pk': 'pakistan',
-        'au': 'australia', 'nz': 'newzealand', 'uk': 'uk', 'gb': 'uk', 'is': 'iceland',
-        'mt': 'malta', 'il': 'israel', 'uz': 'uzbekistan', 'tj': 'tajikistan', 'kg': 'kyrgyzstan',
+        'kz': 'kazakhstan', 'lt': 'lithuania', 'lv': 'latvia', 'ee': 'estonia',
+        'ie': 'ireland', 'my': 'malaysia1', 'sg': 'singapore', 'th': 'thailand',
+        'vn': 'vietnam', 'ph': 'philippines', 'hk': 'hongkong', 'tw': 'taiwan',
+        'jp': 'japan', 'kr': 'southkorea', 'in': 'india', 'au': 'australia', 'nz': 'newzealand',
+        'uk': 'uk', 'gb': 'uk', 'mt': 'malta', 'il': 'israel',
         'dk': 'denmark', 'se': 'sweden', 'no': 'norway', 'fi': 'finland', 'id': 'indonesia',
-        'br': 'brazil', 'mx': 'mexico', 'co': 'colombia', 'cl': 'chile', 'pe': 'peru',
-        'uy': 'uruguay', 've': 'venezuela', 'ec': 'ecuador', 'bo': 'bolivia', 'py': 'paraguay',
-        'cr': 'costarica', 'pa': 'panama', 'do': 'dominicanrepublic', 'jm': 'jamaica',
-        'pr': 'puertorico', 'ng': 'nigeria', 'ke': 'kenya', 'gh': 'ghana', 'ma': 'morocco',
-        'tn': 'tunisia', 'dz': 'algeria', 'ly': 'libya'
+        'br': 'brazil', 'mx': 'mexico', 'co': 'colombia', 'cl': 'chile', 'pe': 'peru', 'uy': 'uruguay'
     }
     globetv_mappatura = {
         'it': 'Italy', 'fr': 'France', 'es': 'Spain', 'pt': 'Portugal', 'pl': 'Poland',
-        'us': 'Usa', 'ca': 'Canada', 'ar': 'Argentina', 'za': 'Southafrica', 'ae': 'Uae',
-        'sa': 'Saudiarabia', 'qa': 'Qatar', 'eg': 'Egypt', 'at': 'Austria', 'ch': 'Switzerland',
-        'de': 'Germany', 'be': 'Belgium', 'lu': 'Luxembourg', 'nl': 'Netherlands',
-        'cz': 'Czech', 'sk': 'Slovakia', 'hr': 'Bosnia', 'ba': 'Bosnia', 'rs': 'Serbia',
-        'me': 'Montenegro', 'mk': 'Macedonia', 'si': 'Slovenia', 'hu': 'Hungary',
-        'ro': 'Romania', 'bg': 'Bulgaria', 'by': 'Belarus', 'al': 'Albania', 'tr': 'Turkey',
-        'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'cy': 'Cyprus', 'ge': 'Georgia',
-        'md': 'Moldova', 'kz': 'Kazakhstan', 'az': 'Azerbaijan', 'lt': 'Lithuania',
-        'lv': 'Latvia', 'ee': 'Estonia', 'ie': 'Ireland', 'my': 'Malaysia', 'sg': 'Singapore',
-        'th': 'Thailand', 'vn': 'Vietnam', 'ph': 'Philippines', 'hk': 'Hongkong', 'tw': 'Taiwan',
-        'cn': 'China', 'jp': 'Japan', 'kr': 'Southkorea', 'in': 'India', 'pk': 'Pakistan',
-        'au': 'Australia', 'nz': 'Newzealand', 'uk': 'Uk', 'gb': 'Uk', 'is': 'Iceland',
-        'mt': 'Malta', 'il': 'Israel', 'uz': 'Uzbekistan', 'tj': 'Tajikistan', 'kg': 'Kyrgyzstan',
-        'dk': 'Denmark', 'se': 'Sweden', 'no': 'Norway', 'fi': 'Finland', 'id': 'Indonesia',
-        'br': 'Brazil', 'mx': 'Mexico', 'co': 'Colombia', 'cl': 'Chile', 'pe': 'Peru',
-        'uy': 'Uruguay', 've': 'Venezuela', 'ec': 'Ecuador', 'bo': 'Bolivia', 'py': 'Paraguay',
-        'cr': 'Costarica', 'pa': 'Panama', 'do': 'Dominicanrepublic', 'jm': 'Jamaica',
-        'pr': 'Puertorico', 'ng': 'Nigeria', 'ke': 'Kenya', 'gh': 'Ghana', 'ma': 'Morocco',
-        'tn': 'Tunisia', 'dz': 'Algeria', 'ly': 'Libya'
+        'us': 'Usa', 'ca': 'Canada', 'de': 'Germany', 'nl': 'Netherlands',
+        'tr': 'Turkey', 'ru': 'Russia', 'ua': 'Ukraine', 'el': 'Greece', 'uk': 'Uk', 'gb': 'Uk',
+        'br': 'Brazil'
     }
 
     for p in PAESI_STANDARD:
         URLS_EPG_DINAMICI.add(f"https://iptv-epg.org/files/epg-{p}.xml")
-        URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
         URLS_EPG_DINAMICI.add(f"https://epgshare01.online/epgshare01/epg_ripper_{p.upper()}1.xml.gz")
         URLS_EPG_DINAMICI.add(f"https://free-epg.de/api/epg/{p}.xml.gz")
-        URLS_EPG_DINAMICI.add(f"https://iptv-org.github.io/iptv/countries/{p}.m3u")
-        nome_open = open_epg_mappatura.get(p, p)
-        URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{nome_open}.xml.gz")
+        URLS_EPG_DINAMICI.add(f"https://epg.lat/files/{p}.xml.gz")
+        if p in open_epg_mappatura:
+            URLS_EPG_DINAMICI.add(f"https://www.open-epg.com/files/{open_epg_mappatura[p]}.xml.gz")
 
-    for p_code, cartella_name in globetv_mappatura.items():
-        for i in range(1, 7):
+    for _, cartella_name in globetv_mappatura.items():
+        for i in range(1, 4):
             URLS_EPG_DINAMICI.add(f"https://raw.githubusercontent.com/globetvapp/epg/main/{cartella_name}/{cartella_name.lower()}{i}.xml")
 
     URLS_EPG_DINAMICI.update([
@@ -824,6 +826,10 @@ def carica_canali_esterni():
         "http://epg.one/epg.xml.gz",
         "https://tvprofil.net/xmltv/data/epg_tvprofil.net.xml"
     ])
+
+    for pagina_idx in sorted(PAGINE_INDICE_EPG):
+        for link_estr in _estrai_link_epg_da_pagina_html(pagina_idx):
+            URLS_EPG_DINAMICI.add(link_estr)
 
 
 _PAROLE_DA_SCARTARE_EPG = [
@@ -1447,11 +1453,12 @@ TOLLERANZA_ORARIA_SECONDI = 21600  # ±6 ore
 
 def _controlla_singolo_canale_mirato(args):
     data_str, ch_id, ch_name, inter_regexes, av_regexes, match_ora_utc, force_retry = args
+    ch_id_str = str(ch_id)
     ch_name_norm = normalizza_nome_canale(ch_name)
     if is_blacklisted(ch_name_norm):
         return []
 
-    xml_bytes = _ottieni_xml_epg_pw(ch_id, data_str, timeout=15, force_retry=force_retry)
+    xml_bytes = _ottieni_xml_epg_pw(ch_id_str, data_str, timeout=15, force_retry=force_retry)
     if not xml_bytes:
         return []
 
@@ -1459,8 +1466,8 @@ def _controlla_singolo_canale_mirato(args):
     try:
         progs = analizza_epg_stream(
             xml_bytes,
-            {ch_id, ch_name_norm, normalizza_testo(ch_name_norm)},
-            source_label=f"EPG.PW Mirato (ID {ch_id})"
+            {ch_id_str, ch_name_norm, normalizza_testo(ch_name_norm)},
+            source_label=f"EPG.PW Mirato (ID {ch_id_str})"
         )
         for p in progs:
             title = p['title']
@@ -1468,18 +1475,27 @@ def _controlla_singolo_canale_mirato(args):
             if any(pe in title_lower for pe in PAROLE_ESCLUSE_REPLICHE):
                 continue
 
-            if match_ora_utc and p.get('start'):
-                prog_start = _parsa_start_epg_utc(p['start'])
-                if prog_start and abs((prog_start - match_ora_utc).total_seconds()) > TOLLERANZA_ORARIA_SECONDI:
-                    continue
+            prog_start = _parsa_start_epg_utc(p['start']) if p.get('start') else None
+            diff_sec = abs((prog_start - match_ora_utc).total_seconds()) if (match_ora_utc and prog_start) else None
 
             contiene_inter = any(rx.search(title) for rx in inter_regexes)
             contiene_avversario = any(rx.search(title) for rx in av_regexes) if av_regexes else False
+            ha_coppa = any(coppa in title for coppa in _COPPE_KEYWORDS)
 
-            if contiene_inter and (contiene_avversario or any(coppa in title for coppa in _COPPE_KEYWORDS)):
+            if ch_id_str == "6340" and contiene_inter:
+                _log_una_volta(
+                    f"dbg_6340:{data_str}:{title}:{prog_start}:{match_ora_utc}",
+                    f"   🔎 DIAG 6340 ({data_str}): title='{title}' | prog_start={prog_start} | match_utc={match_ora_utc} | diff_s={diff_sec} (max={TOLLERANZA_ORARIA_SECONDI}) | avv={contiene_avversario} | coppa={ha_coppa}"
+                )
+
+            if match_ora_utc and p.get('start'):
+                if not prog_start or diff_sec > TOLLERANZA_ORARIA_SECONDI:
+                    continue
+
+            if contiene_inter and (contiene_avversario or ha_coppa):
                 c_pulito = pulisci_etichetta_canale(ch_name_norm)
                 if c_pulito and not is_blacklisted(c_pulito) and all(item[0] != c_pulito for item in trovati):
-                    trovati.append((c_pulito, title, ch_id))
+                    trovati.append((c_pulito, title, ch_id_str))
     except Exception:
         pass
     return trovati
